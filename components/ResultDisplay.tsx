@@ -6,6 +6,7 @@ import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeKatex from 'rehype-katex';
+import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { 
   Document, 
@@ -1157,8 +1158,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const getPreviewHtml = (text: string) => {
     if (!text) return "";
 
-    // Regex matching any image placeholder variant in markdown or HTML tables
-    const imgRegex = /(?:!\[([^\]]*)\]\(([^)]+)\)|\*{0,2}\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve|Hinh|Anh|So\s*do)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]\*{0,2})/gi;
+    // 0. Remove any erroneous image tags created from math fractions like [1/2], [S = 1/2...], [Phân số 1/2]
+    text = text.replace(/\[\s*(?:phân\s*số\s*)?\d+\/\d+\s*\]/gi, '');
+    text = text.replace(/\[\s*(?:HÌNH|HINH|IMG|IMAGE|ẢNH|ANH)?[\s_]*\d+\/\d+[\s_]*\]/gi, '');
+
+    // Regex matching legitimate image placeholders (e.g., [HINHANHGOC_1], [IMG1], [Hình 1: ...])
+    const imgRegex = /(?:!\[([^\]]*)\]\(([^)]+)\)|\*{0,2}\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]\*{0,2})/gi;
 
     let html = text.replace(imgRegex, (match, p1, p2, offset) => {
        const cleanMatch = match.replace(/^\*+|\*+$/g, '').trim();
@@ -1197,10 +1202,29 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Remove any empty img tags that might cause React warning: <img src="" ...> or <img ... src="" ...>
     html = html.replace(/<img[^>]*?src=["']\s*["'][^>]*?>/gi, '');
 
-    // Normalize LaTeX math formulas for KaTeX rendering
-    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `\n\n$$\n${content.trim()}\n$$\n\n`);
+    // Normalize LaTeX math formulas
+    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`);
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
+
+    // Render KaTeX block math $$...$$ directly into HTML for 100% crisp formulas
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, expr) => {
+      try {
+        const rendered = katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false });
+        return `<div class="katex-display-wrapper my-2 text-center overflow-x-auto">${rendered}</div>`;
+      } catch (e) {
+        return match;
+      }
+    });
+
+    // Render KaTeX inline math $...$ directly into HTML for 100% crisp formulas
+    html = html.replace(/\$([^\$\n\r]+?)\$/g, (match, expr) => {
+      try {
+        return katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false });
+      } catch (e) {
+        return match;
+      }
+    });
 
     return html;
   };
