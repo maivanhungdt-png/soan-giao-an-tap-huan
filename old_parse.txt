@@ -1,0 +1,51 @@
+  const parseTextWithFormatting = (text: string, inheritedStyles: any = {}): any[] => {
+    const runs: any[] = [];
+    // Prioritize HTML tags OVER markdown to prevent `_` or `*` from breaking tag pairs.
+    // Added <font color="red"> or <span style="color: red;">
+    const regex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+color="red">[\s\S]*?<\/font>|<u\s*>[\s\S]*?<\/u\s*>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_)/gi;
+    const parts = text.split(regex);
+
+    parts.forEach(part => {
+        if (!part) return;
+        const lowerPart = part.toLowerCase();
+        
+        let matchStyles = { ...inheritedStyles };
+        let innerText = part;
+        let isMatched = false;
+
+        if (part.startsWith('$$') && part.endsWith('$$')) {
+            runs.push(...createTextRuns(part, matchStyles));
+            return;
+        } else if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
+            runs.push(...createTextRuns(part, matchStyles));
+            return;
+        } else if (lowerPart.startsWith('<span') && lowerPart.includes('red')) {
+            innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
+            matchStyles.color = "FF0000";
+            isMatched = true;
+        } else if (lowerPart.startsWith('<font') && lowerPart.includes('red')) {
+            innerText = part.replace(/^<font[^>]*>|<\/font>$/gi, '');
+            matchStyles.color = "FF0000";
+            isMatched = true;
+        } else if (lowerPart.startsWith('<u') && lowerPart.endsWith('</u>')) {
+            innerText = part.replace(/^<u\s*>|<\/u\s*>$/gi, '');
+            matchStyles.underline = true;
+            isMatched = true;
+        } else if (lowerPart.startsWith('<sub') && lowerPart.endsWith('</sub>')) {
+            innerText = part.replace(/^<sub\s*>|<\/sub\s*>$/gi, '');
+            matchStyles.subScript = true;
+            isMatched = true;
+        } else if (lowerPart.startsWith('<sup') && lowerPart.endsWith('</sup>')) {
+            innerText = part.replace(/^<sup\s*>|<\/sup\s*>$/gi, '');
+            matchStyles.superScript = true;
+            isMatched = true;
+        } else if (part.startsWith('**') && part.endsWith('**')) {
+            innerText = part.slice(2, -2);
+            matchStyles.bold = true;
+            isMatched = true;
+        } else if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+             innerText = part.slice(1, -1);
+             matchStyles.italics = true;
+             isMatched = true;
+        } else if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+             innerText = part.slice(1, -1);

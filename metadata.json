@@ -1,0 +1,8 @@
+{
+  "name": "phần mềm Tích hợp tổng hợp vào giáo án",
+  "description": "Tích hợp tổng hợp vào giáo án (NLS, AI, Khuyết tật, GDQPAN,...)",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
