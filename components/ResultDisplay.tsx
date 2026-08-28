@@ -1205,20 +1205,43 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return html;
   };
 
+  if (loading && !safeResult) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 p-8 sm:p-12 text-center flex flex-col items-center justify-center space-y-4 animate-fade-in-up">
+        <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shadow-inner">
+          <Sparkles size={28} className="animate-spin text-blue-600" />
+        </div>
+        <div>
+          <h3 className="text-base sm:text-lg font-bold text-slate-900">
+            Đang phân tích và xử lý Kế hoạch bài dạy...
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-md mx-auto">
+            Hệ thống đang kết nối với Google Gemini 2.5 Flash để tích hợp chuẩn hóa mục tiêu, tiến trình dạy học theo chuẩn GDPT 2018...
+          </p>
+        </div>
+        <div className="w-full max-w-xs bg-slate-100 h-1.5 rounded-full overflow-hidden">
+          <div className="bg-blue-600 h-full w-2/3 animate-pulse rounded-full"></div>
+        </div>
+      </div>
+    );
+  }
+
   if (!safeResult) return null;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden animate-fade-in-up">
-      {/* Banner Thành công */}
+      {/* Banner Thành công hoặc Đang tải */}
       <div className="bg-slate-900 px-6 py-8 sm:py-10 flex flex-col items-center justify-center text-center space-y-3 text-white">
         <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-           <CheckCircle size={26} />
+           {loading ? <Sparkles size={26} className="animate-spin" /> : <CheckCircle size={26} />}
         </div>
         
         <div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Kế hoạch bài dạy đã được xử lý hoàn tất</h2>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+              {loading ? 'Đang tạo giáo án trực tiếp (Streaming)...' : 'Kế hoạch bài dạy đã được xử lý hoàn tất'}
+            </h2>
             <p className="text-slate-300 mt-1 max-w-lg mx-auto text-xs sm:text-sm font-normal">
-                Tài liệu đã được tích hợp đầy đủ năng lực mục tiêu và định dạng sẵn sàng cho Word (.docx).
+              {loading ? 'Nội dung đang được AI sinh trực tiếp theo thời gian thực bên dưới.' : 'Tài liệu đã được tích hợp đầy đủ năng lực mục tiêu và định dạng sẵn sàng cho Word (.docx).'}
             </p>
         </div>
         

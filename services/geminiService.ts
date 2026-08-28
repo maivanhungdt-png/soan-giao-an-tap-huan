@@ -59,15 +59,15 @@ export const generateNLSLessonPlan = async (
   const cleanContent = optimizeTextForTokenSaving(info.content);
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
-  // Cấu hình Model mới nhất chính thức của Google Gemini (Ưu tiên thế hệ 3.7 và 2.5)
+  // Cấu hình Model Google Gemini thế hệ mới nhất siêu tốc (Giống hệt trên AI Studio)
   const models = [
-    "gemini-3.7-flash",
-    "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-3.7-flash",
     "gemini-2.0-flash-lite",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash"
+    "gemini-2.5-pro",
+    "gemini-1.5-pro"
   ];
   
   // Custom API key fallback when default fails
@@ -75,50 +75,13 @@ export const generateNLSLessonPlan = async (
   
   let distributionContext = "";
   if ((options.integrateNLS || options.integrateAI) && info.distributionContent && info.distributionContent.trim().length > 0) {
-      if (onProgress) onProgress("Agent 1: Đang trích xuất dữ liệu bài học từ Phân phối chương trình / Phụ lục 1 / Phụ lục 3...");
-      try {
-          const lessonNameStr = info.lessonTitle ? info.lessonTitle : info.content.substring(0, 1500);
-          const ppctAgentPrompt = `Bạn là một trợ lý chuyên trích xuất dữ liệu chính xác từ tài liệu kế hoạch dạy học của Bộ GD&ĐT Việt Nam (Phân phối chương trình, Phụ lục 1 - Khung KHDH, Phụ lục 3 - Kế hoạch giáo dục của giáo viên theo CV 5512). 
-Nhiệm vụ: Trích xuất các dòng, các cột liên quan ĐÚNG đến bài học hiện tại từ tài liệu dưới đây. 
-Tên bài học hoặc nội dung đoạn đầu giáo án tham khảo:
-"""
-${lessonNameStr}
-"""
-
-NỘI DUNG PHÂN PHỐI CHƯƠNG TRÌNH / PHỤ LỤC 1 / PHỤ LỤC 3:
-"""
-${cleanDistribution}
-"""
-
-Yêu cầu: 
-1. Đối chiếu tên bài học, chủ đề hoặc nội dung giáo án để tìm chính xác hàng/cột tương ứng trong bảng Phụ lục 1 / Phụ lục 3 / PPCT.
-2. Trả về NGUYÊN VĂN các hàng/cột (bao gồm STT, Tên bài dạy/chủ đề, Số tiết, Yêu cầu cần đạt, Năng lực số / Năng lực AI / Hoạt động AI lồng ghép, Mã 2422...) thuộc về bài học này.
-3. Nếu bài học kéo dài nhiều tiết hoặc chia theo chủ đề, trích xuất đầy đủ tất cả các tiết liên quan.
-4. Trả về kết quả trực tiếp dạng bảng hoặc danh sách chi tiết, KHÔNG giải thích, KHÔNG thêm bớt. Nếu không tìm thấy hàng cụ thể, hãy trả về toàn bộ nội dung tài liệu để làm căn cứ đối chiếu.`;
-
-          const ppctResponse = await ai.models.generateContent({
-              model: "gemini-3.7-flash",
-              contents: [{ role: "user", parts: [{ text: ppctAgentPrompt }] }]
-          });
-          
-          if (ppctResponse && ppctResponse.text) {
-              const extracted = ppctResponse.text.trim();
-              if (extracted && extracted !== "Không tìm thấy" && extracted.length > 20) {
-                  cleanDistribution = extracted;
-                  console.log("[Agent PPCT] Trích xuất thành công:\n", cleanDistribution);
-              }
-          }
-      } catch (e) {
-          console.warn("[Agent PPCT] Lỗi trích xuất PPCT, dùng bản gốc.", e);
-      }
-
       distributionContext = `
       =========================================================
       🚨 QUY TẮC TÍCH HỢP TỪ PHÂN PHỐI CHƯƠNG TRÌNH / PHỤ LỤC 1 / PHỤ LỤC 3 (CV 5512):
       Người dùng ĐÃ CUNG CẤP nội dung Phân phối chương trình (PPCT) / Phụ lục 1 / Phụ lục 3.
       Đây là văn bản kế hoạch pháp quy, bạn phải tuân thủ TUYỆT ĐỐI các yêu cầu sau:
       1. Đọc tên bài học trong "NỘI DUNG GIÁO ÁN GỐC".
-      2. Căn cứ vào các cột có trong bảng PPCT / Phụ lục 1 / Phụ lục 3 trích xuất của bài học đó, hãy sử dụng NGUYÊN VĂN, CHÍNH XÁC:
+      2. Căn cứ vào các cột có trong bảng PPCT / Phụ lục 1 / Phụ lục 3 của bài học đó, hãy sử dụng NGUYÊN VĂN, CHÍNH XÁC:
          - Yêu cầu cần đạt (YCCĐ) theo chương trình.
          - Nội dung cột "Năng lực số" (hoặc YCCĐ năng lực số, Các chỉ báo NLS) nếu có.
          - Nội dung cột "Năng lực AI" (hoặc YCCĐ năng lực AI) nếu có.
@@ -132,7 +95,7 @@ Yêu cầu:
       - Nếu các cột NLS/AI trong bảng để trống, thực hiện tích hợp bổ sung phù hợp theo chuẩn Bộ GD&ĐT.
       Đánh dấu mục tiêu/hoạt động này bằng dòng chữ: "(Nội dung tích hợp từ PPCT / Phụ lục)".
 
-      NỘI DUNG PHÂN PHỐI CHƯƠNG TRÌNH / PHỤ LỤC 1 / PHỤ LỤC 3 (DỮ LIỆU ĐÃ TRÍCH XUẤT):
+      NỘI DUNG PHÂN PHỐI CHƯƠNG TRÌNH / PHỤ LỤC 1 / PHỤ LỤC 3 (DỮ LIỆU CUNG CẤP):
       ${cleanDistribution}
       =========================================================
       `;
@@ -575,7 +538,10 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     await setupContextCache(ai, modelId);
     
     const requestConfig: any = {
-       temperature: 0.1,
+       temperature: 0.2,
+       thinkingConfig: {
+         thinkingBudget: 0
+       }
     };
     
     if (cachedContentName) {
@@ -635,7 +601,10 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       await setupContextCache(ultimateFallbackAI, modelId);
       
       const requestConfig: any = {
-         temperature: 0.1,
+         temperature: 0.2,
+         thinkingConfig: {
+           thinkingBudget: 0
+         }
       };
       
       if (cachedContentName) {
