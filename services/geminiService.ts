@@ -59,12 +59,12 @@ export const generateNLSLessonPlan = async (
   const cleanContent = optimizeTextForTokenSaving(info.content);
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
-  // Cấu hình Model Google Gemini thế hệ mới nhất siêu tốc (Giống hệt trên AI Studio)
+  // Cấu hình Model Google Gemini sắp xếp từ cao nhất (3.7) trở xuống với tốc độ tức thì
   const models = [
+    "gemini-3.7-flash",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-3.7-flash",
     "gemini-2.0-flash-lite",
     "gemini-2.5-pro",
     "gemini-1.5-pro"
