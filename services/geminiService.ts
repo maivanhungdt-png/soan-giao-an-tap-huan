@@ -9,13 +9,13 @@ export const generateNLSLessonPlan = async (
   onProgress?: (text: string) => void
 ): Promise<string> => {
   
-  // Initialize inside function: Priority 1: User's custom key, Priority 2: env key, Priority 3: Fallback key
+  // Priority 1: User's custom key, Priority 2: env key
   const activeApiKey = (options.customApiKey && options.customApiKey.trim()) 
     ? options.customApiKey.trim() 
-    : (process.env.API_KEY || "AIzaSyCISHmcsE-FjUWXhBbbhwporGGwBaQ18ck");
+    : (process.env.API_KEY || process.env.GEMINI_API_KEY || "");
 
   if (!activeApiKey) {
-    throw new Error("Chưa có khóa API. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập Google Gemini API Key của bạn.");
+    throw new Error("Chưa có khóa API Google Gemini. Vui lòng nhấn nút 'Khóa API' ở góc trên bên phải để nhập mã API Key miễn phí từ Google AI Studio (hoặc cài đặt GEMINI_API_KEY trên Vercel).");
   }
   
   const ai = new GoogleGenAI({ apiKey: activeApiKey });
@@ -59,19 +59,13 @@ export const generateNLSLessonPlan = async (
   const cleanContent = optimizeTextForTokenSaving(info.content);
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
-  // Cấu hình Model Google Gemini sắp xếp từ cao nhất (3.7) trở xuống với tốc độ tức thì
+  // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
-    "gemini-3.7-flash",
-    "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-pro",
     "gemini-1.5-pro"
   ];
-  
-  // Custom API key fallback when default fails
-  const MAX_RETRY_API_KEY = "AIzaSyCISHmcsE-FjUWXhBbbhwporGGwBaQ18ck";
   
   let distributionContext = "";
   if ((options.integrateNLS || options.integrateAI) && info.distributionContent && info.distributionContent.trim().length > 0) {
@@ -468,7 +462,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         contents: tocParts
       });
 
@@ -588,83 +582,38 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
             if (!text) throw new Error("API trả về kết quả rỗng.");
             return text;
         } catch (error: any) {
-            console.warn(`Model ${modelId} gặp sự cố hoặc hết quota.`, error);
+            console.warn(`Model ${modelId} gặp sự cố hoặc không khả dụng.`, error);
             lastError = error;
         }
     }
-    
-    console.log("Cảnh báo: Tất cả API chính thức đã hết cạn, đang chuyển sang API Vét Cạn dự phòng...");
-    const ultimateFallbackAI = new GoogleGenAI({ apiKey: MAX_RETRY_API_KEY });
-    cachedContentName = "";
 
-    const callUltimateFallback = async (modelId: string) => {
-      await setupContextCache(ultimateFallbackAI, modelId);
-      
-      const requestConfig: any = {
-         temperature: 0.2,
-         thinkingConfig: {
-           thinkingBudget: 0
-         }
-      };
-      
-      if (cachedContentName) {
-         requestConfig.cachedContent = cachedContentName;
-      } else {
-         requestConfig.systemInstruction = SYSTEM_INSTRUCTION;
+    // Format human-friendly error from lastError
+    const parseError = (err: any): string => {
+      const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err || ''));
+      if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT")) {
+        return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại API Key mới từ Google AI Studio.";
       }
-
-      const responseStream = await ultimateFallbackAI.models.generateContentStream({
-        model: modelId,
-        config: requestConfig,
-        contents: cachedContentName 
-          ? "Xin hãy tạo giáo án phối hợp tối ưu hóa năng lực (Fallback Cache)." 
-          : parts,
-      });
-      
-      let text = "";
-      for await (const chunk of responseStream) {
-          if (chunk.text) {
-              text += chunk.text;
-              if (onProgress) {
-                  let previewText = text.replace(/^[ \t]*-[ \t]+([a-zA-Z]+\.|[0-9]+\.|[a-zA-Z]+\))/gmi, '$1');
-                  onProgress(previewText);
-              }
-          }
+      if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+        return "Khóa API đã hết hạn mức sử dụng (Quota / 429). Vui lòng nhấn nút 'Khóa API' để đổi khóa API khác.";
       }
-      
-      text = text.replace(/^[ \t]*-[ \t]+([a-zA-Z]+\.|[0-9]+\.|[a-zA-Z]+\))/gmi, '$1');
-      
-      // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
-      text = text.replace(/(?:[._…]\s*){15,}/g, '...');
-      return text;
+      if (errStr.includes("404") || errStr.includes("NOT_FOUND") || errStr.includes("not found")) {
+        return "Không tìm thấy model hoặc khóa API chưa được cấp quyền truy cập. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập khóa API cá nhân của bạn.";
+      }
+      if (errStr.includes("PERMISSION_DENIED") || errStr.includes("403")) {
+        return "Khóa API bị từ chối quyền truy cập (Permission Denied). Vui lòng kiểm tra quyền truy cập của mã khóa trên Google AI Studio.";
+      }
+      return `Lỗi kết nối Gemini API (${err?.message || "Không nhận được phản hồi"}). Vui lòng nhấn nút 'Khóa API' để kiểm tra lại mã khóa.`;
     };
-    
-    for (const fallbackModel of models) {
-        try {
-           console.log(`[API VÉT CẠN] Đang thử với: ${fallbackModel}`);
-           let text = await callUltimateFallback(fallbackModel);
-           if (!text) throw new Error("API vét cạn trả về rỗng.");
-           return text;
-        } catch(fallbackError: any) {
-           console.warn(`[API VÉT CẠN] Model ${fallbackModel} lỗi:`, fallbackError);
-        }
-    }
 
-    const lastErrMsg = lastError?.message || "";
-    if (lastErrMsg.includes("API_KEY_INVALID") || lastErrMsg.includes("invalid") || lastErrMsg.includes("400")) {
-      throw new Error("Khóa API không hợp lệ hoặc đã bị hết hạn. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật API Key mới từ Google AI Studio.");
-    } else if (lastErrMsg.includes("quota") || lastErrMsg.includes("429") || lastErrMsg.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("Khóa API đã hết hạn mức (Quota / 429). Vui lòng nhấn nút 'Khóa API' để nhập API Key riêng của Thầy/Cô.");
-    }
-    throw new Error(`Lỗi kết nối Gemini API (${lastErrMsg || "Không nhận được phản hồi"}). Vui lòng nhấn nút 'Khóa API' để kiểm tra mã khóa.`);
+    throw new Error(parseError(lastError));
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     const errStr = error?.message || "";
-    if (errStr.includes("API_KEY_INVALID") || errStr.includes("invalid") || errStr.includes("400")) {
+    if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT")) {
       throw new Error("Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập mã khóa mới.");
     } else if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("Hạn mức API đã đạt giới hạn. Vui lòng nhấn nút 'Khóa API' để chuyển sang dùng Khóa API cá nhân của bạn.");
+      throw new Error("Hạn mức API đã đạt giới hạn (Quota / 429). Vui lòng nhấn nút 'Khóa API' để chuyển sang dùng Khóa API cá nhân của bạn.");
     }
-    throw new Error(error.message || "Không thể gọi Gemini API. Vui lòng thử lại hoặc cài đặt Khóa API cá nhân.");
+    throw new Error(error.message || "Không thể gọi Gemini API. Vui lòng thử lại hoặc kiểm tra lại Khóa API.");
   }
 };

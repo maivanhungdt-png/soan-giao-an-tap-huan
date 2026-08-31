@@ -57,7 +57,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     try {
       const ai = new GoogleGenAI({ apiKey: trimmed });
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-2.0-flash',
         contents: 'Xin chào, vui lòng phản hồi đúng chữ "OK".'
       });
 
