@@ -295,7 +295,7 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
     - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG:
-      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> CHỈ ĐỂ MỤC a, b VÀ BẢNG GỒM 2 CỘT (TUYỆT ĐỐI KHÔNG GHI DÒNG "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG, SAU MỤC b LÀ VÀO THẲNG BẢNG 2 CỘT LUÔN):
+      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> CHỈ ĐỂ MỤC a) Mục tiêu, b) Nội dung VÀ VÀO THẲNG BẢNG 2 CỘT (TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC GHI DÒNG "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG. Sau mục b) Nội dung là bắt đầu ngay bằng dòng bảng 2 cột | Tổ chức thực hiện | Sản phẩm |):
       | Tổ chức thực hiện | Sản phẩm |
       | :--- | :--- |
       | (Cột 1: Đặt tên chính xác là "Tổ chức thực hiện" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Sản phẩm" chứa sản phẩm học tập/kết quả thực hiện tương ứng) |`}
@@ -573,7 +573,16 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
-    return text;
+    // Dọn sạch triệt để các đề mục "c) Sản phẩm", "d) Tổ chức thực hiện" bị thừa ngoài bảng 2 cột
+    if (options.layoutFormat !== 'no_table') {
+      text = text.replace(
+        /(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi,
+        ''
+      );
+      text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
+    }
+
+    return text.trim();
   };
 
   try {

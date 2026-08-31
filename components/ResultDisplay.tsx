@@ -68,9 +68,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 2. Remove HTML Anchors (Bookmarks artifacts from Word conversion) e.g., <a id="_Hlk147258080"></a>
     clean = clean.replace(/<a\s+id="[^"]*"><\/a>/gi, "");
     
-    // 3. Remove stray "c) Tổ chức thực hiện" outside tables when immediately followed by a table
-    clean = clean.replace(/(?:^|\n)\s*(?:[*\s_#]*c\s*[\)\.:\-]?\s*Tổ\s*chức\s*thực\s*hiện[*\s_#:]*)\s*\n+(\s*\|)/gi, '\n$1');
-    clean = clean.replace(/(?:^|\n)\s*(?:[*\s_#]*c\s*[\)\.:\-]?\s*(?:Tiến\s*trình\s*hoạt\s*động|Tổ\s*chức\s*hoạt\s*động)[*\s_#:]*)\s*\n+(\s*\|)/gi, '\n$1');
+    // 3. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
+    clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi, '');
+    clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
 
     // 4. Clean all markdown hash subheadings (#####, ####, ###) into bold text to eliminate #####
     clean = clean.replace(/^(?:#{3,6})\s*(.*)$/gm, (match, p1) => {
@@ -955,16 +955,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         // Re-trim after cleaning
         trimmed = trimmed.trim();
 
-        // 4. Remove stray "c) Tổ chức thực hiện" outside tables when followed by a table
-        if (/^[*_#\s]*c\s*[\)\.:\-]?\s*Tổ\s*chức\s*thực\s*hiện/i.test(trimmed)) {
+        // 4. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
+        if (/^[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Tổ\s*chức\s*thực\s*hiện|Sản\s*phẩm|Tiến\s*trình)/i.test(trimmed)) {
           let nextIsTable = false;
-          for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+          for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
             const nextTrim = lines[j].trim();
             if (nextTrim.startsWith('|') || nextTrim.startsWith('<table')) {
               nextIsTable = true;
               break;
             }
-            if (nextTrim) break;
+          }
+          if (nextIsTable) {
+            continue;
+          }
+        }
+        
+        // Also skip short bullet text under stray c) Sản phẩm when immediately before table
+        if (/^[-*•]\s*(?:Lời\s*giải|Sản\s*phẩm|Kết\s*quả|Báo\s*cáo)/i.test(trimmed)) {
+          let nextIsTable = false;
+          for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+            const nextTrim = lines[j].trim();
+            if (nextTrim.startsWith('|') || nextTrim.startsWith('<table') || /^[*_#\s]*[cd]\s*[\)\.:\-]?/i.test(nextTrim)) {
+              nextIsTable = true;
+              break;
+            }
           }
           if (nextIsTable) {
             continue;
