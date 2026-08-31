@@ -627,25 +627,149 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return children;
   };
 
+  // Helper: Reconstruct sub-table or join extra cells in 2-column activity tables
+  const reconstructCellWithSubTables = (rawCells: string[]): string => {
+      if (rawCells.length === 0) return '';
+      if (rawCells.length === 1) return rawCells[0] || '';
+
+      // Check if there are markdown table separator/alignment tokens (:---, ---, :---:)
+      const sepIndices: number[] = [];
+      rawCells.forEach((c, idx) => {
+          if (/^:?-{2,}:?$/.test(c.trim()) || /^:?-+:?$/.test(c.trim())) {
+              sepIndices.push(idx);
+          }
+      });
+
+      if (sepIndices.length > 0) {
+          const firstSep = sepIndices[0];
+          let sepCount = 1;
+          while (sepCount < sepIndices.length && sepIndices[sepCount] === firstSep + sepCount) {
+              sepCount++;
+          }
+
+          const subCols = sepCount;
+          const headerStart = firstSep - subCols;
+
+          if (headerStart >= 0) {
+              const beforeText = rawCells.slice(0, headerStart).join(' ').trim();
+              const subHeaders = rawCells.slice(headerStart, firstSep);
+              
+              let dataIdx = firstSep + subCols;
+              const subRows: string[][] = [];
+              
+              while (dataIdx + subCols <= rawCells.length) {
+                  const candidateRow = rawCells.slice(dataIdx, dataIdx + subCols);
+                  subRows.push(candidateRow);
+                  dataIdx += subCols;
+                  if (dataIdx < rawCells.length && dataIdx + subCols > rawCells.length) {
+                      break;
+                  }
+              }
+
+              const afterText = rawCells.slice(dataIdx).join(' ').trim();
+
+              let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
+              htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 4px; text-align: center; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
+              subRows.forEach(r => {
+                  htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 4px; text-align: center;">${d.trim()}</td>`).join('')}</tr>`;
+              });
+              htmlSubTable += `</table>`;
+
+              let result = '';
+              if (beforeText) result += beforeText + '<br>';
+              result += htmlSubTable;
+              if (afterText) result += '<br>' + afterText;
+              return result;
+          }
+      }
+
+      // Default: join multiple cells with <br>
+      return rawCells.join('<br>');
+  };
+
   // Helper: Create Docx Table from Markdown lines
   const createTableFromMarkdown = (tableLines: string[]): Table | null => {
     try {
         const validLines = tableLines.filter(line => !line.match(/^\|?\s*[-:]+[-|\s:]*\|?\s*$/));
         if (validLines.length === 0) return null;
         
-        // Determine the maximum number of columns across all rows to ensure grid consistency
-        let maxCols = 0;
         const parsedRows = validLines.map(line => {
             let cells = smartSplitTableLine(line);
             if (line.trim().startsWith('|') && cells.length > 0 && cells[0].trim() === '') cells.shift();
             if (line.trim().endsWith('|') && cells.length > 0 && cells[cells.length - 1].trim() === '') cells.pop();
-            
-            if (cells.length > maxCols) maxCols = cells.length;
             return cells;
         });
 
+        if (parsedRows.length === 0) return null;
+
+        // Check if this is a 2-column Activity Table (Phụ lục 4)
+        const headerRow0 = parsedRows[0];
+        const isActivityTable = (
+            headerRow0.length === 2 ||
+            /(?:tổ\s*chức\s*thực\s*hiện|hoạt\s*động)/i.test(headerRow0[0] || '') ||
+            /sản\s*phẩm/i.test(headerRow0[1] || '')
+        );
+
+        if (isActivityTable) {
+            const rows = parsedRows.map((cells, rowIndex) => {
+                const isHeaderRow = rowIndex === 0;
+                let col0Text = '';
+                let col1Text = '';
+
+                if (isHeaderRow) {
+                    col0Text = "Tổ chức thực hiện";
+                    col1Text = "Sản phẩm";
+                } else {
+                    col0Text = (cells[0] || '').trim();
+                    col1Text = reconstructCellWithSubTables(cells.slice(1));
+                }
+
+                col0Text = col0Text.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
+                col1Text = col1Text.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
+
+                const baseStyles = isHeaderRow ? { bold: true } : {};
+
+                const cell0 = new TableCell({
+                    children: parseDocxCellContent(col0Text, baseStyles, isHeaderRow) as any,
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                    },
+                });
+
+                const cell1 = new TableCell({
+                    children: parseDocxCellContent(col1Text, baseStyles, isHeaderRow) as any,
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                    },
+                });
+
+                return new TableRow({
+                    children: [cell0, cell1]
+                });
+            });
+
+            return new Table({
+                rows: rows,
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                layout: TableLayoutType.AUTOFIT,
+            });
+        }
+
+        // Generic Table (not 2-column activity table)
+        let maxCols = 0;
+        parsedRows.forEach(cells => {
+            if (cells.length > maxCols) maxCols = cells.length;
+        });
+
         const rows = parsedRows.map((cells, rowIndex) => {
-            // Pad cells to ensure every row has exactly maxCols cells to prevent docx crash
             while (cells.length < maxCols) {
                 cells.push('');
             }
@@ -656,21 +780,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             const isHeaderRow = rowIndex === 0;
 
             return new TableRow({
-                children: cells.map((cellContent, colIndex) => {
-                    // Clean artifacts inside table cells too
+                children: cells.map((cellContent) => {
                     let cellText = cellContent.trim();
                     cellText = cellText.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
-
-                    // Normalize 2-column activity table headers
-                    if (isHeaderRow && maxCols === 2) {
-                        if (colIndex === 0 && /(?:hoạt\s*động|tổ\s*chức\s*thực\s*hiện)/i.test(cellText)) {
-                            cellText = "Tổ chức thực hiện";
-                        } else if (colIndex === 1 && /sản\s*phẩm/i.test(cellText)) {
-                            cellText = "Sản phẩm";
-                        }
-                    }
-
-                    // Auto bold header row if it isn't already marked as bold
                     const baseStyles = isHeaderRow ? { bold: true } : {};
 
                     return new TableCell({
@@ -681,7 +793,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                             left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                             right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                         },
-                    })
+                    });
                 })
             });
         });

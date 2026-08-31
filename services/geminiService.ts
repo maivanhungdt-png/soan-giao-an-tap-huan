@@ -408,7 +408,7 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       `}
       - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động (gắn liền vào hành động của GV/HS, dùng chữ màu đỏ <span style="color: red;">*Tích hợp...</span>).
       - KHÔNG chia thời lượng từng hoạt động.
-      - BẢNG LỒNG NHAU: Dùng \`<table><tr><td width="20%">...</td></tr></table>\`, thêm \`style="font-size: 10pt;"\`. KHÔNG dùng Enter trong mã HTML bảng con.
+      - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
       - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
       - KÝ HIỆU: Ưu tiên Unicode (->, <-, =, +). Chỉ dùng LaTeX ($, $$) cho công thức cực kỳ phức tạp.
       
