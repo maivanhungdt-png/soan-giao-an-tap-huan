@@ -10,9 +10,11 @@ export const generateNLSLessonPlan = async (
 ): Promise<string> => {
   
   // Priority 1: User's custom key, Priority 2: env key
-  const activeApiKey = (options.customApiKey && options.customApiKey.trim()) 
-    ? options.customApiKey.trim() 
+  const rawKey = (options.customApiKey && options.customApiKey.trim()) 
+    ? options.customApiKey 
     : (process.env.API_KEY || process.env.GEMINI_API_KEY || "");
+
+  const activeApiKey = rawKey.trim().replace(/[\\`"']/g, '').trim();
 
   if (!activeApiKey) {
     throw new Error("Chưa có khóa API Google Gemini. Vui lòng nhấn nút 'Khóa API' ở góc trên bên phải để nhập mã API Key miễn phí từ Google AI Studio (hoặc cài đặt GEMINI_API_KEY trên Vercel).");
@@ -61,6 +63,7 @@ export const generateNLSLessonPlan = async (
 
   // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
     "gemini-2.0-flash-lite",

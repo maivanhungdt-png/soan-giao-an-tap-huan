@@ -44,7 +44,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   };
 
   const handleTestKey = async () => {
-    const trimmed = inputKey.trim();
+    const trimmed = inputKey.trim().replace(/[\\`"']/g, '').trim();
     if (!trimmed) {
       setTestStatus('error');
       setTestMessage('Vui lòng nhập khóa API trước khi kiểm tra.');
@@ -54,29 +54,48 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setTestStatus('testing');
     setTestMessage('Đang kết nối thử nghiệm với Google AI...');
 
+    const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    let lastErr: any = null;
+    let successfulModel = '';
+
     try {
       const ai = new GoogleGenAI({ apiKey: trimmed });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: 'Xin chào, vui lòng phản hồi đúng chữ "OK".'
-      });
+      
+      for (const m of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: m,
+            contents: 'Xin chào, vui lòng phản hồi đúng chữ "OK".'
+          });
 
-      if (response && response.text) {
+          if (response && response.text) {
+            successfulModel = m;
+            break;
+          }
+        } catch (mErr: any) {
+          lastErr = mErr;
+          console.warn(`Test model ${m} failed:`, mErr);
+        }
+      }
+
+      if (successfulModel) {
         setTestStatus('success');
-        setTestMessage('Khóa API hợp lệ! Kết nối thành công với Google Gemini.');
+        setTestMessage(`Khóa API hợp lệ! Kết nối thành công với Google Gemini (Model: ${successfulModel}).`);
       } else {
-        throw new Error('Không nhận được phản hồi từ AI.');
+        throw lastErr || new Error('Không nhận được phản hồi từ AI.');
       }
     } catch (err: any) {
       console.error('API Key Test Error:', err);
       setTestStatus('error');
-      const errStr = err?.message || '';
+      const errStr = err?.message || JSON.stringify(err || '');
       if (errStr.includes('API_KEY_INVALID') || errStr.includes('invalid') || errStr.includes('400')) {
         setTestMessage('Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại mã khóa.');
-      } else if (errStr.includes('quota') || errStr.includes('429')) {
+      } else if (errStr.includes('quota') || errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED')) {
         setTestMessage('Khóa API đã hết hạn mức (Quota). Vui lòng đổi khóa khác hoặc kiểm tra tài khoản.');
+      } else if (errStr.includes('404') || errStr.includes('NOT_FOUND')) {
+        setTestMessage('Mã khóa API không hỗ trợ model hoặc không đúng định dạng. Lưu ý mã Google AI Studio thường bắt đầu bằng AIzaSy...');
       } else {
-        setTestMessage(`Lỗi kết nối: ${errStr || 'Không thể xác thực khóa API'}`);
+        setTestMessage(`Lỗi kết nối: ${err?.message || 'Không thể xác thực khóa API'}`);
       }
     }
   };
