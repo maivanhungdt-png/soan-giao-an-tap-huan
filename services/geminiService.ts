@@ -261,16 +261,25 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
     ? "- Yêu cầu đặc biệt: BẮT BUỘC TRẢ VỀ GIÁO ÁN BẰNG NGÔN NGỮ TIẾNG ANH (ENGLISH). Toàn bộ nội dung, tiêu đề, các bước, hoạt động đều phải được dịch và trình bày bằng tiếng Anh." 
     : "";
 
-    let nlsFrameworkContext = "";
-    if (options.integrateNLS) {
-        nlsFrameworkContext = `
-    DỮ LIỆU THAM CHIẾU KHUNG NĂNG LỰC SỐ (Chỉ sử dụng khi KHÔNG CÓ file PPCT hoặc để hiểu rõ mã năng lực trong PPCT):
-    ${NLS_FRAMEWORK_DATA}
-    `;
-    }
+  let nlsFrameworkContext = "";
+  if (options.integrateNLS) {
+      nlsFrameworkContext = `
+  DỮ LIỆU THAM CHIẾU KHUNG NĂNG LỰC SỐ (Chỉ sử dụng khi KHÔNG CÓ file PPCT hoặc để hiểu rõ mã năng lực trong PPCT):
+  ${NLS_FRAMEWORK_DATA}
+  `;
+  }
 
-    let userPromptText = `
-    ${nlsFrameworkContext}
+  const activeIntegrations: string[] = [];
+  if (options.integrateNLS) activeIntegrations.push("Năng lực số (NLS)");
+  if (options.integrateAI) activeIntegrations.push("Năng lực Trí tuệ nhân tạo (AI)");
+  if (options.integrateDisability) activeIntegrations.push("Giáo dục hòa nhập (HS khuyết tật)");
+  if (options.integrateGDQPAN) activeIntegrations.push("Giáo dục quốc phòng và an ninh (GDQP-AN)");
+  if (options.integrateSTEM) activeIntegrations.push(options.stemType === 'topic' ? "Chủ đề STEM" : "Tích hợp STEM");
+
+  const activeListStr = activeIntegrations.length > 0 ? activeIntegrations.join(", ") : "KHÔNG TÍCH HỢP LOẠI NÀO (Chỉ chuẩn hóa kế hoạch bài dạy theo Phụ lục 4)";
+
+  let userPromptText = `
+  ${nlsFrameworkContext}
     THÔNG TIN BÀI HỌC (CHỈ ĐỂ THAM KHẢO, NẾU LỆCH VỚI GIÁO ÁN GỐC THÌ PHẢI THEO GIÁO ÁN GỐC):
     ${info.subject ? `- Môn học: ${info.subject}` : '- Môn học: (Tính toán tự động)'}
     ${info.grade ? `- Khối lớp: ${info.grade}` : '- Khối lớp: (Tính toán tự động)'}
@@ -293,8 +302,8 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       1. Kiến thức: YCCĐ theo chương trình GDPT 2018.
       2. Năng lực: TUYỆT ĐỐI KHÔNG GHI NĂNG LỰC CHUNG. CHỈ CÓ:
          - a) Năng lực đặc thù (hoặc Năng lực môn học)
-         - b) Năng lực số (NLS): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực số:". Ghi TRỰC TIẾP nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo)*</span>.
-         ${options.integrateAI ? '- c) Năng lực trí tuệ nhân tạo (AI): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi TRỰC TIẾP nội dung bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>.' : ''}
+         ${options.integrateNLS ? '- b) Năng lực số (NLS): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực số:". Ghi TRỰC TIẾP nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo)*</span>.' : ''}
+         ${options.integrateAI ? `- ${options.integrateNLS ? 'c)' : 'b)'} Năng lực trí tuệ nhân tạo (AI): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi TRỰC TIẾP nội dung bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>.` : ''}
       3. Phẩm chất: Các phẩm chất cốt lõi gắn liền với bài học (Chăm chỉ, Trung thực, Trách nhiệm...).
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
@@ -362,7 +371,7 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       userPromptText += `
       [YÊU CẦU: TỰ SOẠN MỚI THEO PHỤ LỤC 4]
       - Soạn giáo án HOÀN TOÀN MỚI dựa trên SGK/thông tin bài học.
-      - Tuân thủ chuẩn sư phạm, TÍCH HỢP ĐỒNG THỜI các yêu cầu (NLS, AI, Khuyết tật, GDQPAN, STEM) vào mục tiêu và tiến trình.
+      - Tuân thủ chuẩn sư phạm, CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}. TUYỆT ĐỐI KHÔNG TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO NGOÀI DANH SÁCH NÀY.
       - Cấu trúc tiến trình dạy học:
       ${isNoTableLayout ? `
         * HÌNH THỨC KHÔNG KẺ BẢNG (4 PHẦN CHO MỖI HOẠT ĐỘNG):
@@ -402,13 +411,14 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
            - Bước 3: Báo cáo, thảo luận
            - Bước 4: Kết luận, nhận định
       ` : `
-      * HÌNH THỨC KẺ BẢNG 2 CỘT:
-        a) Mục tiêu: ...
-        b) Nội dung: ...
-        (TUYỆT ĐỐI KHÔNG GHI DÒNG "c) Tổ chức thực hiện" HAY "c) ..." Ở NGOÀI BẢNG, MỤC b XONG LÀ VÀO THẲNG BẢNG 2 CỘT):
+      * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
+        Mỗi hoạt động gồm 3 phần:
+        **a) Mục tiêu:** ...
+        **b) Nội dung:** ...
+        (TUYỆT ĐỐI CẤM KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ TIÊU ĐỀ NÀO NGOÀI BẢNG, SAU MỤC b LÀ BẮT ĐẦU NGAY BẢNG 2 CỘT):
         | Tổ chức thực hiện | Sản phẩm |
         | :--- | :--- |
-        | Gồm 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định | Sản phẩm tương ứng |
+        | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức] | Toàn bộ sản phẩm, lời giải chi tiết, câu trả lời đầy đủ của HS |
       `}
       - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động (gắn liền vào hành động của GV/HS, dùng chữ màu đỏ <span style="color: red;">*Tích hợp...</span>).
       - KHÔNG chia thời lượng từng hoạt động.
@@ -422,12 +432,13 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
         + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\begin{cases} ax + by = c \\ a'x + b'y = c' \end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
         + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\begin{cases} ... \end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
       
-      [ĐÁNH DẤU TÍCH HỢP - BẮT BUỘC ĐỂ CHỮ MÀU ĐỎ, KHÔNG GẠCH CHÂN]
-      - NLS: <span style="color: red;">*Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo)</span>
-      - AI: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI]</span>
-      - GDQPAN: <span style="color: red;">*Tích hợp Lồng ghép GDQP-AN: [Nội dung GDQPAN]</span>
-      - HSKT: <span style="color: red;">*Tích hợp giáo dục hòa nhập (HS khuyết tật [Tên dạng khuyết tật]): [Nội dung điều chỉnh riêng biệt]</span>
-      - STEM: <span style="color: red;">*Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế]</span>
+      [ĐÁNH DẤU TÍCH HỢP - CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}]
+      🚨 QUY TẮC BẮT BUỘC: BẠN CHỈ ĐƯỢC TÍCH HỢP CÁC LOẠI ĐÃ TÍCH CHỌN DƯỚI ĐÂY. TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC TỰ Ý TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO KHÁC NGOÀI DANH SÁCH:
+      ${options.integrateNLS ? '- NLS: <span style="color: red;">*Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo)</span>' : '- NLS: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc chỉ báo NLS vào giáo án)'}
+      ${options.integrateAI ? '- AI: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI]</span>' : '- AI: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc nhiệm vụ AI vào giáo án)'}
+      ${options.integrateGDQPAN ? '- GDQPAN: <span style="color: red;">*Tích hợp Lồng ghép GDQP-AN: [Nội dung GDQPAN]</span>' : '- GDQPAN: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung GDQPAN vào giáo án)'}
+      ${options.integrateDisability ? '- HSKT: <span style="color: red;">*Tích hợp giáo dục hòa nhập (HS khuyết tật [Tên dạng khuyết tật]): [Nội dung điều chỉnh riêng biệt]</span>' : '- HSKT: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa Giáo dục hòa nhập vào giáo án)'}
+      ${options.integrateSTEM ? '- STEM: <span style="color: red;">*Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế]</span>' : '- STEM: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung STEM vào giáo án)'}
       - TUYỆT ĐỐI KHÔNG GẠCH CHÂN (KHÔNG DÙNG THẺ <u>).
       - TUYỆT ĐỐI KHÔNG DÙNG DẤU THĂNG (#####, ####, ###) CHO CÁC MỤC a), b), c)... (Dùng in đậm **a) Mục tiêu:**, **b) Nội dung:**...).
       

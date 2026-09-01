@@ -209,6 +209,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/^(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([a-c]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
 
+    // Xóa các dòng tiêu đề thừa như "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" nếu đứng ngay trước bảng 2 cột
+    clean = clean.replace(/^(?:\*\*)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Sản\s*phẩm):?(?:\*\*)?\s*(?=\n+\s*\|)/gmi, '');
+
     // 17. Auto bold Bước 1, Bước 2, Bước 3, Bước 4 inside or outside tables
     clean = clean.replace(/^(?:\*\*)?(Bước\s*[1-4]\s*:[^\n]*?)(?:\*\*)?$/gmi, '**$1**');
     clean = clean.replace(/(?<!\*\*)(Bước\s*[1-4]\s*:[^\n<|*]+?)(?=(?:;|\.|\n|<|\||\*\*|$))/g, '**$1**');
