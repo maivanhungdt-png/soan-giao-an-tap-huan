@@ -830,8 +830,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
       }
 
-      // Pre-process: Collapse multi-line HTML tables into a single line to prevent DOCX parsing failure
-      const preProcessedResult = safeResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
+      // Pre-process: Clean up stray MathType artifacts, normalize math formula spacing, and collapse multi-line HTML tables
+      let preProcessedResult = safeResult
+        .replace(/\$?\s*EMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)\s*\$?|\[CÔNG_THỨC_TOÁN:\s*MathType\]/gi, '')
+        .replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$$1$')
+        .replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`)
+        .replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`)
+        .replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
+
+      preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
       const lines = preProcessedResult.split('\n');
       const children: (Paragraph | Table)[] = [];
       let tableBuffer: string[] = [];
@@ -1328,10 +1335,14 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Remove any empty img tags that might cause React warning: <img src="" ...> or <img ... src="" ...>
     html = html.replace(/<img[^>]*?src=["']\s*["'][^>]*?>/gi, '');
 
+    // Clean up any stray MathType EMBED Equation artifacts
+    html = html.replace(/\$?\s*EMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)\s*\$?|\[CÔNG_THỨC_TOÁN:\s*MathType\]/gi, '');
+
     // Normalize LaTeX math formulas
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`);
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
+    html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$$1$');
 
     // Render KaTeX block math $$...$$ directly into HTML for 100% crisp formulas
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, expr) => {
@@ -1417,6 +1428,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
              <RotateCcw size={16} />
              <span>Soạn bài khác</span>
           </button>
+        </div>
+
+        {/* Mẹo chuyển đổi MathType trong Word */}
+        <div className="mt-2 max-w-xl text-left bg-slate-800/80 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-300 flex items-start gap-2.5">
+          <span className="text-base leading-none mt-0.5">📐</span>
+          <div>
+            <span className="font-semibold text-amber-300">Công thức chuẩn LaTeX (Tương thích 100% MathType): </span>
+            Sau khi tải file Word về, Thầy/Cô mở file trong Word, nhấn <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-600 rounded text-amber-200 font-mono text-[11px]">Ctrl + A</kbd> (chọn tất cả) rồi bấm <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-600 rounded text-amber-200 font-mono text-[11px]">Alt + \</kbd> (hoặc vào tab <span className="text-white font-medium">MathType &gt; Toggle TeX</span> / <span className="text-white font-medium">Convert Equations</span>) để chuyển đổi toàn bộ công thức sang MathType tự động không bị lỗi.
+          </div>
         </div>
       </div>
 

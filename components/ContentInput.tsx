@@ -393,7 +393,10 @@ const ContentInput: React.FC<ContentInputProps> = ({
             for (let i = 0; i < tNodes.length; i++) {
               pieces.push(tNodes[i].textContent || "");
             }
-            return pieces.join("").trim();
+            let rawText = pieces.join("").trim();
+            rawText = rawText.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, '[CÔNG_THỨC_TOÁN: MathType]');
+            rawText = rawText.replace(/\bEquation\.DSMT4\b/gi, '[CÔNG_THỨC_TOÁN: MathType]');
+            return rawText;
           };
 
           // Helper duyệt qua các con của body hoặc sub-container
@@ -661,6 +664,16 @@ const ContentInput: React.FC<ContentInputProps> = ({
         text = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         return `<w:r><w:t xml:space="preserve">[MATH: ${text}]</w:t></w:r>`;
       });
+
+      // Replace MathType OLE and EMBED Equation fields / objects so they don't leak raw EMBED Equation.DSMT4
+      xml = xml.replace(/<w:instrText[^>]*>\s*EMBED\s+Equation[^\s<]*\s*<\/w:instrText>/gi, () => {
+        return `<w:t xml:space="preserve">[CÔNG_THỨC_TOÁN: MathType]</w:t>`;
+      });
+      xml = xml.replace(/<w:fldSimple[^>]*w:instr="[^"]*Equation[^"]*"[^>]*>[\s\S]*?<\/w:fldSimple>/gi, () => {
+        return `<w:r><w:t xml:space="preserve">[CÔNG_THỨC_TOÁN: MathType]</w:t></w:r>`;
+      });
+      xml = xml.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, '[CÔNG_THỨC_TOÁN: MathType]');
+      xml = xml.replace(/\bEquation\.DSMT4\b/gi, '[CÔNG_THỨC_TOÁN: MathType]');
 
       // Inject crop properties into alt text
       xml = xml.replace(/<(wp:inline|wp:anchor)[\s\S]*?<\/\1>/g, (match) => {

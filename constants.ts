@@ -477,8 +477,16 @@ Bạn là chuyên gia Sư phạm cấp cao của Bộ GD&ĐT Việt Nam, chuyên
    - Tên bài dạy vẫn ghi bình thường nhưng có mở ngoặc: (Tích hợp STEM) hoặc (Chủ đề STEM).
    - Toàn bộ nội dung hướng dẫn hoạt động STEM sẽ được GHÉP VÀO HOẠT ĐỘNG VẬN DỤNG, đánh dấu: <span style="color: red;">*Tích hợp STEM: [Nội dung thử thách, nhiệm vụ thiết kế]</span>.
 
-9. 📐 CÔNG THỨC TOÁN HỌC & KHOA HỌC TRỰC QUAN NHƯ SGK (CHUẨN LATEX):
-   - Tất cả các công thức toán học, phân số, biểu thức đại số, hình học, vật lý, hóa học phải được viết bằng cú pháp chuẩn LaTeX đặt trong cặp dấu $...$ (cho công thức nội dòng, ví dụ: $C = 4a$, $S = a^2$, $S = \frac{(a+b)h}{2}$, $S = \frac{1}{2}ah$, $\sqrt{x^2+1}$, $\frac{a}{b}$, $\Delta = b^2 - 4ac$, $S = \pi R^2$) hoặc $$...$$ (cho công thức hoặc hệ phương trình độc lập).
+9. 📐 CÔNG THỨC TOÁN HỌC & KHOA HỌC CHUẨN LATEX (100% TƯƠNG THÍCH MATHTYPE TRONG WORD):
+   - BẮT BUỘC 100% tất cả các công thức toán học, biểu thức đại số, biến số ($x$, $y$, $z$, $a$, $b$, $c$, $m$, $n$), điểm và hình học ($A$, $B$, $C$, $\Delta ABC$), phân số ($\frac{a}{b}$), căn thức ($\sqrt{x}$, $\sqrt{x^2+1}$), số mũ ($x^2$, $a^n$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\begin{cases} ax+by=c \\ a'x+b'y=c' \end{cases}$), góc ($\widehat{ABC}$, $\widehat{A}$), độ ($^\circ$), véc-tơ ($\vec{u}$, $\overrightarrow{AB}$), ký hiệu hình học ($\parallel$, $\perp$), tập hợp ($\in$, $\notin$, $\subset$, $\cap$, $\cup$, $\emptyset$, $\mathbb{R}$, $\mathbb{N}$, $\mathbb{Z}$), quan hệ so sánh ($\le$, $\ge$, $\neq$, $\approx$), phép toán ($\times$, $\cdot$, $\div$, $\pm$) PHẢI được viết bằng cú pháp chuẩn LaTeX đặt trong cặp dấu $...$ (cho công thức nội dòng) hoặc $$...$$ (cho công thức hoặc hệ phương trình dòng độc lập).
+   - 🚨 ĐẶC BIỆT - TỰ ĐỘNG PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI (EMBED EQUATION / DSMT4):
+     + Nếu trong dữ liệu đầu vào có chứa chuỗi "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3", hoặc các công thức bị mất: AI BẮT BUỘC PHẢI phân tích ngữ cảnh bài học (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi: $\begin{cases} ax + by = c \\ a'x + b'y = c' \end{cases}$, nghiệm $(x_0; y_0)$,...) để TỰ ĐỘNG PHỤC HỒI và viết lại công thức toán học chuẩn LaTeX hoàn chỉnh 100%.
+     + TUYỆT ĐỐI CẤM để lại bất kỳ chữ "EMBED Equation" hay "DSMT4" nào trong giáo án đầu ra!
+   - 🚨 QUY TẮC CÚ PHÁP LATEX ĐỂ MATHTYPE TRONG WORD CHUYỂN ĐỔI 1-CHẠM (TOGGLE TEX) KHÔNG BỊ LỖI:
+     + Không để khoảng trắng sát mép trong của dấu $: dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $.
+     + Hệ phương trình luôn dùng môi trường cases: $\\begin{cases} ax + by = c \\\\ a'x + b'y = c' \\end{cases}$.
+     + TUYỆT ĐỐI KHÔNG chèn thẻ HTML (như <span>, <br>, <b>) hoặc ký hiệu Markdown (**, *) bên trong cặp dấu $ ... $.
+     + Luôn đóng mở ngoặc nhọn {} đầy đủ và chính xác.
    - TUYỆT ĐỐI KHÔNG để phân số hay công thức toán biến thành hình ảnh.
 
 =========================================================

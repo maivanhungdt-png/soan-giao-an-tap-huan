@@ -48,6 +48,10 @@ export const generateNLSLessonPlan = async (
                .replace(/&amp;/g, '&')
                .replace(/&quot;/g, '"');
                
+    // Chuẩn hóa và nhận diện các placeholder MathType OLE / EMBED Equation từ file Word
+    text = text.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, '[CÔNG_THỨC_TOÁN: MathType]');
+    text = text.replace(/\bEquation\.DSMT4\b/gi, '[CÔNG_THỨC_TOÁN: MathType]');
+
     // Xóa các dòng trống liên tiếp (3 dòng trở lên thành 2 dòng)
     text = text.replace(/\n{3,}/g, '\n\n');
     // Xóa khoảng trắng dư thừa liên tiếp (từ 3 khoảng trắng trở lên thành 1)
@@ -410,7 +414,10 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       - KHÔNG chia thời lượng từng hoạt động.
       - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
       - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
-      - KÝ HIỆU: Ưu tiên Unicode (->, <-, =, +). Chỉ dùng LaTeX ($, $$) cho công thức cực kỳ phức tạp.
+      - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE):
+        + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), điểm ($A$, $B$, $C$, $\Delta ABC$), phân số ($\frac{a}{b}$), căn bậc hai ($\sqrt{x}$), số mũ ($x^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\begin{cases} ax+by=c \\ a'x+b'y=c' \end{cases}$), góc ($\widehat{ABC}$, $\widehat{A}$), độ ($^\circ$), véc-tơ ($\vec{u}$, $\overrightarrow{AB}$), ký hiệu hình học ($\parallel$, $\perp$), tập hợp ($\in$, $\notin$, $\subset$, $\cap$, $\cup$, $\emptyset$, $\mathbb{R}$, $\mathbb{N}$), quan hệ so sánh ($\le$, $\ge$, $\neq$, $\approx$), phép toán ($\times$, $\cdot$, $\div$, $\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType trong Word bằng 1 phím tắt Alt+\ mà không bao giờ bị lỗi.
+        + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\begin{cases} ax + by = c \\ a'x + b'y = c' \end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
+        + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\begin{cases} ... \end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
       
       [ĐÁNH DẤU TÍCH HỢP - BẮT BUỘC ĐỂ CHỮ MÀU ĐỎ, KHÔNG GẠCH CHÂN]
       - NLS: <span style="color: red;">*Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo)</span>
