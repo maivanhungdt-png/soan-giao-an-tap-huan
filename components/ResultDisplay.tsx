@@ -243,7 +243,81 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
              if (lines.length > 0 && lines[0].trim() === "") lines.shift(); 
         }
     }
-    return lines.join('\n').trim();
+    const joinedClean = lines.join('\n').trim();
+    return autoConvertPlainTextToLatex(joinedClean);
+  };
+
+  // Helper: Tự động phát hiện và chuyển đổi các biểu thức toán học / phân số / bất đẳng thức dạng text thô sang chuẩn LaTeX $...$
+  const autoConvertPlainTextToLatex = (text: string): string => {
+    if (!text) return "";
+
+    const lines = text.split('\n');
+
+    const processedLines = lines.map(line => {
+      if (!line.trim()) return line;
+
+      // Tách dòng theo các khối đã là LaTeX ($...$, $$...$$), thẻ HTML, hoặc thẻ hình ảnh
+      const tokens = line.split(/(\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$|<[^>]+>|\[(?:HINHANHGOC|IMG|CÔNG_THỨC)[^\]]*\])/g);
+
+      return tokens.map((token, idx) => {
+        // Nếu là phần tử ở vị trí lẻ, nó đã được bọc chuẩn, giữ nguyên
+        if (idx % 2 === 1) return token;
+
+        let t = token;
+
+        // 1. Biểu thức toán phức hợp / chuỗi đẳng thức / bất đẳng thức có chứa phân số, dấu so sánh:
+        // ví dụ: "2024/1000=2+24/1000>1,9" hoặc "-2022/2023=-1+1/2023>-1,1" hoặc "x/2 + y/3 = 1"
+        t = t.replace(/(?:^|(?<=[\s(]))((?:-?\d+\/\d+|-?\b[a-zA-Z0-9_]+|[+\-=><≤≥≠≈])(?:[+\-=><≤≥≠≈\s,.]*(?:-?\d+\/\d+|\b\d+(?:,\d+)?\b|[a-zA-Z0-9_]+))+)(?=$|[\s),.:;!?])/g, (match) => {
+          // Bỏ qua định dạng ngày tháng như 20/11/2024
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(match.trim())) return match;
+          // Bỏ qua chuỗi chỉ gồm chữ cái tiếng Việt thông thường
+          if (/^[a-zA-ZÀ-ỹ\s]+$/.test(match)) return match;
+          // Phải có chỉ báo toán học: =, >, <, <=, >=, ≤, ≥, hoặc phân số
+          if (/[=><≤≥≠≈]|\d+\/\d+/.test(match)) {
+            let mathStr = match.trim();
+            mathStr = mathStr.replace(/-(\d+)\/(\d+)/g, '-\\frac{$1}{$2}');
+            mathStr = mathStr.replace(/(\d+)\/(\d+)/g, '\\frac{$1}{$2}');
+            mathStr = mathStr.replace(/<=|≤/g, ' \\le ');
+            mathStr = mathStr.replace(/>=|≥/g, ' \\ge ');
+            mathStr = mathStr.replace(/!=|≠/g, ' \\neq ');
+            mathStr = mathStr.replace(/≈/g, ' \\approx ');
+            mathStr = mathStr.replace(/=/g, ' = ');
+            mathStr = mathStr.replace(/>/g, ' > ');
+            mathStr = mathStr.replace(/</g, ' < ');
+            mathStr = mathStr.replace(/\+/g, ' + ');
+            mathStr = mathStr.replace(/\s+/g, ' ').trim();
+            return `$${mathStr}$`;
+          }
+          return match;
+        });
+
+        // 2. Bất đẳng thức đơn lẻ biến số: "a≤50", "b≤50", "x≥0", "a ≤ 50", "x <= 100", "y != 0"
+        t = t.replace(/(?:^|(?<=[\s(]))([a-zA-Z][0-9_]*)\s*(<=|>=|!=|≤|≥|≠|<|>)\s*(-?\d+(?:,\d+)?|-?[a-zA-Z][0-9_]*)(?=$|[\s),.:;!?])/g, (match, v1, op, v2) => {
+          let latexOp = op;
+          if (op === '<=' || op === '≤') latexOp = '\\le';
+          else if (op === '>=' || op === '≥') latexOp = '\\ge';
+          else if (op === '!=' || op === '≠') latexOp = '\\neq';
+          return `$${v1} ${latexOp} ${v2}$`;
+        });
+
+        // 3. Phân số đơn lẻ chưa bọc: "1/2", "-3/4", "5/6"
+        t = t.replace(/(?:^|(?<=[\s(]))(-?\d+)\/(\d+)(?=$|[\s),.:;!?])/g, (match, num, den) => {
+          const isNegative = num.startsWith('-');
+          const absNum = isNegative ? num.slice(1) : num;
+          return isNegative ? `$-\\frac{${absNum}}{${den}}$` : `$\\frac{${num}}{${den}}$`;
+        });
+
+        // 4. Ký tự toán học Unicode đơn lẻ còn sót lại
+        t = t.replace(/≤/g, '$\\le$');
+        t = t.replace(/≥/g, '$\\ge$');
+        t = t.replace(/≠/g, '$\\neq$');
+        t = t.replace(/±/g, '$\\pm$');
+
+        return t;
+      }).join('');
+    });
+
+    return processedLines.join('\n');
   };
 
   const safeResult = result ? cleanResultText(result) : null;
