@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { LessonInfo, ProcessingOptions } from "../types";
 import { SYSTEM_INSTRUCTION, NLS_FRAMEWORK_DATA, GDQPAN_DATA, DISABILITY_PEDAGOGICAL_GUIDELINES } from "../constants";
 import { masterDataCsv } from "../masterData";
+import { ensureAllActivitiesInTwoColumnTable } from "../utils/tableFormatter";
 
 export const generateNLSLessonPlan = async (
   info: LessonInfo,
@@ -308,10 +309,13 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
     - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG:
-      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> CHỈ ĐỂ MỤC a) Mục tiêu, b) Nội dung VÀ VÀO THẲNG BẢNG 2 CỘT (TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC GHI DÒNG "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG. Sau mục b) Nội dung là bắt đầu ngay bằng dòng bảng 2 cột | Tổ chức thực hiện | Sản phẩm |):
+      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+        🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+        Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
+        CHỈ ĐỂ MỤC a) Mục tiêu, b) Nội dung VÀ VÀO THẲNG BẢNG 2 CỘT (TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC GHI DÒNG "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG. Sau mục b) Nội dung là bắt đầu ngay bằng dòng bảng 2 cột | Tổ chức thực hiện | Sản phẩm |):
       | Tổ chức thực hiện | Sản phẩm |
       | :--- | :--- |
-      | (Cột 1: Đặt tên chính xác là "Tổ chức thực hiện" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Sản phẩm" chứa sản phẩm học tập/kết quả thực hiện tương ứng) |`}
+      | (Cột 1: Đặt tên chính xác là "Tổ chức thực hiện" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Sản phẩm" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
     - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI:
       * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...").
       * Trình bày gồm các mục:
@@ -384,13 +388,16 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
              - Bước 3: Báo cáo, thảo luận
              - Bước 4: Kết luận, nhận định
       ` : `
-        * HÌNH THỨC KẺ BẢNG 2 CỘT:
+        * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
+          🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+          🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+          Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
           a) Mục tiêu: ...
           b) Nội dung: ...
-          (TUYỆT ĐỐI KHÔNG GHI DÒNG "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG, SAU MỤC b LÀ VÀO THẲNG BẢNG 2 CỘT):
+          (TUYỆT ĐỐI KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG, SAU MỤC b LÀ VÀO THẲNG BẢNG 2 CỘT):
           | Tổ chức thực hiện | Sản phẩm |
           | :--- | :--- |
-          | (Cột 1: "Tổ chức thực hiện" đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ, Bước 2: Thực hiện nhiệm vụ, Bước 3: Báo cáo thảo luận, Bước 4: Kết luận nhận định) | (Cột 2: "Sản phẩm" - Kết quả, sản phẩm học tập của HS) |
+          | (Cột 1: "Tổ chức thực hiện" đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ, Bước 2: Thực hiện nhiệm vụ, Bước 3: Báo cáo thảo luận, Bước 4: Kết luận nhận định) | (Cột 2: "Sản phẩm" - Kết quả, lời giải chi tiết bài tập, sản phẩm học tập của HS) |
       `}
       `;
     } else {
@@ -412,13 +419,16 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
            - Bước 4: Kết luận, nhận định
       ` : `
       * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
-        Mỗi hoạt động gồm 3 phần:
+        🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+        🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+        Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng dù giáo án gốc để ở ngoài bảng hay gạch đầu dòng. Bắt buộc chuyển toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vào bảng 2 cột:
+        Mỗi hoạt động gồm các phần:
         **a) Mục tiêu:** ...
         **b) Nội dung:** ...
         (TUYỆT ĐỐI CẤM KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ TIÊU ĐỀ NÀO NGOÀI BẢNG, SAU MỤC b LÀ BẮT ĐẦU NGAY BẢNG 2 CỘT):
         | Tổ chức thực hiện | Sản phẩm |
         | :--- | :--- |
-        | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức] | Toàn bộ sản phẩm, lời giải chi tiết, câu trả lời đầy đủ của HS |
+        | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
       `}
       - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động (gắn liền vào hành động của GV/HS, dùng chữ màu đỏ <span style="color: red;">*Tích hợp...</span>).
       - KHÔNG chia thời lượng từng hoạt động.
@@ -594,8 +604,9 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
-    // Dọn sạch triệt để các đề mục "c) Sản phẩm", "d) Tổ chức thực hiện" bị thừa ngoài bảng 2 cột
+    // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
     if (options.layoutFormat !== 'no_table') {
+      text = ensureAllActivitiesInTwoColumnTable(text);
       text = text.replace(
         /(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi,
         ''

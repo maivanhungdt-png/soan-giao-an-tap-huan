@@ -33,6 +33,7 @@ import FileSaver from 'file-saver';
 import { imageCache } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
+import { ensureAllActivitiesInTwoColumnTable } from '../utils/tableFormatter';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -46,18 +47,25 @@ interface ResultDisplayProps {
     department: string;
     includeInHeader: boolean;
   };
+  layoutFormat?: 'table' | 'no_table';
 }
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset, teacherInfo }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset, teacherInfo, layoutFormat = 'table' }) => {
   const [showPreview, setShowPreview] = useState(true);
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
 
   // Helper: Clean raw AI result to remove conversational filler and specific artifacts
-  const cleanResultText = (text: string): string => {
+  const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
     
+    // Đảm bảo tất cả hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
+    let clean = text;
+    if (format !== 'no_table') {
+      clean = ensureAllActivitiesInTwoColumnTable(clean);
+    }
+
     // 0. Pre-clean and normalize image tags
-    let clean = text.replace(/\[\s*H(?:ÌNH|INH)[\s_*<i></i>\/\\]*(?:ẢNH|ANH|VẼ|VE)?[\s_*<i></i>\/\\]*(?:GỐC|GOC)?[\s_*<i></i>\/\\]*[:_#\-]?\s*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
+    clean = clean.replace(/\[\s*H(?:ÌNH|INH)[\s_*<i></i>\/\\]*(?:ẢNH|ANH|VẼ|VE)?[\s_*<i></i>\/\\]*(?:GỐC|GOC)?[\s_*<i></i>\/\\]*[:_#\-]?\s*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
     clean = clean.replace(/\[\s*IMG[\s_*#\-]*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
     clean = clean.replace(/\[\s*IMAGE[\s_*#\-]*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
     clean = clean.replace(/\[\s*(?:HÌNH|HINH|HINHANH|HINHANHGOC)[\s_*#\-]*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
@@ -70,7 +78,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     
     // 3. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
     clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi, '');
-    clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
+    if (format !== 'no_table') {
+      clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
+    }
 
     // 4. Clean all markdown hash subheadings (#####, ####, ###) into bold text to eliminate #####
     clean = clean.replace(/^(?:#{3,6})\s*(.*)$/gm, (match, p1) => {
@@ -318,7 +328,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return processedLines.join('\n');
   };
 
-  const safeResult = result ? cleanResultText(result) : null;
+  const safeResult = result ? cleanResultText(result, layoutFormat) : null;
 
   // Helper: Convert base64 to buffer for docx safely
   const base64DataURLToArrayBuffer = (dataURL: string): Uint8Array => {

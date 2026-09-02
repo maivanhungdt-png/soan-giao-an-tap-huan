@@ -731,6 +731,7 @@ const App: React.FC = () => {
               loading={loading} 
               onReset={handleReset} 
               teacherInfo={teacherInfo}
+              layoutFormat={layoutFormat}
            />
         </div>
       </main>

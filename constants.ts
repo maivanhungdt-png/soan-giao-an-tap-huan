@@ -445,18 +445,22 @@ Bạn là chuyên gia Sư phạm cấp cao của Bộ GD&ĐT Việt Nam, chuyên
      Cách 2: **1. Thiết bị dạy học:**; **2. Học liệu:**.
 
 5. CHI TIẾT PHẦN III. TIẾN TRÌNH DẠY HỌC (CẤU TRÚC HOẠT ĐỘNG TRONG PHỤ LỤC 4):
-   - TRƯỜNG HỢP 1: NẾU HOẠT ĐỘNG KHÔNG CẦN KẺ BẢNG -> BẮT BUỘC ĐỂ ĐỦ 4 PHẦN IN ĐẬM:
+   - NẾU CHỌN HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
+     🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT.
+     🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+     Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
+     Mỗi hoạt động gồm 2 phần mở đầu và vào thẳng bảng 2 cột:
+     **a) Mục tiêu:** [Mục tiêu của hoạt động]
+     **b) Nội dung:** [Nội dung nhiệm vụ/bài tập của hoạt động]
+     (TUYỆT ĐỐI KHÔNG GHI TIÊU ĐỀ c) Sản phẩm hay d) Tổ chức thực hiện ở ngoài bảng; sau mục b là vào thẳng bảng 2 cột):
+     | Tổ chức thực hiện | Sản phẩm |
+     | :--- | :--- |
+     | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ**; **Bước 2: Thực hiện nhiệm vụ**; **Bước 3: Báo cáo, thảo luận**; **Bước 4: Kết luận, nhận định** | Kết quả thực hiện, câu trả lời, lời giải chi tiết các bài tập, sản phẩm học tập của HS |
+   - NẾU CHỌN HÌNH THỨC KHÔNG KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN IN ĐẬM:
      **a) Mục tiêu:**
      **b) Nội dung:**
      **c) Sản phẩm:**
      **d) Tổ chức thực hiện:** (gồm 4 bước in đậm: **Bước 1: Chuyển giao nhiệm vụ**; **Bước 2: Thực hiện nhiệm vụ**; **Bước 3: Báo cáo, thảo luận**; **Bước 4: Kết luận, nhận định**).
-   - TRƯỜNG HỢP 2: NẾU HOẠT ĐỘNG CÓ KẺ BẢNG:
-     **a) Mục tiêu:**
-     **b) Nội dung:**
-     Bảng hoạt động gồm 2 CỘT rõ ràng (sau mục b là vào thẳng bảng 2 cột):
-     | Tổ chức thực hiện | Sản phẩm |
-     | :--- | :--- |
-     | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ**; **Bước 2: Thực hiện nhiệm vụ**; **Bước 3: Báo cáo, thảo luận**; **Bước 4: Kết luận, nhận định** | Kết quả thực hiện, câu trả lời, sản phẩm học tập của HS |
 
 5. 🚨 BẢO TOÀN HÌNH VẼ, HÌNH ẢNH, BIỂU ĐỒ GỐC (HÌNH HỌC / THÍ NGHIỆM / SƠ ĐỒ):
    - Tất cả hình vẽ thực tế, hình ảnh, sơ đồ hình học (ví dụ: Hình vuông ABCD, Hình thang, Sơ đồ mạch điện, Thí nghiệm...) có mã [IMG1], [IMG2]... hoặc [HINHANHGOC_1]... BẮT BUỘC PHẢI GIỮ NGUYÊN VỊ TRÍ trong tiến trình các hoạt động của giáo án đầu ra.
