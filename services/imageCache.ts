@@ -59,6 +59,19 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
     for (const key of candidates) {
       if (imageCache[key]) return imageCache[key];
     }
+
+    // Fallback theo thứ tự xuất hiện trong imageCache
+    const uniqueDataUrls: { [url: string]: any } = {};
+    Object.keys(imageCache).forEach(k => {
+      if (imageCache[k]?.dataUrl) {
+        uniqueDataUrls[imageCache[k].dataUrl] = imageCache[k];
+      }
+    });
+    const uniqueList = Object.values(uniqueDataUrls);
+    const numIdx = parseInt(num, 10);
+    if (numIdx > 0 && numIdx <= uniqueList.length) {
+      return uniqueList[numIdx - 1];
+    }
   }
 
   return null;

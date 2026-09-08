@@ -557,13 +557,17 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
       - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
       - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE):
-        + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), điểm ($A$, $B$, $C$, $\Delta ABC$), phân số ($\frac{a}{b}$), căn bậc hai ($\sqrt{x}$), số mũ ($x^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\begin{cases} ax+by=c \\ a'x+b'y=c' \end{cases}$), góc ($\widehat{ABC}$, $\widehat{A}$), độ ($^\circ$), véc-tơ ($\vec{u}$, $\overrightarrow{AB}$), ký hiệu hình học ($\parallel$, $\perp$), tập hợp ($\in$, $\notin$, $\subset$, $\cap$, $\cup$, $\emptyset$, $\mathbb{R}$, $\mathbb{N}$), quan hệ so sánh ($\le$, $\ge$, $\neq$, $\approx$), phép toán ($\times$, $\cdot$, $\div$, $\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType trong Word bằng 1 phím tắt Alt+\ mà không bao giờ bị lỗi.
+        + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$), căn bậc hai ($\\sqrt{x}$), số mũ ($x^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\ a'x+b'y=c' \\end{cases}$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType trong Word bằng 1 phím tắt Alt+\ mà không bao giờ bị lỗi.
         + 🚨 CẤM TUYỆT ĐỐI VIẾT PHÂN SỐ VÀ BẤT ĐẲNG THỨC BẰNG TEXT THÔ:
-          * CẤM viết phân số bằng dấu gạch chéo thô (như 2024/1000, 24/1000, -2022/2023, 1/2). BẮT BUỘC dùng phân số LaTeX trong $...$: ví dụ $\frac{2024}{1000} = 2 + \frac{24}{1000} > 1,9$ hoặc $-\frac{2022}{2023} = -1 + \frac{1}{2023} > -1,1$ hoặc $\frac{1}{2}$.
-          * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \le 50$, $b \le 50$, $x \ge 0$, $x \neq 3$.
-        + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\begin{cases} ax + by = c \\ a'x + b'y = c' \end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
-        + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\begin{cases} ... \end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
-        + 🚨 TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN / PHÂN SỐ THÀNH ẢNH: Tất cả phân số, biểu thức đại số, phép tính toán học (kể cả chuỗi phép tính nhiều bước liên tiếp, ví dụ: $-\frac{5}{7} - \frac{8}{21} = -\frac{15}{21} - \frac{8}{21} = -\frac{23}{21}$) BẮT BUỘC PHẢI VIẾT BẰNG MÃ LATEX ĐẶT TRONG $...$, TUYỆT ĐỐI CẤM tạo mã [HINHANHGOC_...] hay chèn ảnh cho công thức toán!
+          * CẤM viết phân số bằng dấu gạch chéo thô (như 2024/1000, 24/1000, -2022/2023, 1/2). BẮT BUỘC dùng phân số LaTeX trong $...$: ví dụ $\\frac{2024}{1000} = 2 + \\frac{24}{1000} > 1,9$ hoặc $-\\frac{2022}{2023} = -1 + \\frac{1}{2023} > -1,1$ hoặc $\\frac{1}{2}$.
+          * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \\le 50$, $b \\le 50$, $x \\ge 0$, $x \\neq 3$.
+        + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\\begin{cases} ax + by = c \\ a'x + b'y = c' \\end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
+        + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\\begin{cases} ... \\end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
+        + 🚨 TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN / PHÂN SỐ THÀNH ẢNH: Tất cả phân số, biểu thức đại số, phép tính toán học (kể cả chuỗi phép tính nhiều bước liên tiếp, ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$) BẮT BUỘC PHẢI VIẾT BẰNG MÃ LATEX ĐẶT TRONG $...$, TUYỆT ĐỐI CẤM tạo mã [HINHANHGOC_...] hay chèn ảnh cho công thức toán!
+        + 🚨 BẢO TOÀN 100% HÌNH VẼ MINH HỌA, SƠ ĐỒ HÌNH HỌC VÀ TRANH ẢNH SGK:
+          * BẮT BUỘC giữ nguyên và đặt đầy đủ các mã hình vẽ minh họa [HINHANHGOC_1], [HINHANHGOC_2]... từ giáo án gốc hoặc trang SGK vào đúng hoạt động tương ứng (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng).
+          * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các hình vẽ minh họa thực tế, sơ đồ hình học (tam giác, góc, đường tròn...), biểu đồ!
+          * Chỉ cấm tạo ảnh cho công thức/phân số (công thức/phân số bắt buộc viết bằng LaTeX $...$). Còn TẤT CẢ hình vẽ, sơ đồ minh họa bài học BẮT BUỘC PHẢI GIỮ LẠI [HINHANHGOC_...]!
       
       [ĐÁNH DẤU TÍCH HỢP - CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}]
       🚨 QUY TẮC BẮT BUỘC: BẠN CHỈ ĐƯỢC TÍCH HỢP CÁC LOẠI ĐÃ TÍCH CHỌN DƯỚI ĐÂY. TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC TỰ Ý TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO KHÁC NGOÀI DANH SÁCH:
@@ -730,10 +734,6 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
     if (options.layoutFormat !== 'no_table') {
       text = ensureAllActivitiesInTwoColumnTable(text);
-      text = text.replace(
-        /(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi,
-        ''
-      );
       text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
     }
 

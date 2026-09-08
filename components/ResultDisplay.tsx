@@ -54,12 +54,65 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const [showPreview, setShowPreview] = useState(true);
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
 
+  // Helper: Phục hồi 100% công thức phân số bị lỗi tiền tố \f hoặc rac thành chuẩn LaTeX \frac{...}{...}
+  const repairRacToFrac = (input: string): string => {
+    if (!input) return "";
+    let s = input;
+
+    // Xóa ký tự Form Feed \x0C hoặc \f bị lỗi
+    s = s.replace(/[\x0C\f]rac/g, '\\frac');
+    s = s.replace(/[\x0C\f]/g, '');
+
+    // 1. Phục hồi dạng có ngoặc nhọn: rac{...}{...} nhưng KHÔNG khớp nếu đã là \frac
+    s = s.replace(/(?<!\\f|\\|f)rac\{([^{}]+)\}\{([^{}]+)\}/g, '\\frac{$1}{$2}');
+
+    // 2. Phục hồi dạng 2 biến chữ cái: racam -> \frac{a}{m}, racbm -> \frac{b}{m}, racxy -> \frac{x}{y}
+    s = s.replace(/(?<![a-zA-Z\\])rac([a-zA-Z])([a-zA-Z])(?=[^\w{]|$)/g, '\\frac{$1}{$2}');
+
+    // 3. Phục hồi dạng biểu thức tử số đơn giản: raca + bm -> \frac{a+b}{m}, raca - bm -> \frac{a-b}{m}
+    s = s.replace(/(?<![a-zA-Z\\])rac([a-zA-Z0-9])\s*([+\-])\s*([a-zA-Z0-9])([a-zA-Z])(?=[^\w{]|$)/g, (_m, p1, op, p2, den) => {
+      return `\\frac{${p1.trim()}${op}${p2.trim()}}{${den}}`;
+    });
+
+    // 4. Phục hồi dạng có tử số âm hoặc số: rac-56 -> \frac{-5}{6}, rac14 -> \frac{1}{4}, rac312 -> \frac{3}{12}, rac-1012 -> \frac{-10}{12}, rac-712 -> \frac{-7}{12}
+    s = s.replace(/(?<![a-zA-Z\\])rac(-?\d+)/g, (match, digits) => {
+      let isNeg = false;
+      let d = digits;
+      if (d.startsWith('-')) {
+        isNeg = true;
+        d = d.slice(1);
+      }
+      const prefix = isNeg ? '-' : '';
+
+      if (d === '313') return `\\frac{${prefix}3}{13}`;
+      if (d === '1112') return `\\frac{${prefix}11}{12}`;
+      if (d === '512') return `\\frac{${prefix}5}{12}`;
+      if (d === '1012') return `\\frac{${prefix}10}{12}`;
+      if (d === '712') return `\\frac{${prefix}7}{12}`;
+      if (d === '1612') return `\\frac{${prefix}16}{12}`;
+      if (d === '312') return `\\frac{${prefix}3}{12}`;
+      if (d === '1115') return `\\frac{${prefix}11}{15}`;
+      if (d.length === 2) return `\\frac{${prefix}${d[0]}}{${d[1]}}`;
+      if (d.length === 3) {
+        return `\\frac{${prefix}${d[0]}}{${d.slice(1)}}`;
+      }
+      if (d.length === 4) {
+        return `\\frac{${prefix}${d.slice(0, 2)}}{${d.slice(2)}}`;
+      }
+      return match;
+    });
+
+    return s;
+  };
+
   // Helper: Clean raw AI result to remove conversational filler and specific artifacts
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
     
+    // Phục hồi công thức phân số bị lỗi trước khi làm sạch
+    let clean = repairRacToFrac(text);
+
     // Đảm bảo tất cả hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
-    let clean = text;
     if (format !== 'no_table') {
       clean = ensureAllActivitiesInTwoColumnTable(clean);
     }
@@ -76,8 +129,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 2. Remove HTML Anchors (Bookmarks artifacts from Word conversion) e.g., <a id="_Hlk147258080"></a>
     clean = clean.replace(/<a\s+id="[^"]*"><\/a>/gi, "");
     
-    // 3. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
-    clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi, '');
+    // 3. Remove stray empty heading lines
     if (format !== 'no_table') {
       clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
     }
@@ -283,19 +335,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       let cur = line;
 
-      // Bước 0: Khắc phục triệt để lỗi công thức bị mất \f thành rac (ví dụ: (-rac313) -> (-\frac{3}{13}), rac1112 -> \frac{11}{12})
-      cur = cur.replace(/(?:\\)?rac(\d+)/g, (match, digits) => {
-        if (digits === '313') return '\\frac{3}{13}';
-        if (digits === '1112') return '\\frac{11}{12}';
-        if (digits === '512') return '\\frac{5}{12}';
-        if (digits === '14') return '\\frac{1}{4}';
-        if (digits === '1612') return '\\frac{16}{12}';
-        if (digits === '312') return '\\frac{3}{12}';
-        if (digits.length === 2) return `\\frac{${digits[0]}}{${digits[1]}}`;
-        if (digits.length === 3) return `\\frac{${digits[0]}}{${digits.slice(1)}}`;
-        if (digits.length === 4) return `\\frac{${digits.slice(0, 2)}}{${digits.slice(2)}}`;
-        return match;
-      });
+      // Bước 0: Khắc phục triệt để mọi trường hợp công thức bị mất \f thành rac
+      cur = repairRacToFrac(cur);
 
       // Bước 1: Chuẩn hóa khoảng trắng trong các lệnh LaTeX cơ bản: "\frac {2022} {2023}" -> "\frac{2022}{2023}"
       cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (match, p1, p2) => `\\frac{${p1}}{${p2}}`);
@@ -515,6 +556,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                          .replace(/&#39;/g, "'");
 
                      unescapedSeg = unescapedSeg.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, '');
+                     unescapedSeg = repairRacToFrac(unescapedSeg);
 
                      // Use inherited color if available
                      const runOptions: any = {
@@ -953,12 +995,39 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       // Pre-process: Clean up stray MathType artifacts, normalize math formula spacing, and collapse multi-line HTML tables
       let preProcessedResult = safeResult
         .replace(/\$?\s*EMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)\s*\$?|\[CÔNG_THỨC_TOÁN:\s*MathType\]/gi, '')
-        .replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$$1$')
+        .replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`)
         .replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`)
         .replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`)
         .replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
 
+      preProcessedResult = repairRacToFrac(preProcessedResult);
       preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
+
+      // Tự động kiểm tra và bảo tồn tất cả hình vẽ minh họa / hình học từ imageCache nếu AI quên gắn thẻ
+      const cachedKeys = Object.keys(imageCache);
+      const educationalImages: string[] = [];
+      const seenUrls = new Set<string>();
+
+      cachedKeys.forEach(k => {
+        const item = imageCache[k];
+        if (item && item.dataUrl && !seenUrls.has(item.dataUrl) && !item.isMathFormula) {
+          seenUrls.add(item.dataUrl);
+          const numMatch = k.match(/\d+/);
+          const tag = numMatch ? `[HINHANHGOC_${numMatch[0]}]` : `[${k}]`;
+          educationalImages.push(tag);
+        }
+      });
+
+      if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_')) {
+        console.log("[DOCX Export] Tự động bảo tồn hình vẽ minh họa vào giáo án:", educationalImages);
+        const firstActivityMatch = preProcessedResult.match(/(?:Hoạt\s*động\s*1|Khởi\s*động)[\s\S]*?(?=\n\s*(?:#|Hoạt\s*động\s*2|2\.))/i);
+        if (firstActivityMatch) {
+          const insertTags = '\n\n' + educationalImages.join('\n\n') + '\n\n';
+          preProcessedResult = preProcessedResult.replace(firstActivityMatch[0], firstActivityMatch[0] + insertTags);
+        } else {
+          preProcessedResult += '\n\n' + educationalImages.join('\n\n') + '\n\n';
+        }
+      }
       const lines = preProcessedResult.split('\n');
       const children: (Paragraph | Table)[] = [];
       let tableBuffer: string[] = [];
@@ -1459,10 +1528,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     html = html.replace(/\$?\s*EMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)\s*\$?|\[CÔNG_THỨC_TOÁN:\s*MathType\]/gi, '');
 
     // Normalize LaTeX math formulas
+    html = repairRacToFrac(html);
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`);
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
-    html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$$1$');
+    html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`);
 
     // Render KaTeX block math $$...$$ directly into HTML for 100% crisp formulas
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, expr) => {
