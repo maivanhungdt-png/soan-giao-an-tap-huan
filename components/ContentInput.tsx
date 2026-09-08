@@ -622,8 +622,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
           .replace(/\\tab/g, ' | ')
           .replace(/\\cell/g, ' | ')
           .replace(/\\row/g, '\n')
-          .replace(/\\[a-zA-Z0-9\-]+/g, '')
-          .replace(/[{}]/g, '')
+          // Chỉ xóa các thẻ cấu trúc / bảng font / màu của RTF, KHÔNG xóa cú pháp công thức \frac, \sqrt, \cdot, {}
+          .replace(/\\(?:fonttbl|colortbl|stylesheet|info|header|footer)[^}]*}/gi, '')
+          .replace(/\\(?:f\d+|fs\d+|cf\d+|cb\d+|b\d*|i\d*|ul\d*|strike\d*|qc|ql|qr|qj|marg[ltrb]\d+)\b/gi, '')
           .trim();
         if (cleanRtf.length > 20) return cleanRtf;
       }
@@ -827,14 +828,27 @@ const ContentInput: React.FC<ContentInputProps> = ({
 
       let xml = await docXmlFile.async("string");
 
+      // Helper: Thoát các ký tự XML bắt buộc để tệp XML không bao giờ bị hỏng khi Mammoth đọc
+      const xmlEscape = (str: string): string => {
+        if (!str) return '';
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      };
+
       // 1. Phân giải toàn bộ OMML math blocks (<m:oMathPara> và <m:oMath>) trực tiếp sang chuẩn LaTeX $...$
       xml = xml.replace(/<m:oMathPara[^>]*>([\s\S]*?)<\/m:oMathPara>/g, (match) => {
         const latex = ommlToLatex(match);
-        return `<w:r><w:t xml:space="preserve">${latex ? ` ${latex} ` : ''}</w:t></w:r>`;
+        if (!latex) return '';
+        const safeXml = xmlEscape(latex);
+        return `<w:r><w:t xml:space="preserve"> ${safeXml} </w:t></w:r>`;
       });
       xml = xml.replace(/<m:oMath[^>]*>([\s\S]*?)<\/m:oMath>/g, (match) => {
         const latex = ommlToLatex(match);
-        return `<w:r><w:t xml:space="preserve">${latex ? ` ${latex} ` : ''}</w:t></w:r>`;
+        if (!latex) return '';
+        const safeXml = xmlEscape(latex);
+        return `<w:r><w:t xml:space="preserve"> ${safeXml} </w:t></w:r>`;
       });
 
       // 2. Nhận diện các đối tượng MathType OLE trong <w:object>
@@ -1048,10 +1062,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 if (isNaN(height) || height <= 0) height = 180;
                 
                 const cleanId = rep.replacement.substring(1, rep.replacement.length - 1);
-                const isMathFormula = rep.match.includes('MATH_FORMULA') || 
-                                     (rep.crop ? rep.crop.includes('MATH_FORMULA') : false) ||
-                                     originalHeight <= 75 || 
-                                     (originalHeight <= 95 && originalWidth / originalHeight >= 1.8);
+                // Chỉ đánh dấu là ảnh công thức toán nếu thực sự là đối tượng MathType OLE và chiều cao rất nhỏ (<= 45px)
+                // Các hình vẽ giáo khoa (hình học, sơ đồ, đồ thị) có kích thước lớn hơn sẽ KHÔNG BAO GIỜ bị đánh dấu nhầm
+                const isMathFormula = (rep.match.includes('MATH_FORMULA') || (rep.crop ? rep.crop.includes('MATH_FORMULA') : false)) && originalHeight <= 45;
 
                 const cachedObj = {
                     id: cleanId,

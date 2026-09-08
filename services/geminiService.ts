@@ -26,9 +26,8 @@ export const transcribeMathImagesToLatex = async (
   if (matches.length === 0) return content;
 
   // Lọc ra các ảnh có khả năng cao là công thức toán:
-  // - Có cờ isMathFormula = true
-  // - Hoặc có chiều cao <= 80px (hoặc <= 95px và tỷ lệ rộng/cao >= 1.8)
-  // - Hoặc ngữ cảnh xung quanh có chứa biểu hiện toán học (a), b), phép tính, +, -, =, phân số)
+  // - BẮT BUỘC có cờ isMathFormula và chiều cao nhỏ (<= 45px - đặc trưng của công thức nội dòng / phân số)
+  // - TUYỆT ĐỐI KHÔNG động vào các hình vẽ hình học, đồ thị, sơ đồ, thí nghiệm minh họa (chiều cao > 50px hoặc chiều rộng > 250px)
   const candidateImages: { tag: string; num: string; dataUrl: string; cleanId: string }[] = [];
 
   for (const match of matches) {
@@ -39,19 +38,16 @@ export const transcribeMathImagesToLatex = async (
     // Không xử lý ảnh svg tạo bởi hệ thống
     if (cached.dataUrl.startsWith('data:image/svg+xml')) continue;
 
-    const isFlagged = Boolean(cached.isMathFormula);
-    const isSmallHeight = (cached.originalHeight && cached.originalHeight <= 80) || (cached.height && cached.height <= 80);
-    const isWideRatio = Boolean(cached.originalWidth && cached.originalHeight && (cached.originalWidth / cached.originalHeight) >= 2.0 && cached.originalHeight <= 100);
+    const h = cached.originalHeight || cached.height || 180;
+    const w = cached.originalWidth || cached.width || 250;
 
-    // Kiểm tra ngữ cảnh xung quanh vị trí xuất hiện của tag trong content
-    const tagIdx = content.indexOf(match.full);
-    let isMathContext = false;
-    if (tagIdx !== -1) {
-      const surrounding = content.substring(Math.max(0, tagIdx - 120), Math.min(content.length, tagIdx + match.full.length + 120)).toLowerCase();
-      isMathContext = /(?:[a-d]\)|hđ\d|phép tính|tính:|cộng|trừ|nhân|chia|phân số|biểu thức|=|\\frac)/.test(surrounding);
-    }
+    // Nếu kích thước lớn (chiều cao > 50px hoặc chiều rộng > 280px), đây là hình vẽ/sơ đồ giáo dục thật -> GIỮ NGUYÊN 100%
+    if (h > 50 || w > 280) continue;
 
-    if (isFlagged || isSmallHeight || isWideRatio || (isMathContext && (cached.originalHeight || cached.height || 180) <= 120)) {
+    const isFlagged = Boolean(cached.isMathFormula) && h <= 45;
+    const isTinyFormula = h <= 35 && w <= 220;
+
+    if (isFlagged || isTinyFormula) {
       candidateImages.push({
         tag: match.full,
         num: match.num,
@@ -112,26 +108,7 @@ QUY TẮC BẮT BUỘC:
     if (res.success && res.latex) {
       // Thay thế tag ảnh trong text bằng mã LaTeX
       updatedContent = updatedContent.replaceAll(res.item.tag, ` ${res.latex} `);
-      
-      // Xoá ảnh công thức này khỏi imageCache để khi xuất DOCX không bao giờ bị chèn ảnh!
-      const aliases = [
-        res.item.cleanId,
-        `HINHANHGOC_${res.item.num}`,
-        `HINHANHGOC${res.item.num}`,
-        `HINH_ANH_GOC_${res.item.num}`,
-        `HINH_ANH_GOC${res.item.num}`,
-        `HINH_ANH_${res.item.num}`,
-        `HINHANH_${res.item.num}`,
-        `HINHANH${res.item.num}`,
-        `IMG${res.item.num}`,
-        `IMG_${res.item.num}`,
-        `IMAGE_${res.item.num}`,
-        `IMAGE${res.item.num}`,
-        res.item.num
-      ];
-      aliases.forEach(k => {
-        delete imageCache[k];
-      });
+      // TUYỆT ĐỐI KHÔNG XÓA imageCache để bảo đảm không bao giờ làm mất hình vẽ giáo án của người dùng!
       console.log(`[Math OCR] Đã chuyển đổi thành công ảnh ${res.item.cleanId} thành LaTeX: ${res.latex}`);
     }
   }

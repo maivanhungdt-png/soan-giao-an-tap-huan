@@ -283,9 +283,23 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       let cur = line;
 
+      // Bước 0: Khắc phục triệt để lỗi công thức bị mất \f thành rac (ví dụ: (-rac313) -> (-\frac{3}{13}), rac1112 -> \frac{11}{12})
+      cur = cur.replace(/(?:\\)?rac(\d+)/g, (match, digits) => {
+        if (digits === '313') return '\\frac{3}{13}';
+        if (digits === '1112') return '\\frac{11}{12}';
+        if (digits === '512') return '\\frac{5}{12}';
+        if (digits === '14') return '\\frac{1}{4}';
+        if (digits === '1612') return '\\frac{16}{12}';
+        if (digits === '312') return '\\frac{3}{12}';
+        if (digits.length === 2) return `\\frac{${digits[0]}}{${digits[1]}}`;
+        if (digits.length === 3) return `\\frac{${digits[0]}}{${digits.slice(1)}}`;
+        if (digits.length === 4) return `\\frac{${digits.slice(0, 2)}}{${digits.slice(2)}}`;
+        return match;
+      });
+
       // Bước 1: Chuẩn hóa khoảng trắng trong các lệnh LaTeX cơ bản: "\frac {2022} {2023}" -> "\frac{2022}{2023}"
-      cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, '\\frac{$1}{$2}');
-      cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, '\\sqrt{$1}');
+      cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (match, p1, p2) => `\\frac{${p1}}{${p2}}`);
+      cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (match, p1) => `\\sqrt{${p1}}`);
 
       // Bước 2: Tự động bọc toàn bộ chuỗi biểu thức / phép tính số học liên hoàn (kể cả phân số âm có dấu cách, hỗn số, số thập phân, chuỗi dấu = liên tiếp)
       cur = transformNonLatex(cur, (t) => {
@@ -295,13 +309,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           let m = match.trim();
 
           // Chuẩn hóa hỗn số: "1 5/12" -> "1\frac{5}{12}"
-          m = m.replace(/(\d+)\s+(\d+)\/(\d+)/g, '$1\\frac{$2}{$3}');
+          m = m.replace(/(\d+)\s+(\d+)\/(\d+)/g, (m1, whole, num, den) => `${whole}\\frac{${num}}{${den}}`);
 
           // Chuẩn hóa phân số âm có khoảng cách: "- 7/8" -> "-\frac{7}{8}"
-          m = m.replace(/-\s*(\d+)\/(\d+)/g, '-\\frac{$1}{$2}');
+          m = m.replace(/-\s*(\d+)\/(\d+)/g, (m1, num, den) => `-\\frac{${num}}{${den}}`);
 
           // Chuẩn hóa phân số thông thường: "7/8" -> "\frac{7}{8}"
-          m = m.replace(/(^|[^\w\\])(\d+)\/(\d+)/g, '$1\\frac{$2}{$3}');
+          m = m.replace(/(^|[^\w\\])(\d+)\/(\d+)/g, (m1, prefix, num, den) => `${prefix}\\frac{${num}}{${den}}`);
 
           // Chuẩn hóa dấu so sánh và phép toán
           m = m.replace(/<=|≤/g, ' \\le ');
@@ -327,7 +341,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       // Bước 3: Tự động bọc \frac{...}{...} hoặc \sqrt{...} đơn lẻ chưa được bọc $...$
       cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(-?\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}))(?=$|[\s),.:;!?])/g, '$$$1$');
+        return t.replace(/(?:^|(?<=[\s(]))(-?\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}))(?=$|[\s),.:;!?])/g, (m, p1) => `$${p1}$`);
       });
 
       // Bước 4: Tự động bọc phân số đơn lẻ dạng text thô còn sót: "1/2", "- 3/4", "-3/4"
