@@ -649,6 +649,176 @@ const ContentInput: React.FC<ContentInputProps> = ({
     }
   };
 
+  // Helper: Chuyển đổi Office Math Markup Language (OMML) của Word sang mã chuẩn LaTeX
+  const ommlToLatex = (ommlXml: string): string => {
+    if (!ommlXml) return '';
+
+    const cleanMathText = (text: string): string => {
+      if (!text) return '';
+      return text
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/≤/g, ' \\le ')
+        .replace(/≥/g, ' \\ge ')
+        .replace(/≠/g, ' \\neq ')
+        .replace(/≈/g, ' \\approx ')
+        .replace(/±/g, ' \\pm ')
+        .replace(/×/g, ' \\times ')
+        .replace(/÷/g, ' \\div ')
+        .replace(/·/g, ' \\cdot ');
+    };
+
+    const parseNode = (xml: string): string => {
+      if (!xml) return '';
+      let res = '';
+      let pos = 0;
+
+      while (pos < xml.length) {
+        const tagMatch = xml.slice(pos).match(/<m:([a-zA-Z0-9]+)([^>]*)>([\s\S]*?)<\/m:\1>|<m:([a-zA-Z0-9]+)([^>]*)\/>/);
+        if (!tagMatch) {
+          const plainText = xml.slice(pos).replace(/<[^>]+>/g, '');
+          res += cleanMathText(plainText);
+          break;
+        }
+
+        const matchIndex = tagMatch.index || 0;
+        if (matchIndex > 0) {
+          const textBefore = xml.slice(pos, pos + matchIndex).replace(/<[^>]+>/g, '');
+          res += cleanMathText(textBefore);
+        }
+
+        const tagName = tagMatch[1] || tagMatch[4];
+        const tagBody = tagMatch[3] || '';
+        pos += matchIndex + tagMatch[0].length;
+
+        switch (tagName) {
+          case 'f': { // Phân số \frac{tử}{mẫu}
+            const numMatch = tagBody.match(/<m:num>([\s\S]*?)<\/m:num>/);
+            const denMatch = tagBody.match(/<m:den>([\s\S]*?)<\/m:den>/);
+            const num = numMatch ? parseNode(numMatch[1]).trim() : '';
+            const den = denMatch ? parseNode(denMatch[1]).trim() : '';
+            res += `\\frac{${num}}{${den}}`;
+            break;
+          }
+          case 'sSup': { // Số mũ / Luỹ thừa
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const supMatch = tagBody.match(/<m:sup>([\s\S]*?)<\/m:sup>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            const sup = supMatch ? parseNode(supMatch[1]).trim() : '';
+            res += `{${e}}^{${sup}}`;
+            break;
+          }
+          case 'sSub': { // Chỉ số dưới
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const subMatch = tagBody.match(/<m:sub>([\s\S]*?)<\/m:sub>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            const sub = subMatch ? parseNode(subMatch[1]).trim() : '';
+            res += `{${e}}_{${sub}}`;
+            break;
+          }
+          case 'sSubSup': { // Cả chỉ số dưới và trên
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const subMatch = tagBody.match(/<m:sub>([\s\S]*?)<\/m:sub>/);
+            const supMatch = tagBody.match(/<m:sup>([\s\S]*?)<\/m:sup>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            const sub = subMatch ? parseNode(subMatch[1]).trim() : '';
+            const sup = supMatch ? parseNode(supMatch[1]).trim() : '';
+            res += `{${e}}_{${sub}}^{${sup}}`;
+            break;
+          }
+          case 'rad': { // Căn bậc n / Căn bậc 2
+            const degMatch = tagBody.match(/<m:deg>([\s\S]*?)<\/m:deg>/);
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const deg = degMatch ? parseNode(degMatch[1]).trim() : '';
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            res += deg ? `\\sqrt[${deg}]{${e}}` : `\\sqrt{${e}}`;
+            break;
+          }
+          case 'd': { // Dấu ngoặc / Dấu giá trị tuyệt đối
+            const begChrMatch = tagBody.match(/<m:begChr[^>]*m:val="([^"]*)"/);
+            const endChrMatch = tagBody.match(/<m:endChr[^>]*m:val="([^"]*)"/);
+            const beg = begChrMatch ? begChrMatch[1] : '(';
+            const end = endChrMatch ? endChrMatch[1] : ')';
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const content = eMatch ? parseNode(eMatch[1]).trim() : '';
+            
+            let leftDelim = beg === '{' ? '\\{' : (beg === '' ? '.' : beg);
+            let rightDelim = end === '}' ? '\\}' : (end === '' ? '.' : end);
+            res += `\\left${leftDelim} ${content} \\right${rightDelim}`;
+            break;
+          }
+          case 'nary': { // Tích phân, Tổng sigma
+            const chrMatch = tagBody.match(/<m:chr[^>]*m:val="([^"]*)"/);
+            const chr = chrMatch ? chrMatch[1] : '∑';
+            const subMatch = tagBody.match(/<m:sub>([\s\S]*?)<\/m:sub>/);
+            const supMatch = tagBody.match(/<m:sup>([\s\S]*?)<\/m:sup>/);
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const sub = subMatch ? parseNode(subMatch[1]).trim() : '';
+            const sup = supMatch ? parseNode(supMatch[1]).trim() : '';
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            
+            let op = '\\sum';
+            if (chr === '∫') op = '\\int';
+            else if (chr === '∏') op = '\\prod';
+            
+            let limits = '';
+            if (sub) limits += `_{${sub}}`;
+            if (sup) limits += `^{${sup}}`;
+            res += `${op}${limits} ${e}`;
+            break;
+          }
+          case 'func': { // Hàm lượng giác, logarit, giới hạn
+            const fNameMatch = tagBody.match(/<m:fName>([\s\S]*?)<\/m:fName>/);
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const fName = fNameMatch ? parseNode(fNameMatch[1]).trim() : '';
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            res += `\\${fName}(${e})`;
+            break;
+          }
+          case 'bar': { // Gạch ngang trên đầu
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            res += `\\overline{${e}}`;
+            break;
+          }
+          case 'acc': { // Dấu mũ góc, véc tơ
+            const chrMatch = tagBody.match(/<m:chr[^>]*m:val="([^"]*)"/);
+            const chr = chrMatch ? chrMatch[1] : '^';
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            if (chr === '^' || chr === '̂') res += `\\widehat{${e}}`;
+            else if (chr === '→' || chr === '⃗') res += `\\vec{${e}}`;
+            else res += `\\bar{${e}}`;
+            break;
+          }
+          case 'eqArr': { // Hệ phương trình
+            const eMatches = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/g) || [];
+            const rows = eMatches.map(m => parseNode(m.replace(/<\/?m:e>/g, '')).trim());
+            res += `\\begin{cases} ${rows.join(' \\\\ ')} \\end{cases}`;
+            break;
+          }
+          case 't': { // Text
+            res += cleanMathText(tagBody);
+            break;
+          }
+          default: {
+            res += parseNode(tagBody);
+            break;
+          }
+        }
+      }
+
+      return res;
+    };
+
+    let latex = parseNode(ommlXml).trim();
+    latex = latex.replace(/\s+/g, ' ').trim();
+    return latex ? `$${latex}$` : '';
+  };
+
   const preprocessDOCXMath = async (arrayBuffer: ArrayBuffer): Promise<ArrayBuffer> => {
     try {
       const zip = await JSZip.loadAsync(arrayBuffer);
@@ -657,13 +827,39 @@ const ContentInput: React.FC<ContentInputProps> = ({
 
       let xml = await docXmlFile.async("string");
 
-      // Replace OMML math blocks with plain text wrapped in [MATH: ...]
-      xml = xml.replace(/<m:oMath[^>]*>([\s\S]*?)<\/m:oMath>/g, (match) => {
-        let text = match.replace(/<[^>]+>/g, '');
-        text = text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-        text = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<w:r><w:t xml:space="preserve">[MATH: ${text}]</w:t></w:r>`;
+      // 1. Phân giải toàn bộ OMML math blocks (<m:oMathPara> và <m:oMath>) trực tiếp sang chuẩn LaTeX $...$
+      xml = xml.replace(/<m:oMathPara[^>]*>([\s\S]*?)<\/m:oMathPara>/g, (match) => {
+        const latex = ommlToLatex(match);
+        return `<w:r><w:t xml:space="preserve">${latex ? ` ${latex} ` : ''}</w:t></w:r>`;
       });
+      xml = xml.replace(/<m:oMath[^>]*>([\s\S]*?)<\/m:oMath>/g, (match) => {
+        const latex = ommlToLatex(match);
+        return `<w:r><w:t xml:space="preserve">${latex ? ` ${latex} ` : ''}</w:t></w:r>`;
+      });
+
+      // 2. Nhận diện các đối tượng MathType OLE trong <w:object>
+      const mathFormulaRIds = new Set<string>();
+      const objectRegex = /<w:object\b[^>]*>([\s\S]*?)<\/w:object>/gi;
+      let objMatch;
+      while ((objMatch = objectRegex.exec(xml)) !== null) {
+        const objContent = objMatch[1];
+        if (/Equation\.DSMT4|Equation\.3|EMBED\s+Equation/i.test(objContent)) {
+          const rIdMatch = objContent.match(/r:id="([^"]+)"/i) || objContent.match(/r:embed="([^"]+)"/i);
+          if (rIdMatch && rIdMatch[1]) {
+            mathFormulaRIds.add(rIdMatch[1]);
+          }
+        }
+      }
+
+      // Gắn nhãn MATH_FORMULA vào alt text của hình ảnh để Mammoth giữ lại thuộc tính alt
+      if (mathFormulaRIds.size > 0) {
+        mathFormulaRIds.forEach(rId => {
+          const vShapeRegex = new RegExp(`(<v:shape[^>]*>[\\s\\S]*?r:id="${rId}"[\\s\\S]*?<\\/v:shape>)`, 'gi');
+          xml = xml.replace(vShapeRegex, (sMatch) => {
+            return sMatch.replace(/<v:imagedata([^>]*)>/i, `<v:imagedata$1 o:title="MATH_FORMULA">`);
+          });
+        });
+      }
 
       // Replace MathType OLE and EMBED Equation fields / objects so they don't leak raw EMBED Equation.DSMT4
       xml = xml.replace(/<w:instrText[^>]*>\s*EMBED\s+Equation[^\s<]*\s*<\/w:instrText>/gi, () => {
@@ -852,11 +1048,19 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 if (isNaN(height) || height <= 0) height = 180;
                 
                 const cleanId = rep.replacement.substring(1, rep.replacement.length - 1);
+                const isMathFormula = rep.match.includes('MATH_FORMULA') || 
+                                     (rep.crop ? rep.crop.includes('MATH_FORMULA') : false) ||
+                                     originalHeight <= 75 || 
+                                     (originalHeight <= 95 && originalWidth / originalHeight >= 1.8);
+
                 const cachedObj = {
                     id: cleanId,
                     dataUrl: finalDataUrl,
                     width,
-                    height
+                    height,
+                    isMathFormula,
+                    originalWidth,
+                    originalHeight
                 };
                 
                 // Đăng ký nhiều alias để đảm bảo tra cứu luôn thành công

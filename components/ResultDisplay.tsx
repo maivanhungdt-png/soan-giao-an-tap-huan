@@ -266,6 +266,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     const lines = text.split('\n');
 
+    // Cấu trúc Regex cho chuỗi phép tính số học / phân số / đại số
+    const op = '(?:<=|>=|!=|==|≤|≥|≠|<|>|=|≈|\\+|-|\\*|:|\\/|\\\\times|\\\\div|\\\\cdot|\\\\le|\\\\ge|\\\\neq|\\\\approx)';
+    const numTerm = '(?:(?:-\\s*)?(?:\\\\frac\\{[^}]+\\}\\{[^}]+\\}|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|-?\\d+(?:,\\d+)?|[a-zA-Z][0-9_]*))';
+    const mathPattern = `(?:^|(?<=[\\s(:;]))(${numTerm}\\s*${op}\\s*${numTerm}(?:\\s*${op}\\s*${numTerm})*)(?=$|[\\s),.:;!?])`;
+    const mathExprRegex = new RegExp(mathPattern, 'g');
+
     const processedLines = lines.map(line => {
       if (!line.trim()) return line;
 
@@ -281,22 +287,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, '\\frac{$1}{$2}');
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, '\\sqrt{$1}');
 
-      // Bước 2: Tự động bọc biểu thức toán / hệ thức so sánh / bất đẳng thức có chứa \frac, \le, \ge, phân số hoặc phép tính
-      // ví dụ: "-\frac{2022}{2023} > -1", "-1 > -1,1", "a \le 50", "b \le 50", "2024/1000=2+24/1000>1,9"
+      // Bước 2: Tự động bọc toàn bộ chuỗi biểu thức / phép tính số học liên hoàn (kể cả phân số âm có dấu cách, hỗn số, số thập phân, chuỗi dấu = liên tiếp)
       cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))((?:-?\\frac\{[^}]+\}\{[^}]+\}|-?\d+\/\d+|-?\d+(?:,\d+)?|[a-zA-Z][0-9_]*)\s*(?:<=|>=|!=|==|≤|≥|≠|<|>|=|\+|-|\\le|\\ge|\\neq|\\approx)\s*(?:-?\\frac\{[^}]+\}\{[^}]+\}|-?\d+\/\d+|-?\d+(?:,\d+)?|[a-zA-Z0-9_]+)(?:\s*(?:<=|>=|!=|==|≤|≥|≠|<|>|=|\+|-|\\le|\\ge|\\neq|\\approx)\s*(?:-?\\frac\{[^}]+\}\{[^}]+\}|-?\d+\/\d+|-?\d+(?:,\d+)?|[a-zA-Z0-9_]+))*)(?=$|[\s),.:;!?])/g, (match) => {
+        return t.replace(mathExprRegex, (match) => {
           // Bỏ qua định dạng ngày tháng như 20/11/2024
           if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(match.trim())) return match;
-          let mathStr = match.trim();
-          // Chuyển dấu gạch chéo phân số thô sang \frac
-          mathStr = mathStr.replace(/-(\d+)\/(\d+)/g, '-\\frac{$1}{$2}');
-          mathStr = mathStr.replace(/(\d+)\/(\d+)/g, '\\frac{$1}{$2}');
-          mathStr = mathStr.replace(/<=|≤/g, ' \\le ');
-          mathStr = mathStr.replace(/>=|≥/g, ' \\ge ');
-          mathStr = mathStr.replace(/!=|≠/g, ' \\neq ');
-          mathStr = mathStr.replace(/≈/g, ' \\approx ');
-          mathStr = mathStr.replace(/\s+/g, ' ').trim();
-          return `$${mathStr}$`;
+          let m = match.trim();
+
+          // Chuẩn hóa hỗn số: "1 5/12" -> "1\frac{5}{12}"
+          m = m.replace(/(\d+)\s+(\d+)\/(\d+)/g, '$1\\frac{$2}{$3}');
+
+          // Chuẩn hóa phân số âm có khoảng cách: "- 7/8" -> "-\frac{7}{8}"
+          m = m.replace(/-\s*(\d+)\/(\d+)/g, '-\\frac{$1}{$2}');
+
+          // Chuẩn hóa phân số thông thường: "7/8" -> "\frac{7}{8}"
+          m = m.replace(/(^|[^\w\\])(\d+)\/(\d+)/g, '$1\\frac{$2}{$3}');
+
+          // Chuẩn hóa dấu so sánh và phép toán
+          m = m.replace(/<=|≤/g, ' \\le ');
+          m = m.replace(/>=|≥/g, ' \\ge ');
+          m = m.replace(/!=|≠/g, ' \\neq ');
+          m = m.replace(/≈/g, ' \\approx ');
+          m = m.replace(/×/g, ' \\times ');
+          m = m.replace(/÷/g, ' \\div ');
+          m = m.replace(/·/g, ' \\cdot ');
+
+          // Chuẩn hóa khoảng trắng quanh toán tử trong công thức
+          m = m.replace(/\s*([=+\-])\s*/g, ' $1 ');
+          // Chuẩn hóa dấu trừ trước phân số hoặc số: "- \frac" -> "-\frac", "= - " -> "= -"
+          m = m.replace(/(^|[=+\-\s(])-\s+(\\frac|\d+)/g, '$1-$2');
+          m = m.replace(/^-\s+/g, '-');
+          m = m.replace(/\(\s*-\s+/g, '(-');
+          m = m.replace(/=\s*-\s+/g, '= -');
+          m = m.replace(/\s+/g, ' ').trim();
+
+          return `$${m}$`;
         });
       });
 
@@ -305,12 +330,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         return t.replace(/(?:^|(?<=[\s(]))(-?\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}))(?=$|[\s),.:;!?])/g, '$$$1$');
       });
 
-      // Bước 4: Tự động bọc phân số đơn lẻ dạng text thô: "1/2", "-3/4"
+      // Bước 4: Tự động bọc phân số đơn lẻ dạng text thô còn sót: "1/2", "- 3/4", "-3/4"
       cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(-?\d+)\/(\d+)(?=$|[\s),.:;!?])/g, (match, num, den) => {
-          const isNegative = num.startsWith('-');
-          const absNum = isNegative ? num.slice(1) : num;
-          return isNegative ? `$-\\frac{${absNum}}{${den}}$` : `$\\frac{${num}}{${den}}$`;
+        return t.replace(/(?:^|(?<=[\s(]))(-?\s*\d+)\/(\d+)(?=$|[\s),.:;!?])/g, (match, num, den) => {
+          const cleanNum = num.replace(/\s+/g, '');
+          const isNegative = cleanNum.startsWith('-');
+          const absNum = isNegative ? cleanNum.slice(1) : cleanNum;
+          return isNegative ? `$-\\frac{${absNum}}{${den}}$` : `$\\frac{${cleanNum}}{${den}}$`;
         });
       });
 
@@ -412,11 +438,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }
       }
 
-      // If there's any image in cache, return first image as fallback
-      const allEntries = Object.values(imageCache);
-      if (allEntries.length > 0) {
-          return allEntries[0];
-      }
       return null;
   };
 
@@ -434,8 +455,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               parts.forEach(part => {
                  if (!part) return;
                  
-                 const isImgTag = (part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh|So\s*do)/i.test(part)) ||
+                 let isImgTag = (part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh|So\s*do)/i.test(part)) ||
                                   (part.startsWith('![') && part.includes(')'));
+
+                 // Tuyệt đối không coi công thức toán học, phân số, MathType là thẻ ảnh
+                 if (/MATH|CÔNG_THỨC|PHÂN_SỐ|\d+\/\d+|\$|\\frac/i.test(part)) {
+                     isImgTag = false;
+                 }
 
                  if (isImgTag) {
                      const rawId = part.replace(/^!\[|^\[|\]$|\)$/g, '').trim();

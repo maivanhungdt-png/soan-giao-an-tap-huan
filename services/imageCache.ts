@@ -3,6 +3,9 @@ export interface CachedImage {
   dataUrl: string;
   width: number;
   height: number;
+  isMathFormula?: boolean;
+  originalWidth?: number;
+  originalHeight?: number;
 }
 export const imageCache: Record<string, CachedImage> = {};
 
@@ -58,10 +61,5 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
     }
   }
 
-  // Fallback to first available entry if any
-  const allEntries = Object.values(imageCache);
-  if (allEntries.length > 0 && allEntries[0]?.dataUrl) {
-    return allEntries[0];
-  }
   return null;
 };

@@ -3,6 +3,141 @@ import { LessonInfo, ProcessingOptions } from "../types";
 import { SYSTEM_INSTRUCTION, NLS_FRAMEWORK_DATA, GDQPAN_DATA, DISABILITY_PEDAGOGICAL_GUIDELINES } from "../constants";
 import { masterDataCsv } from "../masterData";
 import { ensureAllActivitiesInTwoColumnTable } from "../utils/tableFormatter";
+import { imageCache } from "./imageCache";
+
+/**
+ * Chuyển đổi các hình ảnh công thức toán học / phân số trong tài liệu sang mã LaTeX chuẩn $...$ bằng Gemini Vision
+ */
+export const transcribeMathImagesToLatex = async (
+  content: string,
+  apiKey: string,
+  onProgress?: (text: string) => void
+): Promise<string> => {
+  if (!content || !apiKey) return content;
+
+  // Tìm tất cả các mã chốt ảnh trong văn bản: [HINHANHGOC_1], [IMG1], [HINH_ANH_GOC_1]...
+  const imgRegex = /\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s#\-]*(\d+)\s*\]/gi;
+  const matches: { full: string; num: string }[] = [];
+  let m;
+  while ((m = imgRegex.exec(content)) !== null) {
+    matches.push({ full: m[0], num: m[1] });
+  }
+
+  if (matches.length === 0) return content;
+
+  // Lọc ra các ảnh có khả năng cao là công thức toán:
+  // - Có cờ isMathFormula = true
+  // - Hoặc có chiều cao <= 80px (hoặc <= 95px và tỷ lệ rộng/cao >= 1.8)
+  // - Hoặc ngữ cảnh xung quanh có chứa biểu hiện toán học (a), b), phép tính, +, -, =, phân số)
+  const candidateImages: { tag: string; num: string; dataUrl: string; cleanId: string }[] = [];
+
+  for (const match of matches) {
+    const cleanId = `HINHANHGOC_${match.num}`;
+    const cached = imageCache[cleanId] || imageCache[`IMG${match.num}`] || imageCache[match.num];
+    if (!cached || !cached.dataUrl || typeof cached.dataUrl !== 'string') continue;
+
+    // Không xử lý ảnh svg tạo bởi hệ thống
+    if (cached.dataUrl.startsWith('data:image/svg+xml')) continue;
+
+    const isFlagged = Boolean(cached.isMathFormula);
+    const isSmallHeight = (cached.originalHeight && cached.originalHeight <= 80) || (cached.height && cached.height <= 80);
+    const isWideRatio = Boolean(cached.originalWidth && cached.originalHeight && (cached.originalWidth / cached.originalHeight) >= 2.0 && cached.originalHeight <= 100);
+
+    // Kiểm tra ngữ cảnh xung quanh vị trí xuất hiện của tag trong content
+    const tagIdx = content.indexOf(match.full);
+    let isMathContext = false;
+    if (tagIdx !== -1) {
+      const surrounding = content.substring(Math.max(0, tagIdx - 120), Math.min(content.length, tagIdx + match.full.length + 120)).toLowerCase();
+      isMathContext = /(?:[a-d]\)|hđ\d|phép tính|tính:|cộng|trừ|nhân|chia|phân số|biểu thức|=|\\frac)/.test(surrounding);
+    }
+
+    if (isFlagged || isSmallHeight || isWideRatio || (isMathContext && (cached.originalHeight || cached.height || 180) <= 120)) {
+      candidateImages.push({
+        tag: match.full,
+        num: match.num,
+        dataUrl: cached.dataUrl,
+        cleanId
+      });
+    }
+  }
+
+  if (candidateImages.length === 0) return content;
+
+  if (onProgress) {
+    onProgress(`Đang chuyển đổi ${candidateImages.length} công thức toán từ dạng hình ảnh sang chuẩn LaTeX...`);
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  let updatedContent = content;
+
+  // Xử lý từng ảnh với Gemini Vision
+  const transcriptionPromises = candidateImages.map(async (item) => {
+    try {
+      const mimeType = item.dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+      const b64 = item.dataUrl.includes(",") ? item.dataUrl.split(",")[1] : item.dataUrl;
+
+      const promptText = `Bạn là chuyên gia số hoá công thức toán học và phân số. Hãy đọc chính xác công thức toán hoặc phân số trong ảnh và chuyển đổi sang cú pháp LaTeX chuẩn tương thích MathType đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập).
+QUY TẮC BẮT BUỘC:
+1. Phân số: bắt buộc dùng \\frac{tử}{mẫu} (ví dụ: $-\\frac{5}{7}$, $\\frac{8}{21}$, $\\frac{25}{100}$, $\\frac{17}{12}$).
+2. Dấu trừ trước phân số: viết dấu trừ liền trước lệnh \\frac (ví dụ: $-\\frac{7}{8}$, $-\\frac{21}{24}$).
+3. Hỗn số: viết số nguyên liền trước phân số (ví dụ: $1\\frac{5}{12}$, $2\\frac{1}{3}$).
+4. Chuỗi phép tính: Nếu ảnh chứa phép tính nhiều bước hoặc chuỗi dấu bằng liên tiếp, viết TOÀN BỘ trong CÙNG MỘT CẶP DẤU $...$ (ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$ hoặc $0,25 + 1\\frac{5}{12} = \\frac{25}{100} + \\frac{17}{12} = \\frac{1}{4} + \\frac{17}{12} = \\frac{20}{12} = \\frac{5}{3}$).
+5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
+6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { text: promptText },
+          { inlineData: { data: b64, mimeType } }
+        ]
+      });
+
+      const resText = (response && response.text) ? response.text.trim() : "";
+      if (resText && !resText.includes("NOT_MATH") && resText.includes("$")) {
+        const latexMatch = resText.match(/\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$/);
+        const finalLatex = latexMatch ? latexMatch[0] : (resText.startsWith("$") ? resText : `$${resText}$`);
+        return { item, latex: finalLatex, success: true };
+      }
+      return { item, latex: "", success: false };
+    } catch (err) {
+      console.warn(`Lỗi nhận diện ảnh công thức ${item.cleanId}:`, err);
+      return { item, latex: "", success: false };
+    }
+  });
+
+  const results = await Promise.all(transcriptionPromises);
+
+  for (const res of results) {
+    if (res.success && res.latex) {
+      // Thay thế tag ảnh trong text bằng mã LaTeX
+      updatedContent = updatedContent.replaceAll(res.item.tag, ` ${res.latex} `);
+      
+      // Xoá ảnh công thức này khỏi imageCache để khi xuất DOCX không bao giờ bị chèn ảnh!
+      const aliases = [
+        res.item.cleanId,
+        `HINHANHGOC_${res.item.num}`,
+        `HINHANHGOC${res.item.num}`,
+        `HINH_ANH_GOC_${res.item.num}`,
+        `HINH_ANH_GOC${res.item.num}`,
+        `HINH_ANH_${res.item.num}`,
+        `HINHANH_${res.item.num}`,
+        `HINHANH${res.item.num}`,
+        `IMG${res.item.num}`,
+        `IMG_${res.item.num}`,
+        `IMAGE_${res.item.num}`,
+        `IMAGE${res.item.num}`,
+        res.item.num
+      ];
+      aliases.forEach(k => {
+        delete imageCache[k];
+      });
+      console.log(`[Math OCR] Đã chuyển đổi thành công ảnh ${res.item.cleanId} thành LaTeX: ${res.latex}`);
+    }
+  }
+
+  return updatedContent;
+};
 
 export const generateNLSLessonPlan = async (
   info: LessonInfo,
@@ -20,7 +155,17 @@ export const generateNLSLessonPlan = async (
   if (!activeApiKey) {
     throw new Error("Chưa có khóa API Google Gemini. Vui lòng nhấn nút 'Khóa API' ở góc trên bên phải để nhập mã API Key miễn phí từ Google AI Studio (hoặc cài đặt GEMINI_API_KEY trên Vercel).");
   }
-  
+
+  // 0. Tự động OCR chuyển đổi tất cả hình ảnh công thức toán (MathType / Phân số) sang chuẩn LaTeX
+  try {
+    info.content = await transcribeMathImagesToLatex(info.content, activeApiKey, onProgress);
+    if (info.distributionContent) {
+      info.distributionContent = await transcribeMathImagesToLatex(info.distributionContent, activeApiKey, onProgress);
+    }
+  } catch (ocrErr) {
+    console.warn("Math formula image transcription error:", ocrErr);
+  }
+
   const ai = new GoogleGenAI({ apiKey: activeApiKey });
 
   // Tiền xử lý để loại bỏ HTML dư thừa, chuyển bảng thành dạng text ngắn gọn
@@ -441,6 +586,7 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
           * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \le 50$, $b \le 50$, $x \ge 0$, $x \neq 3$.
         + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\begin{cases} ax + by = c \\ a'x + b'y = c' \end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
         + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\begin{cases} ... \end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
+        + 🚨 TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN / PHÂN SỐ THÀNH ẢNH: Tất cả phân số, biểu thức đại số, phép tính toán học (kể cả chuỗi phép tính nhiều bước liên tiếp, ví dụ: $-\frac{5}{7} - \frac{8}{21} = -\frac{15}{21} - \frac{8}{21} = -\frac{23}{21}$) BẮT BUỘC PHẢI VIẾT BẰNG MÃ LATEX ĐẶT TRONG $...$, TUYỆT ĐỐI CẤM tạo mã [HINHANHGOC_...] hay chèn ảnh cho công thức toán!
       
       [ĐÁNH DẤU TÍCH HỢP - CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}]
       🚨 QUY TẮC BẮT BUỘC: BẠN CHỈ ĐƯỢC TÍCH HỢP CÁC LOẠI ĐÃ TÍCH CHỌN DƯỚI ĐÂY. TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC TỰ Ý TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO KHÁC NGOÀI DANH SÁCH:
