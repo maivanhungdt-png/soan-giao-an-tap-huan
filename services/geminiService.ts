@@ -192,13 +192,13 @@ export const generateNLSLessonPlan = async (
 
   // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-2.5-pro",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-3.7-flash"
+    "gemini-3.5-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
   ];
   
   let distributionContext = "";
@@ -342,9 +342,8 @@ export const generateNLSLessonPlan = async (
 ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu cụ thể đã giảm tải/điều chỉnh riêng cho dạng này]`).join('\n')}*</span>
 
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC (CÁC HOẠT ĐỘNG):
-         - Trong các Hoạt động dạy học (ở phần Mục tiêu hoạt động hoặc cột Hoạt động của giáo viên và học sinh / Bước 1, Bước 2), khi có điều chỉnh giáo dục hòa nhập, cũng trình bày 1 tiêu đề chung và xuống dòng từng loại:
-         <span style="color: red;">*Tích hợp giáo dục hòa nhập:
-${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('\n')}*</span>
+         - Trong các Hoạt động dạy học (trong Cột 1 hoặc Cột 2 của bảng 2 cột), khi có điều chỉnh giáo dục hòa nhập, BẮT BUỘC dùng thẻ <br> để xuống dòng bên trong ô bảng (TUYỆT ĐỐI KHÔNG DÙNG PHÍM ENTER / DẤU XUỐNG DÒNG THẬT VÌ SẼ LÀM GÃY BẢNG):
+         <span style="color: red;">*Tích hợp giáo dục hòa nhập:<br>${info.selectedDisabilities.map(d => `- ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('<br>')}*</span>
          - Dùng chữ màu đỏ <span style="color: red;">...</span>, TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
       =========================================================
       `;
@@ -709,12 +708,6 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
-    // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
-    if (options.layoutFormat !== 'no_table') {
-      text = ensureAllActivitiesInTwoColumnTable(text);
-      text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
-    }
-
     // BẮT BUỘC BÔI ĐỎ 100% CÁC ĐOẠN TÍCH HỢP VÀ GẮN MÃ CHỈ BÁO
     // Tìm mã chỉ báo NLS/AI từ phần Mục tiêu (nếu có)
     const nlsCodeMatch = text.match(/(?:Mã chỉ báo|Mã YCCĐ)[\s:]*([0-9a-zA-Z._,\s-]+)\)/i) || text.match(/\[([A-Z]{2,4}_[0-9a-zA-Z._-]+)\]/i);
@@ -748,6 +741,23 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
         return `<span style="color: red;">*${clean}*</span>`;
       });
     });
+
+    // BẢO TOÀN 100% HÌNH VẼ GỐC: Kiểm tra nếu cache có ảnh học liệu mà text chưa có thẻ [HINHANHGOC_1]
+    const hasAnyRealImages = Object.keys(imageCache).some(k => {
+      const it = imageCache[k];
+      return it && it.dataUrl && !it.isMathFormula && !it.dataUrl.startsWith('data:image/svg');
+    });
+
+    if (hasAnyRealImages && !/\[(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s0-9*]*\]/i.test(text)) {
+      // Tự động chèn thẻ [HINHANHGOC_1] vào Bước 1 của Hoạt động mở đầu / hình thành kiến thức
+      text = text.replace(/(\*\*Bước\s*1:[^\n<|]*)/i, '$1<br>[HINHANHGOC_1]<br>');
+    }
+
+    // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột và không bị vỡ hàng
+    if (options.layoutFormat !== 'no_table') {
+      text = ensureAllActivitiesInTwoColumnTable(text);
+      text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
+    }
 
     return text.trim();
   };
