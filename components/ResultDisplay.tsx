@@ -232,6 +232,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 9. Normalize 2-column markdown table header lines to standard "Hoạt động của giáo viên và học sinh" & "Kết quả hoạt động"
     clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm|Kết\s*quả\s*hoạt\s*động|Kết\s*quả)\s*\|/gi, '| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |');
+    // 9b. Đảm bảo 100% TRƯỚC BẢNG 2 CỘT HOẠT ĐỘNG LUÔN CÓ DÒNG **d) Tổ chức thực hiện:**
+    // Nếu trước bảng chưa có mục d) Tổ chức thực hiện, tự động chèn **d) Tổ chức thực hiện:** ngay trước bảng
+    clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?c\)\s*Sản\s*phẩm:?[^\n]*\n+)(?![ \t]*(?:\*\*)?d\)\s*Tổ\s*chức\s*thực\s*hiện)([ \t]*\|[ \t]*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/gi, '$1\n**d) Tổ chức thực hiện:**\n\n$2');
+    
+    // Trường hợp sau mục b hoặc bất kỳ nội dung nào nhảy thẳng vào bảng mà không có d) Tổ chức thực hiện
+    clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?b\)\s*Nội\s*dung:?[^\n]*\n+)(?![ \t]*(?:\*\*)?[cd]\)\s*)([ \t]*\|[ \t]*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/gi, '$1\n**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.\n\n**d) Tổ chức thực hiện:**\n\n$2');
+
 
     // 10. Replace "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" and variants with "* Hướng dẫn về nhà"
     clean = clean.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:(?:IV|4|IV\.|4\.)\s*)?(?:HƯỚNG\s*DẪN\s*TỰ\s*HỌC\s*VÀ\s*DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*TỰ\s*HỌC|HƯỚNG\s*DẪN\s*VỀ\s*NHÀ|DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*HỌC\s*Ở\s*NHÀ|Hướng\s*dẫn\s*tự\s*học\s*và\s*dặn\s*dò\s*về\s*nhà|Hướng\s*dẫn\s*tự\s*học)[^\n]*/gi, '\n\n* Hướng dẫn về nhà');
@@ -271,8 +278,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/^(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([a-c]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
 
-    // Xóa các dòng tiêu đề thừa như "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" nếu đứng ngay trước bảng 2 cột
-    clean = clean.replace(/^(?:\*\*)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Sản\s*phẩm):?(?:\*\*)?\s*(?=\n+\s*\|)/gmi, '');
 
     // 17. Auto bold Bước 1, Bước 2, Bước 3, Bước 4 inside or outside tables
     clean = clean.replace(/^(?:\*\*)?(Bước\s*[1-4]\s*:[^\n]*?)(?:\*\*)?$/gmi, '**$1**');

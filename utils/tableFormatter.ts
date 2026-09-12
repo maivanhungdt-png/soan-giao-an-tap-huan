@@ -41,6 +41,10 @@ export const hasActivityTable = (block: string): boolean => {
  */
 export const convertActivityBlockToTable = (activityBlock: string): string => {
   if (hasActivityTable(activityBlock)) {
+    // Nếu khối hoạt động đã có bảng nhưng chưa có dòng "d) Tổ chức thực hiện:", tự động bổ sung ngay trước bảng
+    if (!/(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(activityBlock)) {
+      return activityBlock.replace(/(\n\s*\|[^\n]*(?:hoạt\s*động\s*của|tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/i, '\n\n**d) Tổ chức thực hiện:**\n$1');
+    }
     return activityBlock;
   }
 
