@@ -129,7 +129,7 @@ const UploadBox: React.FC<UploadBoxProps> = ({
           type="file" 
           ref={inputRef}
           onChange={(e) => onFileChange(e, type)}
-          accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.csv,.tsv,.ods" 
+          accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.csv,.tsv,.ods,.png,.jpg,.jpeg,.webp,.gif,.bmp" 
           className="hidden" 
         />
         

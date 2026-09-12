@@ -420,8 +420,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const base64DataURLToArrayBuffer = (dataURL: string): Uint8Array => {
     try {
       if (!dataURL || typeof dataURL !== 'string') return new Uint8Array(0);
-      const parts = dataURL.split(',');
-      const base64 = parts.length > 1 ? parts[1] : parts[0];
+      const commaIndex = dataURL.indexOf(',');
+      const base64 = commaIndex >= 0 ? dataURL.substring(commaIndex + 1) : dataURL;
       const cleanBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, '').trim();
       if (!cleanBase64) return new Uint8Array(0);
       const binary_string = window.atob(cleanBase64);
@@ -460,23 +460,26 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                  }
 
                  if (isImgTag) {
-                     const rawId = part.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
+                     const cleanPart = part.replace(/^[*_~`#\s]+|[*_~`#\s:.\-]+$/g, '');
+                     const rawId = cleanPart.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
                      console.log("[DOCX Render] Trying to embed image tag:", rawId);
                      
-                     const cachedImg = lookupCachedImage(part);
-                     const numMatch = part.match(/\d+/);
+                     const numMatch = cleanPart.match(/\d+/);
                      const num = numMatch ? numMatch[0] : '1';
+                     const cachedImg = lookupCachedImage(cleanPart) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
 
                      if (cachedImg && cachedImg.dataUrl) {
                           try {
                               console.log("[DOCX Render] Success embed image:", rawId);
                               const buffer = base64DataURLToArrayBuffer(cachedImg.dataUrl);
                               if (buffer && buffer.length > 0) {
+                                  const renderW = Math.round(cachedImg.width || 260);
+                                  const renderH = Math.round(cachedImg.height || 180);
                                   segRuns.push(new ImageRun({
                                       data: buffer,
                                       transformation: {
-                                          width: Math.min(cachedImg.width || 260, 320),
-                                          height: Math.min(cachedImg.height || 180, 240),
+                                          width: Math.min(Math.max(renderW, 80), 380),
+                                          height: Math.min(Math.max(renderH, 60), 280),
                                       }
                                   }) as any);
                               } else {
