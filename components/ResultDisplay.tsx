@@ -1508,32 +1508,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
        const numMatch = cleanMatch.match(/\d+/);
        const num = numMatch ? numMatch[0] : '1';
        
-       const cachedImg = lookupCachedImage(cleanMatch);
+       const cachedImg = lookupCachedImage(cleanMatch) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
 
        if (cachedImg && typeof cachedImg.dataUrl === 'string' && cachedImg.dataUrl.trim() !== '') {
            return `<img src="${cachedImg.dataUrl}" alt="Hình ${num}: Minh họa trực quan" data-img-num="${num}" />`;
        }
 
-       // If not in cache, automatically generate pedagogical SVG diagram from context
-       const offsetNum = typeof offset === 'number' ? offset : 0;
-       const startPos = Math.max(0, offsetNum - 250);
-       const endPos = Math.min(text.length, offsetNum + match.length + 250);
-       const surroundingContext = text.slice(startPos, endPos);
-       const diagramType = detectDiagramType(surroundingContext, cleanMatch);
-       const customCaption = `Hình ${num}: Sơ đồ minh họa trực quan`;
-       const svg = generateEducationalDiagramSvg(diagramType, num, customCaption);
-       const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-
-       // Save to imageCache for both preview & docx export
-       const cacheEntry = { id: `HINHANHGOC_${num}`, dataUrl: svgDataUrl, width: 320, height: 210 };
-       imageCache[`HINHANHGOC_${num}`] = cacheEntry;
-       imageCache[`IMG${num}`] = cacheEntry;
-       imageCache[`HINH_${num}`] = cacheEntry;
-       imageCache[`${num}`] = cacheEntry;
-       imageCache[cleanMatch] = cacheEntry;
-       imageCache[rawId] = cacheEntry;
-
-       return `<img src="${svgDataUrl}" alt="${customCaption}" data-img-num="${num}" />`;
+       return `<div class="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">[Hình vẽ gốc ${num}]</div>`;
     });
 
     // Remove any empty img tags that might cause React warning: <img src="" ...> or <img ... src="" ...>
@@ -1696,12 +1677,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                       if (cached?.dataUrl) {
                         realSrc = cached.dataUrl;
                       } else {
-                        const numMatch = (alt || src).match(/\d+/);
-                        const num = numMatch ? numMatch[0] : '1';
-                        const diagramType = detectDiagramType(alt || '', src);
-                        const svg = generateEducationalDiagramSvg(diagramType, num, alt || '');
-                        realSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+                        realSrc = '';
                       }
+                    }
+
+                    if (!realSrc) {
+                      return (
+                        <div className="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">
+                          [Hình vẽ gốc / Ảnh minh họa]
+                        </div>
+                      );
                     }
 
                     const numMatch = (alt || src).match(/\d+/);

@@ -22,13 +22,7 @@ export const EducationalImageRenderer: React.FC<EducationalImageRendererProps> =
 }) => {
   // Helper to resolve src to actual dataUrl
   const resolveSource = (inputSrc: string): string => {
-    if (!inputSrc || typeof inputSrc !== 'string' || inputSrc.trim() === '') {
-      const diagramType = detectDiagramType(contextText || alt || '', `HINHANHGOC_${num}`);
-      const svg = generateEducationalDiagramSvg(diagramType, num, alt || `Hình ${num}`);
-      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    }
-
-    if (inputSrc.startsWith('data:image/') || inputSrc.startsWith('blob:') || inputSrc.startsWith('http://') || inputSrc.startsWith('https://')) {
+    if (inputSrc && (inputSrc.startsWith('data:image/') || inputSrc.startsWith('blob:') || inputSrc.startsWith('http://') || inputSrc.startsWith('https://'))) {
       return inputSrc;
     }
 
@@ -37,9 +31,7 @@ export const EducationalImageRenderer: React.FC<EducationalImageRendererProps> =
       return cached.dataUrl;
     }
 
-    const diagramType = detectDiagramType(contextText || alt || '', inputSrc);
-    const svg = generateEducationalDiagramSvg(diagramType, num, alt || `Hình ${num}`);
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    return inputSrc || '';
   };
 
   const [currentSrc, setCurrentSrc] = useState<string>(() => resolveSource(src));
@@ -54,10 +46,10 @@ export const EducationalImageRenderer: React.FC<EducationalImageRendererProps> =
 
   // Handle image load error fallback
   const handleImageError = () => {
-    const diagramType = detectDiagramType(contextText || alt || '', `HINHANHGOC_${num}`);
-    const svg = generateEducationalDiagramSvg(diagramType, num, alt || `Hình ${num}`);
-    const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    setCurrentSrc(svgDataUrl);
+    const cached = lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
+    if (cached?.dataUrl) {
+      setCurrentSrc(cached.dataUrl);
+    }
   };
 
   // Handle custom image upload from user computer

@@ -256,7 +256,7 @@ export const generateNLSLessonPlan = async (
          - Dưới mục "c) Năng lực trí tuệ nhân tạo (AI):" (hoặc "Năng lực AI:"), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:".
          - Ghi trực tiếp mã và nội dung YCCĐ bằng chữ màu đỏ: <span style="color: red;">*[${info.manualAI[0]?.code || 'Mã YCCĐ'}] ${info.manualAI.map(m => `[${m.code}] ${m.description}`).join('; ')}*</span>
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
-         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để đáp ứng các YCCĐ AI trên, định dạng chữ màu đỏ: <span style="color: red;">*Tích hợp năng lực AI: [Hành động/nhiệm vụ của GV và HS]*</span>
+         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, BẮT BUỘC định dạng chữ màu đỏ và GHI RÕ MÃ CHỈ BÁO: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể] (Mã chỉ báo: [Mã YCCĐ])*</span>
       =========================================================
           `;
       } else {
@@ -716,6 +716,40 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       text = ensureAllActivitiesInTwoColumnTable(text);
       text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
     }
+
+    // BẮT BUỘC BÔI ĐỎ 100% CÁC ĐOẠN TÍCH HỢP VÀ GẮN MÃ CHỈ BÁO
+    // Tìm mã chỉ báo NLS/AI từ phần Mục tiêu (nếu có)
+    const nlsCodeMatch = text.match(/(?:Mã chỉ báo|Mã YCCĐ)[\s:]*([0-9a-zA-Z._,\s-]+)\)/i) || text.match(/\[([A-Z]{2,4}_[0-9a-zA-Z._-]+)\]/i);
+    const discoveredCode = nlsCodeMatch ? nlsCodeMatch[1].trim() : '';
+
+    const integrationKeywords = [
+      'Tích hợp năng lực số',
+      'Tích hợp năng lực AI',
+      'Tích hợp giáo dục hòa nhập',
+      'Tích hợp GDQP-AN',
+      'Tích hợp GDQP',
+      'Tích hợp Giáo dục quốc phòng',
+      'Tích hợp STEM',
+      'Tích hợp Lồng ghép',
+      'Tích hợp đạo đức',
+      'Tích hợp kĩ năng sống',
+      'Tích hợp kỹ năng sống',
+      'Tích hợp môi trường',
+      'Tích hợp biển đảo'
+    ];
+
+    integrationKeywords.forEach(kw => {
+      // Tìm các đoạn tích hợp chưa được bọc thẻ span màu đỏ
+      const regex = new RegExp(`(?<!<span[^>]*style="[^"]*color:\\s*red[^"]*"[^>]*>)(?:\\*+)?(${kw}[^\\n\\r<*|]+)(?:\\*+)?`, 'gi');
+      text = text.replace(regex, (match, content) => {
+        if (match.includes('style="color: red') || match.includes('color="red"')) return match;
+        let clean = content.trim().replace(/^\*+|\*+$/g, '');
+        if (kw.includes('năng lực số') && !clean.toLowerCase().includes('chỉ báo') && discoveredCode) {
+          clean += ` (Mã chỉ báo: ${discoveredCode})`;
+        }
+        return `<span style="color: red;">*${clean}*</span>`;
+      });
+    });
 
     return text.trim();
   };

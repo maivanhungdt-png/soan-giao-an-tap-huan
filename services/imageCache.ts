@@ -29,11 +29,24 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
   const clean = tagOrId.replace(/^[*_~`#\s]+|[*_~`#\s]+$/g, '');
   const rawId = clean.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
 
-  if (imageCache[rawId]) return imageCache[rawId];
-  if (imageCache[clean]) return imageCache[clean];
+  // 1. Direct key match
+  if (imageCache[rawId] && !imageCache[rawId].isMathFormula) return imageCache[rawId];
+  if (imageCache[clean] && !imageCache[clean].isMathFormula) return imageCache[clean];
 
   const normalizedKey = rawId.replace(/[\s\-]+/g, '_').toUpperCase();
-  if (imageCache[normalizedKey]) return imageCache[normalizedKey];
+  if (imageCache[normalizedKey] && !imageCache[normalizedKey].isMathFormula) return imageCache[normalizedKey];
+
+  // 2. Build unique list of authentic original images in cache
+  const uniqueList: CachedImage[] = [];
+  const seenUrls = new Set<string>();
+  Object.keys(imageCache).forEach(k => {
+    const item = imageCache[k];
+    if (item && item.dataUrl && !item.isMathFormula && !seenUrls.has(item.dataUrl)) {
+      // Exclude data:image/svg+xml that was auto-generated if we want only real images
+      seenUrls.add(item.dataUrl);
+      uniqueList.push(item);
+    }
+  });
 
   const numMatch = rawId.match(/\d+/);
   if (numMatch) {
@@ -59,27 +72,22 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
       `image${num}.jpeg`,
       `image${num}.jpg`,
       `image${num}.svg`,
-      `image${num}`
+      `image${num}`,
+      `rId${num}`
     ];
     for (const key of candidates) {
-      if (imageCache[key]) return imageCache[key];
+      if (imageCache[key] && !imageCache[key].isMathFormula) return imageCache[key];
     }
-
-    // Fallback theo thứ tự xuất hiện trong imageCache (chỉ lấy ảnh học liệu thật)
-    const uniqueList: CachedImage[] = [];
-    const seenUrls = new Set<string>();
-    Object.keys(imageCache).forEach(k => {
-      const item = imageCache[k];
-      if (item && item.dataUrl && !item.isMathFormula && !seenUrls.has(item.dataUrl)) {
-        seenUrls.add(item.dataUrl);
-        uniqueList.push(item);
-      }
-    });
 
     const numIdx = parseInt(num, 10);
     if (numIdx > 0 && numIdx <= uniqueList.length) {
       return uniqueList[numIdx - 1];
     }
+  }
+
+  // Fallback: If cache has any real curriculum image, return the first one
+  if (uniqueList.length > 0) {
+    return uniqueList[0];
   }
 
   return null;
