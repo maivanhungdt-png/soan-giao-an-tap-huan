@@ -820,13 +820,45 @@ const ContentInput: React.FC<ContentInputProps> = ({
     return latex ? `$${latex}$` : '';
   };
 
-  const preprocessDOCXMath = async (arrayBuffer: ArrayBuffer): Promise<ArrayBuffer> => {
+  const preprocessDOCXMath = async (arrayBuffer: ArrayBuffer): Promise<{ processedBuffer: ArrayBuffer; mathMediaFiles: Set<string> }> => {
+    const mathMediaFiles = new Set<string>();
     try {
       const zip = await JSZip.loadAsync(arrayBuffer);
       const docXmlFile = zip.file("word/document.xml");
-      if (!docXmlFile) return arrayBuffer;
+      if (!docXmlFile) return { processedBuffer: arrayBuffer, mathMediaFiles };
 
       let xml = await docXmlFile.async("string");
+
+      // 1. Phân tích word/_rels/document.xml.rels để xác định các file media của MathType / OLE
+      const relsFile = zip.file("word/_rels/document.xml.rels");
+      const rIdToTarget: Record<string, string> = {};
+      if (relsFile) {
+        const relsXml = await relsFile.async("string");
+        const relMatches = relsXml.matchAll(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*>/gi);
+        for (const rm of relMatches) {
+          const rId = rm[1];
+          const target = rm[2].replace(/^media\//, '').replace(/^word\/media\//, '');
+          rIdToTarget[rId] = target;
+        }
+      }
+
+      // Tìm tất cả các khối <w:object> hoặc <w:pict> chứa MathType / Equation OLE
+      const objectRegex = /<w:object[^>]*>([\s\S]*?)<\/w:object>/gi;
+      let objMatch;
+      while ((objMatch = objectRegex.exec(xml)) !== null) {
+        const objContent = objMatch[1];
+        const isMathType = /Equation|DSMT4|oleObject/i.test(objContent);
+        if (isMathType) {
+          // Trích xuất các rId ảnh preview của công thức toán này
+          const rIdMatches = objContent.matchAll(/r:id="([^"]+)"/gi);
+          for (const rm of rIdMatches) {
+            const rId = rm[1];
+            if (rIdToTarget[rId]) {
+              mathMediaFiles.add(rIdToTarget[rId]);
+            }
+          }
+        }
+      }
 
       // Helper: Thoát các ký tự XML bắt buộc để tệp XML không bao giờ bị hỏng khi Mammoth đọc
       const xmlEscape = (str: string): string => {
@@ -837,7 +869,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
           .replace(/>/g, '&gt;');
       };
 
-      // 1. Phân giải toàn bộ OMML math blocks (<m:oMathPara> và <m:oMath>) trực tiếp sang chuẩn LaTeX $...$
+      // 2. Phân giải toàn bộ OMML math blocks (<m:oMathPara> và <m:oMath>) trực tiếp sang chuẩn LaTeX $...$
       xml = xml.replace(/<m:oMathPara[^>]*>([\s\S]*?)<\/m:oMathPara>/g, (match) => {
         const latex = ommlToLatex(match);
         if (!latex) return '';
@@ -851,21 +883,31 @@ const ContentInput: React.FC<ContentInputProps> = ({
         return `<w:r><w:t xml:space="preserve"> ${safeXml} </w:t></w:r>`;
       });
 
-      // 2. Làm sạch các trường MathType OLE text thô để không bị rò rỉ mã lệnh
+      // 3. Xóa bỏ hoàn toàn thẻ ảnh preview của MathType OLE trong document.xml để Mammoth KHÔNG sinh ra thẻ <img> cho công thức toán
+      xml = xml.replace(/<w:object[^>]*>[\s\S]*?<\/w:object>/gi, (match) => {
+        if (/Equation|DSMT4|oleObject/i.test(match)) {
+          // Bỏ hẳn ảnh chụp công thức toán, không để Mammoth chuyển thành ảnh
+          return `<w:r><w:t xml:space="preserve"> </w:t></w:r>`;
+        }
+        return match;
+      });
+
+      // 4. Làm sạch các trường MathType OLE text thô để không bị rò rỉ mã lệnh
       xml = xml.replace(/<w:instrText[^>]*>\s*EMBED\s+Equation[^\s<]*\s*<\/w:instrText>/gi, () => {
-        return `<w:t xml:space="preserve">[CÔNG_THỨC_TOÁN: MathType]</w:t>`;
+        return `<w:t xml:space="preserve"> </w:t>`;
       });
       xml = xml.replace(/<w:fldSimple[^>]*w:instr="[^"]*Equation[^"]*"[^>]*>[\s\S]*?<\/w:fldSimple>/gi, () => {
-        return `<w:r><w:t xml:space="preserve">[CÔNG_THỨC_TOÁN: MathType]</w:t></w:r>`;
+        return `<w:r><w:t xml:space="preserve"> </w:t></w:r>`;
       });
-      xml = xml.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, '[CÔNG_THỨC_TOÁN: MathType]');
-      xml = xml.replace(/\bEquation\.DSMT4\b/gi, '[CÔNG_THỨC_TOÁN: MathType]');
+      xml = xml.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, ' ');
+      xml = xml.replace(/\bEquation\.DSMT4\b/gi, ' ');
 
       zip.file("word/document.xml", xml);
-      return await zip.generateAsync({ type: "arraybuffer" });
+      const processedBuffer = await zip.generateAsync({ type: "arraybuffer" });
+      return { processedBuffer, mathMediaFiles };
     } catch (e) {
       console.error("Error preprocessing DOCX math:", e);
-      return arrayBuffer;
+      return { processedBuffer: arrayBuffer, mathMediaFiles };
     }
   };
 
@@ -876,7 +918,10 @@ const ContentInput: React.FC<ContentInputProps> = ({
             clearImageCache();
         }
 
-        // 1. Trích xuất toàn bộ media từ thư mục word/media/ của tệp zip để đảm bảo 100% không mất bất kỳ ảnh nào
+        // 1. Tiền xử lý DOCX để chuyển công thức OMML sang LaTeX và tìm danh sách ảnh công thức toán MathType
+        const { processedBuffer, mathMediaFiles } = await preprocessDOCXMath(arrayBuffer);
+
+        // 2. Trích xuất media từ thư mục word/media/ của tệp zip, LOẠI BỎ TRIỆT ĐỂ ẢNH CÔNG THỨC TOÁN
         const zip = await JSZip.loadAsync(arrayBuffer.slice(0));
         const mediaFiles = zip.file(/^word\/media\//);
         const zipImages: { name: string; dataUrl: string; width: number; height: number }[] = [];
@@ -884,7 +929,19 @@ const ContentInput: React.FC<ContentInputProps> = ({
         for (const mFile of mediaFiles) {
             const mName = mFile.name.split('/').pop() || '';
             const mExt = mName.split('.').pop()?.toLowerCase();
-            if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp', 'wmf', 'emf'].includes(mExt || '')) {
+            
+            // BỎ QUA 100% các tệp WMF, EMF (đây là ảnh snapshot của MathType / vector OLE, không phải ảnh học liệu)
+            if (mExt === 'wmf' || mExt === 'emf') {
+                continue;
+            }
+
+            // BỎ QUA nếu file nằm trong danh sách ảnh MathType OLE đã xác định
+            if (mathMediaFiles.has(mName) || mathMediaFiles.has(mFile.name)) {
+                continue;
+            }
+
+            // Chỉ chấp nhận các định dạng ảnh chụp/tranh vẽ học liệu thực sự
+            if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp'].includes(mExt || '')) {
                 const mime = mExt === 'png' ? 'image/png' : (mExt === 'gif' ? 'image/gif' : (mExt === 'webp' ? 'image/webp' : 'image/jpeg'));
                 const b64 = await mFile.async("base64");
                 const dataUrl = `data:${mime};base64,${b64}`;
@@ -892,47 +949,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
             }
         }
 
-        // Đăng ký toàn bộ ảnh gốc từ zip vào imageCache ngay lập tức
-        for (let i = 0; i < zipImages.length; i++) {
-            const zImg = zipImages[i];
-            const imgNum = i + 1;
-            const cleanId = `HINHANHGOC_${imgNum}`;
-            const cachedObj = {
-                id: cleanId,
-                dataUrl: zImg.dataUrl,
-                width: 260,
-                height: 180,
-                isMathFormula: false
-            };
-            imageCache[cleanId] = cachedObj;
-            imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
-            imageCache[`HINH_ANH_GOC_${imgNum}`] = cachedObj;
-            imageCache[`HINH_ANH_GOC${imgNum}`] = cachedObj;
-            imageCache[`HINH_VE_GOC_${imgNum}`] = cachedObj;
-            imageCache[`HINH_VE_GOC${imgNum}`] = cachedObj;
-            imageCache[`HÌNH_VẼ_GỐC_${imgNum}`] = cachedObj;
-            imageCache[`HÌNH_VẼ_GỐC${imgNum}`] = cachedObj;
-            imageCache[`HÌNH VẼ GỐC ${imgNum}`] = cachedObj;
-            imageCache[`HÌNH_ẢNH_GỐC_${imgNum}`] = cachedObj;
-            imageCache[`HÌNH_ẢNH_GỐC${imgNum}`] = cachedObj;
-            imageCache[`HÌNH ẢNH GỐC ${imgNum}`] = cachedObj;
-            imageCache[`IMG${imgNum}`] = cachedObj;
-            imageCache[`IMG_${imgNum}`] = cachedObj;
-            imageCache[`HINH_${imgNum}`] = cachedObj;
-            imageCache[`HINH${imgNum}`] = cachedObj;
-            imageCache[`${imgNum}`] = cachedObj;
-            imageCache[zImg.name] = cachedObj;
-            imageCache[zImg.name.replace(/\.[^/.]+$/, "")] = cachedObj;
-            if (typeof window !== 'undefined') {
-                window.__globalImageCache = window.__globalImageCache || {};
-                window.__globalImageCache[cleanId] = cachedObj;
-                window.__globalImageCache[zImg.name] = cachedObj;
-                window.__globalImageCache[`${imgNum}`] = cachedObj;
-            }
-        }
-
-        // 2. Chuyển đổi DOCX sang HTML với Mammoth
-        const processedBuffer = await preprocessDOCXMath(arrayBuffer);
+        // 3. Chuyển đổi DOCX sang HTML với Mammoth
         const mammothOptions = {
             convertImage: (mammoth as any).images ? (mammoth as any).images.imgElement(function(element: any) {
                 return element.read("base64").then(function(imageBuffer: string) {
@@ -974,15 +991,17 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 const originalWidth = img.naturalWidth || 0;
                 const originalHeight = img.naturalHeight || 0;
 
-                // Chỉ bỏ qua nếu là icon rác siêu nhỏ (< 20px)
-                const isTinyTrash = (originalWidth > 0 && originalHeight > 0 && originalWidth < 20 && originalHeight < 20);
+                // 🚨 BỘ LỌC CÔNG THỨC TOÁN & ICON RÁC:
+                // Các ảnh chụp phân số / công thức MathType thường có chiều cao <= 54px hoặc kích thước quá nhỏ < 60x55
+                const isMathFormulaOrIcon = (originalHeight > 0 && originalHeight < 55) || (originalWidth > 0 && originalHeight > 0 && originalWidth < 60 && originalHeight < 60);
 
-                if (isTinyTrash) {
+                if (isMathFormulaOrIcon) {
+                    // TUYỆT ĐỐI KHÔNG GÁN [HINHANHGOC_X] cho công thức toán hay icon nhỏ, chỉ thay bằng khoảng trắng
                     html = html.replace(rep.fullTag, ' ');
                     continue;
                 }
 
-                // ĐÂY LÀ HÌNH ẢNH HỌC LIỆU THẬT (Tranh vẽ SGK, Khinh khí cầu, Hình thang, Đồ thị, Thí nghiệm...)
+                // ĐÂY LÀ HÌNH ẢNH HỌC LIỆU THỰC SỰ (Tranh vẽ SGK, Khinh khí cầu, Hình học phẳng/không gian, Đồ thị, Thí nghiệm...)
                 realImageCounter++;
                 const cleanId = `HINHANHGOC_${realImageCounter}`;
                 const replacementTag = `[${cleanId}]`;
@@ -1039,9 +1058,29 @@ const ContentInput: React.FC<ContentInputProps> = ({
             }
         }
 
-        // Bổ sung: Nếu Mammoth không nhận diện được thẻ <img> nhưng zip có ảnh học liệu
+        // Bổ sung: Nếu Mammoth không nhận diện được thẻ <img> trong HTML nhưng trong zip có ảnh học liệu thật sự
         if (realImageCounter === 0 && zipImages.length > 0) {
-            // Chèn placeholder hình ảnh vào văn bản để AI biết bài có hình
+            for (let i = 0; i < zipImages.length; i++) {
+                const zImg = zipImages[i];
+                const imgNum = i + 1;
+                const cleanId = `HINHANHGOC_${imgNum}`;
+                const cachedObj = {
+                    id: cleanId,
+                    dataUrl: zImg.dataUrl,
+                    width: 260,
+                    height: 180,
+                    isMathFormula: false
+                };
+                imageCache[cleanId] = cachedObj;
+                imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
+                imageCache[`HINH_ANH_GOC_${imgNum}`] = cachedObj;
+                imageCache[`IMG${imgNum}`] = cachedObj;
+                if (typeof window !== 'undefined') {
+                    window.__globalImageCache = window.__globalImageCache || {};
+                    window.__globalImageCache[cleanId] = cachedObj;
+                    window.__globalImageCache[`HINHANHGOC_${imgNum}`] = cachedObj;
+                }
+            }
             html += `\n\n[HINHANHGOC_1]\n\n`;
         }
 

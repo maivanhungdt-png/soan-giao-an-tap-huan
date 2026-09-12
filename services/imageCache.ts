@@ -34,6 +34,15 @@ const removeVietnameseTones = (str: string): string => {
     .replace(/Đ/g, 'D');
 };
 
+const isValidEducationalImage = (item: CachedImage | null | undefined): boolean => {
+  if (!item || !item.dataUrl) return false;
+  if (item.isMathFormula) return false;
+  if (item.dataUrl.startsWith('data:image/svg')) return false; // Không dùng svg do AI bịa
+  if (item.originalHeight && item.originalHeight < 55) return false; // Ảnh công thức toán inline MathType
+  if (item.originalWidth && item.originalHeight && item.originalWidth < 60 && item.originalHeight < 60) return false; // Icon rác
+  return true;
+};
+
 export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
   if (!tagOrId) return null;
   if (tagOrId.startsWith('data:image/') || tagOrId.startsWith('blob:') || tagOrId.startsWith('http://') || tagOrId.startsWith('https://')) {
@@ -47,21 +56,21 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
   const rawId = clean.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
 
   // 1. Direct key match (exact or trimmed)
-  if (activeCache[rawId] && !activeCache[rawId].isMathFormula) return activeCache[rawId];
-  if (activeCache[clean] && !activeCache[clean].isMathFormula) return activeCache[clean];
+  if (isValidEducationalImage(activeCache[rawId])) return activeCache[rawId];
+  if (isValidEducationalImage(activeCache[clean])) return activeCache[clean];
 
   const normalizedKey = rawId.replace(/[\s\-]+/g, '_').toUpperCase();
-  if (activeCache[normalizedKey] && !activeCache[normalizedKey].isMathFormula) return activeCache[normalizedKey];
+  if (isValidEducationalImage(activeCache[normalizedKey])) return activeCache[normalizedKey];
 
   const noToneKey = removeVietnameseTones(normalizedKey);
-  if (activeCache[noToneKey] && !activeCache[noToneKey].isMathFormula) return activeCache[noToneKey];
+  if (isValidEducationalImage(activeCache[noToneKey])) return activeCache[noToneKey];
 
   // 2. Build unique list of authentic original images in cache
   const uniqueList: CachedImage[] = [];
   const seenUrls = new Set<string>();
   Object.keys(activeCache).forEach(k => {
     const item = activeCache[k];
-    if (item && item.dataUrl && !item.isMathFormula && !seenUrls.has(item.dataUrl)) {
+    if (isValidEducationalImage(item) && !seenUrls.has(item.dataUrl)) {
       seenUrls.add(item.dataUrl);
       uniqueList.push(item);
     }
@@ -109,18 +118,17 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
       `image${num}.jpeg`,
       `image${num}.jpg`,
       `image${num}.gif`,
-      `image${num}.svg`,
       `image${num}.webp`,
       `image${num}`,
       `rId${num}`
     ];
 
     for (const key of candidates) {
-      if (activeCache[key] && !activeCache[key].isMathFormula) return activeCache[key];
+      if (isValidEducationalImage(activeCache[key])) return activeCache[key];
       const upper = key.toUpperCase();
-      if (activeCache[upper] && !activeCache[upper].isMathFormula) return activeCache[upper];
+      if (isValidEducationalImage(activeCache[upper])) return activeCache[upper];
       const noTone = removeVietnameseTones(upper);
-      if (activeCache[noTone] && !activeCache[noTone].isMathFormula) return activeCache[noTone];
+      if (isValidEducationalImage(activeCache[noTone])) return activeCache[noTone];
     }
 
     if (numIdx > 0 && numIdx <= uniqueList.length) {
@@ -128,7 +136,7 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
     }
   }
 
-  // Fallback: If cache has any real curriculum image, return by index or the first one
+  // Fallback: Chỉ trả về ảnh nếu thực sự có ảnh học liệu thật trong danh sách
   if (uniqueList.length > 0) {
     if (numMatch) {
       const idx = (parseInt(numMatch[0], 10) - 1) % uniqueList.length;
