@@ -1055,12 +1055,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       });
 
       if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_')) {
-        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu vào trong ô Bảng 2 cột:", educationalImages);
-        // Chèn vào Cột 1 (Hoạt động của GV và HS) của bảng 2 cột đầu tiên
-        const tableHeaderPattern = /(\|\s*Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh\s*\|\s*Kết\s*quả\s*hoạt\s*động\s*\|[\s\S]*?\|\s*:---[\s\S]*?\|\s*)([^|\n]+)(\|)/i;
-        if (tableHeaderPattern.test(preProcessedResult)) {
-          const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
-          preProcessedResult = preProcessedResult.replace(tableHeaderPattern, `$1$2 ${imgTagsInCell}$3`);
+        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu vào ô Bước 1 của Bảng 2 cột:", educationalImages);
+        const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
+        
+        // 1. Ưu tiên chèn vào ngay sau Bước 1 trong bảng
+        if (/(\*\*Bước\s*1:[^|\n]+)/i.test(preProcessedResult)) {
+          preProcessedResult = preProcessedResult.replace(/(\*\*Bước\s*1:[^|\n]+)/i, `$1 ${imgTagsInCell}`);
+        } else if (/(Bước\s*1:[^|\n]+)/i.test(preProcessedResult)) {
+          preProcessedResult = preProcessedResult.replace(/(Bước\s*1:[^|\n]+)/i, `$1 ${imgTagsInCell}`);
+        } else {
+          // 2. Hoặc chèn vào ô đầu tiên của bảng 2 cột đầu tiên
+          const generalRowMatch = preProcessedResult.match(/\|\s*:---[\s\S]*?\|[ \t]*\r?\n\|([^|\n]+)\|/i);
+          if (generalRowMatch && generalRowMatch[1]) {
+            preProcessedResult = preProcessedResult.replace(generalRowMatch[0], generalRowMatch[0].replace(generalRowMatch[1], `${generalRowMatch[1]} ${imgTagsInCell}`));
+          }
         }
       }
       const lines = preProcessedResult.split('\n');

@@ -83,7 +83,7 @@ QUY TẮC BẮT BUỘC:
 
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
       const fetchPromise = ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: [
           { text: promptText },
           { inlineData: { data: b64, mimeType } }
@@ -192,11 +192,12 @@ export const generateNLSLessonPlan = async (
 
   // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.7-flash",
     "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-2.5-pro",
-    "gemini-1.5-pro"
+    "gemini-2.0-flash"
   ];
   
   let distributionContext = "";
@@ -603,7 +604,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: tocParts
       });
 
