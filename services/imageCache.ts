@@ -60,14 +60,17 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
       if (imageCache[key]) return imageCache[key];
     }
 
-    // Fallback theo thứ tự xuất hiện trong imageCache
-    const uniqueDataUrls: { [url: string]: any } = {};
+    // Fallback theo thứ tự xuất hiện trong imageCache (chỉ lấy ảnh học liệu thật)
+    const uniqueList: CachedImage[] = [];
+    const seenUrls = new Set<string>();
     Object.keys(imageCache).forEach(k => {
-      if (imageCache[k]?.dataUrl) {
-        uniqueDataUrls[imageCache[k].dataUrl] = imageCache[k];
+      const item = imageCache[k];
+      if (item && item.dataUrl && !item.isMathFormula && !seenUrls.has(item.dataUrl)) {
+        seenUrls.add(item.dataUrl);
+        uniqueList.push(item);
       }
     });
-    const uniqueList = Object.values(uniqueDataUrls);
+
     const numIdx = parseInt(num, 10);
     if (numIdx > 0 && numIdx <= uniqueList.length) {
       return uniqueList[numIdx - 1];

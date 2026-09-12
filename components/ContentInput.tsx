@@ -991,7 +991,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
                     (originalWidth > 0 && originalHeight > 0 && originalWidth <= 80 && originalHeight <= 80)
                 );
 
-                if (isMathOrSmallIcon || originalWidth === 0 || originalHeight === 0) {
+                if (isMathOrSmallIcon) {
                     // Xóa thẻ ảnh công thức khỏi HTML - TUYỆT ĐỐI KHÔNG sinh thẻ [HINHANHGOC_...] cho công thức toán
                     html = html.replace(rep.fullTag, ' ');
                     continue;
