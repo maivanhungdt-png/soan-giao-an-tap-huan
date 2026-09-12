@@ -30,7 +30,7 @@ import {
   ImageRun
 } from 'docx';
 import FileSaver from 'file-saver';
-import { imageCache } from '../services/imageCache';
+import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
 import { ensureAllActivitiesInTwoColumnTable } from '../utils/tableFormatter';
@@ -419,9 +419,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   // Helper: Convert base64 to buffer for docx safely
   const base64DataURLToArrayBuffer = (dataURL: string): Uint8Array => {
     try {
+      if (!dataURL || typeof dataURL !== 'string') return new Uint8Array(0);
       const parts = dataURL.split(',');
       const base64 = parts.length > 1 ? parts[1] : parts[0];
-      const cleanBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, '');
+      const cleanBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, '').trim();
+      if (!cleanBase64) return new Uint8Array(0);
       const binary_string = window.atob(cleanBase64);
       const len = binary_string.length;
       const bytes = new Uint8Array(len);
@@ -433,72 +435,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       console.error("Error decoding base64DataURLToArrayBuffer:", err);
       return new Uint8Array(0);
     }
-  };
-
-  // Helper: Lookup image in cache with multiple robust fallbacks
-  const lookupCachedImage = (tagOrId: string) => {
-      if (!tagOrId) return null;
-      if (tagOrId.startsWith('data:image/') || tagOrId.startsWith('blob:') || tagOrId.startsWith('http://') || tagOrId.startsWith('https://')) {
-          return { id: 'inline', dataUrl: tagOrId, width: 250, height: 180 };
-      }
-
-      const clean = tagOrId.replace(/^[*_~`#\s]+|[*_~`#\s]+$/g, '');
-      const rawId = clean.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
-      
-      if (imageCache[rawId]) return imageCache[rawId];
-      if (imageCache[clean]) return imageCache[clean];
-
-      const normalizedKey = rawId.replace(/[\s\-]+/g, '_').toUpperCase();
-      if (imageCache[normalizedKey]) return imageCache[normalizedKey];
-
-      // Match number anywhere in string
-      const numMatch = rawId.match(/\d+/);
-      if (numMatch) {
-          const num = numMatch[0];
-          const numIdx = parseInt(num, 10);
-          const candidates = [
-              `HINHANHGOC_${num}`,
-              `HINHANHGOC${num}`,
-              `HINH_ANH_GOC_${num}`,
-              `HINH_ANH_GOC${num}`,
-              `HINH_ANH_${num}`,
-              `HINHANH_${num}`,
-              `HINHANH${num}`,
-              `IMG${num}`,
-              `IMG_${num}`,
-              `IMAGE_${num}`,
-              `IMAGE${num}`,
-              `SGK_${num}`,
-              `SGK${num}`,
-              `HINH_${num}`,
-              `HINH${num}`,
-              num,
-              `image${num}.png`,
-              `image${num}.jpeg`,
-              `image${num}.jpg`,
-              `image${num}.gif`,
-              `image${num}.svg`,
-              `image${num}.webp`,
-              `image${num}`
-          ];
-          for (const key of candidates) {
-              if (imageCache[key]) return imageCache[key];
-          }
-
-          // Fallback by sequential order in cache
-          const uniqueDataUrls: { [url: string]: any } = {};
-          Object.keys(imageCache).forEach(k => {
-              if (imageCache[k]?.dataUrl) {
-                  uniqueDataUrls[imageCache[k].dataUrl] = imageCache[k];
-              }
-          });
-          const uniqueList = Object.values(uniqueDataUrls);
-          if (numIdx > 0 && numIdx <= uniqueList.length) {
-              return uniqueList[numIdx - 1];
-          }
-      }
-
-      return null;
   };
 
   // Helper: Format raw text segments into Docx TextRuns
@@ -531,7 +467,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                      const numMatch = part.match(/\d+/);
                      const num = numMatch ? numMatch[0] : '1';
 
-                     if (cachedImg) {
+                     if (cachedImg && cachedImg.dataUrl) {
                           try {
                               console.log("[DOCX Render] Success embed image:", rawId);
                               const buffer = base64DataURLToArrayBuffer(cachedImg.dataUrl);
@@ -539,7 +475,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                                   segRuns.push(new ImageRun({
                                       data: buffer,
                                       transformation: {
-                                          width: Math.min(cachedImg.width || 250, 320),
+                                          width: Math.min(cachedImg.width || 260, 320),
                                           height: Math.min(cachedImg.height || 180, 240),
                                       }
                                   }) as any);
@@ -591,7 +527,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const parseTextWithFormatting = (text: string, inheritedStyles: any = {}): any[] => {
     const runs: any[] = [];
     // Prioritize Image tags and HTML tags OVER markdown to prevent `_` or `*` from breaking image tags or tag pairs.
-    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s0-9*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<span\s+[^>]*style="[^"]*color:\s*blue;?"[^>]*>[\s\S]*?<\/span>|<font\s+[^>]*color="blue"[^>]*>[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_)/gi;
+    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<span\s+[^>]*style="[^"]*color:\s*blue;?"[^>]*>[\s\S]*?<\/span>|<font\s+[^>]*color="blue"[^>]*>[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_)/gi;
     const parts = text.split(regex);
 
     parts.forEach(part => {
@@ -614,7 +550,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
 
         // 1. If it is an image tag, render it directly as an image without breaking into italics
-        if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)/i.test(part)) ||
+        if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
             (part.startsWith('![') && part.includes(')'))) {
             runs.push(...createTextRuns(part, matchStyles));
             return;
@@ -1054,7 +990,32 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
       });
 
-      if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_')) {
+      // Quét tất cả các thẻ hình ảnh trong giáo án, nếu chưa có trong cache thì tạo sơ đồ/hình học chất lượng cao
+      const allImgTags = preProcessedResult.match(/\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]/gi) || [];
+      for (const tag of allImgTags) {
+        if (!lookupCachedImage(tag)) {
+          try {
+            const numMatch = tag.match(/\d+/);
+            const num = numMatch ? numMatch[0] : '1';
+            const diagType = detectDiagramType(preProcessedResult, tag);
+            const svg = generateEducationalDiagramSvg(diagType, num, tag);
+            const pngUrl = await convertSvgToPngDataUrl(svg, 500, 320);
+            const cachedObj = { id: `HINHANHGOC_${num}`, dataUrl: pngUrl, width: 280, height: 200 };
+            imageCache[tag] = cachedObj;
+            imageCache[`HINHANHGOC_${num}`] = cachedObj;
+            imageCache[`HINHANHGOC${num}`] = cachedObj;
+            imageCache[`IMG${num}`] = cachedObj;
+            imageCache[`HINH_${num}`] = cachedObj;
+            imageCache[`HÌNH_VẼ_GỐC_${num}`] = cachedObj;
+            imageCache[`HÌNH VẼ GỐC ${num}`] = cachedObj;
+            imageCache[`${num}`] = cachedObj;
+          } catch (e) {
+            console.warn("Could not pre-synthesize diagram for tag:", tag, e);
+          }
+        }
+      }
+
+      if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_') && !preProcessedResult.includes('[HÌNH_VẼ_GỐC_') && !preProcessedResult.includes('[HÌNH VẼ GỐC')) {
         console.log("[DOCX Export] Tự động chèn hình vẽ học liệu vào ô Bước 1 của Bảng 2 cột:", educationalImages);
         const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
         
