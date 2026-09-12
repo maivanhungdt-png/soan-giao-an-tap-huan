@@ -944,6 +944,22 @@ const ContentInput: React.FC<ContentInputProps> = ({
         const result = await mammoth.convertToHtml({ arrayBuffer: processedBuffer }, mammothOptions);
         let html = result.value || "";
         
+        // Trích xuất toàn bộ media từ thư mục word/media/ của tệp zip để đảm bảo 100% không mất bất kỳ ảnh nào
+        const zip = await JSZip.loadAsync(arrayBuffer.slice(0));
+        const mediaFiles = zip.file(/^word\/media\//);
+        const zipImages: { name: string; dataUrl: string; width: number; height: number }[] = [];
+        
+        for (const mFile of mediaFiles) {
+            const mName = mFile.name.split('/').pop() || '';
+            const mExt = mName.split('.').pop()?.toLowerCase();
+            if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp'].includes(mExt || '')) {
+                const mime = mExt === 'png' ? 'image/png' : (mExt === 'gif' ? 'image/gif' : 'image/jpeg');
+                const b64 = await mFile.async("base64");
+                const dataUrl = `data:${mime};base64,${b64}`;
+                zipImages.push({ name: mName, dataUrl, width: 260, height: 180 });
+            }
+        }
+
         const rawImgRegex = /<img[^>]*?src=["'](data:image\/[^"']+)["'][^>]*?>/gi;
         const imgMatches: { fullTag: string; dataUrl: string; crop?: string }[] = [];
         let mMatch;
@@ -978,21 +994,13 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 const originalWidth = img.naturalWidth || 0;
                 const originalHeight = img.naturalHeight || 0;
 
-                // TIÊU CHÍ NHẬN DIỆN CÔNG THỨC TOÁN / RÁC ĐỊNH DẠNG:
-                // - Chiều cao <= 75px (công thức toán phân số / biểu thức dòng thường có chiều cao thấp)
-                // - Hoặc tỷ lệ chiều rộng / chiều cao > 3.0 và chiều cao <= 120px (dải công thức toán ngang)
-                // - Hoặc kích thước icon quá nhỏ (width <= 80 && height <= 80)
-                // - Hoặc có thuộc tính MATH_FORMULA từ OLE MathType
-                const isMathOrSmallIcon = (
+                // Chỉ bỏ qua nếu là icon rác siêu nhỏ (< 15px) hoặc đối tượng OLE công thức MathType
+                const isTinyTrash = (
                     rep.fullTag.includes('MATH_FORMULA') ||
-                    (rep.crop && rep.crop.includes('MATH_FORMULA')) ||
-                    originalHeight <= 75 ||
-                    (originalWidth > 0 && originalHeight > 0 && (originalWidth / originalHeight > 3.0) && originalHeight <= 120) ||
-                    (originalWidth > 0 && originalHeight > 0 && originalWidth <= 80 && originalHeight <= 80)
+                    (originalWidth > 0 && originalHeight > 0 && originalWidth < 15 && originalHeight < 15)
                 );
 
-                if (isMathOrSmallIcon) {
-                    // Xóa thẻ ảnh công thức khỏi HTML - TUYỆT ĐỐI KHÔNG sinh thẻ [HINHANHGOC_...] cho công thức toán
+                if (isTinyTrash) {
                     html = html.replace(rep.fullTag, ' ');
                     continue;
                 }
@@ -1003,10 +1011,10 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 const replacementTag = `[${cleanId}]`;
 
                 let finalDataUrl = rep.dataUrl;
-                let targetW = originalWidth;
-                let targetH = originalHeight;
+                let targetW = originalWidth || 260;
+                let targetH = originalHeight || 180;
 
-                if (rep.crop) {
+                if (rep.crop && originalWidth > 0 && originalHeight > 0) {
                     const [cl, ct, cr, cb] = rep.crop.split(',').map(Number);
                     const cropBox = {
                         x: cl * originalWidth,
@@ -1056,6 +1064,30 @@ const ContentInput: React.FC<ContentInputProps> = ({
                 console.warn("Lỗi xử lý hình ảnh:", e);
                 html = html.replace(rep.fullTag, '');
             }
+        }
+
+        // Bổ sung: Nếu Mammoth không nhận diện được thẻ <img> nhưng zip có ảnh học liệu
+        if (realImageCounter === 0 && zipImages.length > 0) {
+            zipImages.forEach((zImg, idx) => {
+                const imgNum = idx + 1;
+                const cleanId = `HINHANHGOC_${imgNum}`;
+                const cachedObj = {
+                    id: cleanId,
+                    dataUrl: zImg.dataUrl,
+                    width: 260,
+                    height: 180,
+                    isMathFormula: false
+                };
+                imageCache[cleanId] = cachedObj;
+                imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
+                imageCache[`IMG${imgNum}`] = cachedObj;
+                imageCache[`HINH_${imgNum}`] = cachedObj;
+                imageCache[`${imgNum}`] = cachedObj;
+                imageCache[zImg.name] = cachedObj;
+                imageCache[zImg.name.replace(/\.[^/.]+$/, "")] = cachedObj;
+            });
+            // Chèn placeholder hình ảnh vào văn bản để AI biết bài có hình
+            html += `\n\n[HINHANHGOC_1]\n\n`;
         }
 
         return html;
