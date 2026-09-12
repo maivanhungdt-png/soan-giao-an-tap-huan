@@ -952,11 +952,43 @@ const ContentInput: React.FC<ContentInputProps> = ({
         for (const mFile of mediaFiles) {
             const mName = mFile.name.split('/').pop() || '';
             const mExt = mName.split('.').pop()?.toLowerCase();
-            if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp'].includes(mExt || '')) {
+            if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp', 'wmf', 'emf'].includes(mExt || '')) {
                 const mime = mExt === 'png' ? 'image/png' : (mExt === 'gif' ? 'image/gif' : 'image/jpeg');
                 const b64 = await mFile.async("base64");
                 const dataUrl = `data:${mime};base64,${b64}`;
                 zipImages.push({ name: mName, dataUrl, width: 260, height: 180 });
+            }
+        }
+
+        // Đăng ký toàn bộ ảnh gốc từ zip vào imageCache ngay lập tức
+        for (let i = 0; i < zipImages.length; i++) {
+            const zImg = zipImages[i];
+            const imgNum = i + 1;
+            const cleanId = `HINHANHGOC_${imgNum}`;
+            const cachedObj = {
+                id: cleanId,
+                dataUrl: zImg.dataUrl,
+                width: 260,
+                height: 180,
+                isMathFormula: false
+            };
+            imageCache[cleanId] = cachedObj;
+            imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
+            imageCache[`HINH_ANH_GOC_${imgNum}`] = cachedObj;
+            imageCache[`HINH_ANH_GOC${imgNum}`] = cachedObj;
+            imageCache[`HINH_VE_GOC_${imgNum}`] = cachedObj;
+            imageCache[`HINH_VE_GOC${imgNum}`] = cachedObj;
+            imageCache[`IMG${imgNum}`] = cachedObj;
+            imageCache[`IMG_${imgNum}`] = cachedObj;
+            imageCache[`HINH_${imgNum}`] = cachedObj;
+            imageCache[`HINH${imgNum}`] = cachedObj;
+            imageCache[`${imgNum}`] = cachedObj;
+            imageCache[zImg.name] = cachedObj;
+            imageCache[zImg.name.replace(/\.[^/.]+$/, "")] = cachedObj;
+            if (typeof window !== 'undefined' && window.__globalImageCache) {
+                window.__globalImageCache[cleanId] = cachedObj;
+                window.__globalImageCache[zImg.name] = cachedObj;
+                window.__globalImageCache[`${imgNum}`] = cachedObj;
             }
         }
 
@@ -1068,24 +1100,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
 
         // Bổ sung: Nếu Mammoth không nhận diện được thẻ <img> nhưng zip có ảnh học liệu
         if (realImageCounter === 0 && zipImages.length > 0) {
-            zipImages.forEach((zImg, idx) => {
-                const imgNum = idx + 1;
-                const cleanId = `HINHANHGOC_${imgNum}`;
-                const cachedObj = {
-                    id: cleanId,
-                    dataUrl: zImg.dataUrl,
-                    width: 260,
-                    height: 180,
-                    isMathFormula: false
-                };
-                imageCache[cleanId] = cachedObj;
-                imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
-                imageCache[`IMG${imgNum}`] = cachedObj;
-                imageCache[`HINH_${imgNum}`] = cachedObj;
-                imageCache[`${imgNum}`] = cachedObj;
-                imageCache[zImg.name] = cachedObj;
-                imageCache[zImg.name.replace(/\.[^/.]+$/, "")] = cachedObj;
-            });
             // Chèn placeholder hình ảnh vào văn bản để AI biết bài có hình
             html += `\n\n[HINHANHGOC_1]\n\n`;
         }
@@ -1123,7 +1137,33 @@ const ContentInput: React.FC<ContentInputProps> = ({
       let text = "";
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
-      if (file.type === "application/pdf" || ext === "pdf") {
+      if (file.type.startsWith("image/") || ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'].includes(ext)) {
+        // Hỗ trợ tải trực tiếp tệp ảnh gốc
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const cachedObj = {
+          id: 'HINHANHGOC_1',
+          dataUrl: b64,
+          width: 260,
+          height: 180,
+          isMathFormula: false
+        };
+        imageCache['HINHANHGOC_1'] = cachedObj;
+        imageCache['HINHANHGOC1'] = cachedObj;
+        imageCache['HINH_ANH_GOC_1'] = cachedObj;
+        imageCache['HINH_ANH_GOC1'] = cachedObj;
+        imageCache['HINH_VE_GOC_1'] = cachedObj;
+        imageCache['IMG1'] = cachedObj;
+        imageCache['1'] = cachedObj;
+        if (typeof window !== 'undefined' && window.__globalImageCache) {
+          window.__globalImageCache['HINHANHGOC_1'] = cachedObj;
+          window.__globalImageCache['1'] = cachedObj;
+        }
+        text = `[HINHANHGOC_1]\n\n(Hình ảnh học liệu gốc: ${file.name})`;
+      } else if (file.type === "application/pdf" || ext === "pdf") {
         text = await extractTextFromPDF(arrayBuffer);
       } else if (
         file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || 

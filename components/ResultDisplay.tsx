@@ -975,7 +975,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       preProcessedResult = repairRacToFrac(preProcessedResult);
       preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
 
-      // Tự động kiểm tra và bảo tồn tất cả hình vẽ minh họa / hình học từ imageCache nếu AI quên gắn thẻ
+      // Tự động kiểm tra và bảo tồn tất cả hình vẽ gốc từ imageCache vào bảng giáo án nếu chưa được gắn thẻ
       const cachedKeys = Object.keys(imageCache);
       const educationalImages: string[] = [];
       const seenUrls = new Set<string>();
@@ -990,33 +990,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
       });
 
-      // Quét tất cả các thẻ hình ảnh trong giáo án, nếu chưa có trong cache thì tạo sơ đồ/hình học chất lượng cao
-      const allImgTags = preProcessedResult.match(/\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]/gi) || [];
-      for (const tag of allImgTags) {
-        if (!lookupCachedImage(tag)) {
-          try {
-            const numMatch = tag.match(/\d+/);
-            const num = numMatch ? numMatch[0] : '1';
-            const diagType = detectDiagramType(preProcessedResult, tag);
-            const svg = generateEducationalDiagramSvg(diagType, num, tag);
-            const pngUrl = await convertSvgToPngDataUrl(svg, 500, 320);
-            const cachedObj = { id: `HINHANHGOC_${num}`, dataUrl: pngUrl, width: 280, height: 200 };
-            imageCache[tag] = cachedObj;
-            imageCache[`HINHANHGOC_${num}`] = cachedObj;
-            imageCache[`HINHANHGOC${num}`] = cachedObj;
-            imageCache[`IMG${num}`] = cachedObj;
-            imageCache[`HINH_${num}`] = cachedObj;
-            imageCache[`HÌNH_VẼ_GỐC_${num}`] = cachedObj;
-            imageCache[`HÌNH VẼ GỐC ${num}`] = cachedObj;
-            imageCache[`${num}`] = cachedObj;
-          } catch (e) {
-            console.warn("Could not pre-synthesize diagram for tag:", tag, e);
-          }
-        }
-      }
-
       if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_') && !preProcessedResult.includes('[HÌNH_VẼ_GỐC_') && !preProcessedResult.includes('[HÌNH VẼ GỐC')) {
-        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu vào ô Bước 1 của Bảng 2 cột:", educationalImages);
+        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào ô Bước 1 của Bảng 2 cột:", educationalImages);
         const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
         
         // 1. Ưu tiên chèn vào ngay sau Bước 1 trong bảng
