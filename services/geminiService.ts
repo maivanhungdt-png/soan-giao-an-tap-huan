@@ -339,7 +339,7 @@ export const generateNLSLessonPlan = async (
 ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu cụ thể đã giảm tải/điều chỉnh riêng cho dạng này]`).join('\n')}*</span>
 
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC (CÁC HOẠT ĐỘNG):
-         - Trong các Hoạt động dạy học (ở phần Mục tiêu hoạt động hoặc cột Tổ chức thực hiện / Bước 1, Bước 2), khi có điều chỉnh giáo dục hòa nhập, cũng trình bày 1 tiêu đề chung và xuống dòng từng loại:
+         - Trong các Hoạt động dạy học (ở phần Mục tiêu hoạt động hoặc cột Hoạt động của giáo viên và học sinh / Bước 1, Bước 2), khi có điều chỉnh giáo dục hòa nhập, cũng trình bày 1 tiêu đề chung và xuống dòng từng loại:
          <span style="color: red;">*Tích hợp giáo dục hòa nhập:
 ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('\n')}*</span>
          - Dùng chữ màu đỏ <span style="color: red;">...</span>, TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
@@ -431,13 +431,18 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
     - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG:
-      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
+        🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
         🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
         Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
-        CHỈ ĐỂ MỤC a) Mục tiêu, b) Nội dung VÀ VÀO THẲNG BẢNG 2 CỘT (TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC GHI DÒNG "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG. Sau mục b) Nội dung là bắt đầu ngay bằng dòng bảng 2 cột | Tổ chức thực hiện | Sản phẩm |):
-      | Tổ chức thực hiện | Sản phẩm |
+        Mỗi hoạt động gồm đầy đủ:
+        **a) Mục tiêu:** ...
+        **b) Nội dung:** ...
+        **c) Sản phẩm:** ...
+        **d) Tổ chức thực hiện:**
+      | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
       | :--- | :--- |
-      | (Cột 1: Đặt tên chính xác là "Tổ chức thực hiện" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Sản phẩm" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
+      | (Cột 1: Đặt tên chính xác là "Hoạt động của giáo viên và học sinh" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Kết quả hoạt động" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
     - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI:
       * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...").
       * Trình bày gồm các mục:
@@ -511,44 +516,16 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
              - Bước 4: Kết luận, nhận định
       ` : `
         * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
-          🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
-          🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
-          Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
-          a) Mục tiêu: ...
-          b) Nội dung: ...
-          (TUYỆT ĐỐI KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG, SAU MỤC b LÀ VÀO THẲNG BẢNG 2 CỘT):
-          | Tổ chức thực hiện | Sản phẩm |
-          | :--- | :--- |
-          | (Cột 1: "Tổ chức thực hiện" đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ, Bước 2: Thực hiện nhiệm vụ, Bước 3: Báo cáo thảo luận, Bước 4: Kết luận nhận định) | (Cột 2: "Sản phẩm" - Kết quả, lời giải chi tiết bài tập, sản phẩm học tập của HS) |
-      `}
-      `;
-    } else {
-      userPromptText += `
-      [YÊU CẦU: XỬ LÝ NỘI DUNG GIÁO ÁN PHỤ LỤC 4]
-      - ${options.analyzeOnly ? "Chỉ phân tích, không sửa chi tiết." : "Chỉnh sửa chi tiết, thiết kế lại cấu trúc logic theo đúng Phụ lục 4."}
-      
-      [CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG]
-      ${isNoTableLayout ? `
-      * HÌNH THỨC KHÔNG KẺ BẢNG:
-        Mỗi hoạt động gồm 4 phần:
-        a) Mục tiêu: ...
-        b) Nội dung: ...
-        c) Sản phẩm: ...
-        d) Tổ chức thực hiện:
-           - Bước 1: Chuyển giao nhiệm vụ
-           - Bước 2: Thực hiện nhiệm vụ
-           - Bước 3: Báo cáo, thảo luận
-           - Bước 4: Kết luận, nhận định
-      ` : `
-      * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
-        🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+        🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
+        🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
         🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
         Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng dù giáo án gốc để ở ngoài bảng hay gạch đầu dòng. Bắt buộc chuyển toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vào bảng 2 cột:
         Mỗi hoạt động gồm các phần:
         **a) Mục tiêu:** ...
         **b) Nội dung:** ...
-        (TUYỆT ĐỐI CẤM KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ TIÊU ĐỀ NÀO NGOÀI BẢNG, SAU MỤC b LÀ BẮT ĐẦU NGAY BẢNG 2 CỘT):
-        | Tổ chức thực hiện | Sản phẩm |
+        **c) Sản phẩm:** ...
+        **d) Tổ chức thực hiện:**
+        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
         | :--- | :--- |
         | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
       `}

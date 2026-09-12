@@ -230,8 +230,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 8. Auto wrap uncolored integration lines with red span
     clean = clean.replace(/(?<!<span[^>]*>)(^\s*[\-\*•]?\s*\*Tích hợp[^\n<]+)/gm, '<span style="color: red;">$1</span>');
 
-    // 9. Normalize 2-column markdown table header lines to standard "Tổ chức thực hiện" & "Sản phẩm"
-    clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm)\s*\|/gi, '| Tổ chức thực hiện | Sản phẩm |');
+    // 9. Normalize 2-column markdown table header lines to standard "Hoạt động của giáo viên và học sinh" & "Kết quả hoạt động"
+    clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm|Kết\s*quả\s*hoạt\s*động|Kết\s*quả)\s*\|/gi, '| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |');
 
     // 10. Replace "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" and variants with "* Hướng dẫn về nhà"
     clean = clean.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:(?:IV|4|IV\.|4\.)\s*)?(?:HƯỚNG\s*DẪN\s*TỰ\s*HỌC\s*VÀ\s*DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*TỰ\s*HỌC|HƯỚNG\s*DẪN\s*VỀ\s*NHÀ|DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*HỌC\s*Ở\s*NHÀ|Hướng\s*dẫn\s*tự\s*học\s*và\s*dặn\s*dò\s*về\s*nhà|Hướng\s*dẫn\s*tự\s*học)[^\n]*/gi, '\n\n* Hướng dẫn về nhà');
@@ -879,8 +879,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                 let col1Text = '';
 
                 if (isHeaderRow) {
-                    col0Text = "Tổ chức thực hiện";
-                    col1Text = "Sản phẩm";
+                    col0Text = "Hoạt động của giáo viên và học sinh";
+                    col1Text = "Kết quả hoạt động";
                 } else {
                     col0Text = (cells[0] || '').trim();
                     col1Text = reconstructCellWithSubTables(cells.slice(1));
@@ -1151,35 +1151,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         // Re-trim after cleaning
         trimmed = trimmed.trim();
 
-        // 4. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
-        if (/^[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Tổ\s*chức\s*thực\s*hiện|Sản\s*phẩm|Tiến\s*trình)/i.test(trimmed)) {
-          let nextIsTable = false;
-          for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
-            const nextTrim = lines[j].trim();
-            if (nextTrim.startsWith('|') || nextTrim.startsWith('<table')) {
-              nextIsTable = true;
-              break;
-            }
-          }
-          if (nextIsTable) {
-            continue;
-          }
-        }
-        
-        // Also skip short bullet text under stray c) Sản phẩm when immediately before table
-        if (/^[-*•]\s*(?:Lời\s*giải|Sản\s*phẩm|Kết\s*quả|Báo\s*cáo)/i.test(trimmed)) {
-          let nextIsTable = false;
-          for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-            const nextTrim = lines[j].trim();
-            if (nextTrim.startsWith('|') || nextTrim.startsWith('<table') || /^[*_#\s]*[cd]\s*[\)\.:\-]?/i.test(nextTrim)) {
-              nextIsTable = true;
-              break;
-            }
-          }
-          if (nextIsTable) {
-            continue;
-          }
-        }
+        // Bảo toàn tuyệt đối 100% mục c) Sản phẩm và d) Tổ chức thực hiện trong DOCX (Không bỏ qua)
         
         // 1. Table Handling
         if (trimmed.startsWith('|')) {
