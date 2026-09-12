@@ -81,13 +81,15 @@ QUY TẮC BẮT BUỘC:
 5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
 6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
 
-      const response = await ai.models.generateContent({
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
+      const fetchPromise = ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [
           { text: promptText },
           { inlineData: { data: b64, mimeType } }
         ]
       });
+      const response: any = await Promise.race([fetchPromise, timeoutPromise]);
 
       const resText = (response && response.text) ? response.text.trim() : "";
       if (resText && !resText.includes("NOT_MATH") && resText.includes("$")) {
@@ -190,12 +192,11 @@ export const generateNLSLessonPlan = async (
 
   // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.7-flash",
     "gemini-2.5-flash",
-    "gemini-2.0-flash"
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-pro"
   ];
   
   let distributionContext = "";
@@ -602,7 +603,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents: tocParts
       });
 
