@@ -929,54 +929,7 @@ const ContentInput: React.FC<ContentInputProps> = ({
             clearImageCache();
         }
 
-        // 1. Trích xuất trực tiếp tất cả media từ Word ZIP để đảm bảo không bỏ sót bất kỳ hình ảnh nào
-        try {
-            const zip = await JSZip.loadAsync(arrayBuffer.slice(0));
-            const mediaFiles: { name: string; file: any }[] = [];
-            zip.forEach((relativePath, zipEntry) => {
-                if (relativePath.startsWith("word/media/") && !zipEntry.dir) {
-                    mediaFiles.push({ name: relativePath, file: zipEntry });
-                }
-            });
-
-            // Sắp xếp theo tên file để thứ tự hình ảnh khớp thứ tự tự nhiên (image1, image2,...)
-            mediaFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-
-            for (let idx = 0; idx < mediaFiles.length; idx++) {
-                const item = mediaFiles[idx];
-                const imgNum = idx + 1;
-                const ext = item.name.split('.').pop()?.toLowerCase() || 'png';
-                const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : (ext === 'svg' ? 'image/svg+xml' : 'image/png');
-                const base64Data = await item.file.async("base64");
-                const dataUrl = `data:${mime};base64,${base64Data}`;
-
-                const cachedObj = {
-                    id: `HINHANHGOC_${imgNum}`,
-                    dataUrl: dataUrl,
-                    width: 250,
-                    height: 180
-                };
-
-                // Lưu hàng loạt alias để đảm bảo tra cứu luôn thành công
-                imageCache[`HINHANHGOC_${imgNum}`] = cachedObj;
-                imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC_${imgNum}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC${imgNum}`] = cachedObj;
-                imageCache[`HINH_ANH_${imgNum}`] = cachedObj;
-                imageCache[`HINHANH_${imgNum}`] = cachedObj;
-                imageCache[`HINHANH${imgNum}`] = cachedObj;
-                imageCache[`IMG${imgNum}`] = cachedObj;
-                imageCache[`IMG_${imgNum}`] = cachedObj;
-                imageCache[`IMAGE_${imgNum}`] = cachedObj;
-                imageCache[`IMAGE${imgNum}`] = cachedObj;
-                imageCache[`${imgNum}`] = cachedObj;
-                imageCache[item.name.replace('word/media/', '')] = cachedObj;
-            }
-        } catch (zipErr) {
-            console.warn("Lỗi trích xuất media trực tiếp từ zip:", zipErr);
-        }
-
-        // 2. Chuyển đổi DOCX sang HTML với Mammoth và bắt toàn bộ thẻ <img>
+        // 1. Trích xuất và chuyển đổi DOCX sang HTML với Mammoth
         const processedBuffer = await preprocessDOCXMath(arrayBuffer);
         const mammothOptions = {
             convertImage: (mammoth as any).images ? (mammoth as any).images.imgElement(function(element: any) {
@@ -991,35 +944,26 @@ const ContentInput: React.FC<ContentInputProps> = ({
         const result = await mammoth.convertToHtml({ arrayBuffer: processedBuffer }, mammothOptions);
         let html = result.value || "";
         
-        const replacements: { match: string; replacement: string; dataUrl: string; crop?: string }[] = [];
-        // Regex bắt mọi biến thể của thẻ img (dấu nháy đơn, kép, khoảng trắng)
-        const imgRegex = /<img[^>]*?src=["'](data:image\/[^"']+)["'][^>]*?>/gi;
-        let counter = 0;
-        let match;
-        
-        while ((match = imgRegex.exec(html)) !== null) {
-            counter++;
-            const fullTag = match[0];
-            const dataUrl = match[1];
-            
+        const rawImgRegex = /<img[^>]*?src=["'](data:image\/[^"']+)["'][^>]*?>/gi;
+        const imgMatches: { fullTag: string; dataUrl: string; crop?: string }[] = [];
+        let mMatch;
+        while ((mMatch = rawImgRegex.exec(html)) !== null) {
+            const fullTag = mMatch[0];
+            const dataUrl = mMatch[1];
             let crop: string | undefined = undefined;
             const altMatch = fullTag.match(/alt=["']([^"']*)["']/i);
             if (altMatch && altMatch[1]) {
-                const altText = altMatch[1];
-                const cropMatch = altText.match(/CROP:([0-9.,]+)/);
-                if (cropMatch) {
-                    crop = cropMatch[1];
-                }
+                const cropMatch = altMatch[1].match(/CROP:([0-9.,]+)/);
+                if (cropMatch) crop = cropMatch[1];
             }
-            
-            const replacement = `[HINHANHGOC_${counter}]`;
-            replacements.push({ match: fullTag, replacement, dataUrl, crop });
+            imgMatches.push({ fullTag, dataUrl, crop });
         }
-        
-        for (const rep of replacements) {
-            html = html.replace(rep.match, `\n\n${rep.replacement}\n\n`);
-            
+
+        let realImageCounter = 0;
+
+        for (const rep of imgMatches) {
             if (!rep.dataUrl || typeof rep.dataUrl !== 'string' || rep.dataUrl.trim() === '') {
+                html = html.replace(rep.fullTag, '');
                 continue;
             }
 
@@ -1030,10 +974,37 @@ const ContentInput: React.FC<ContentInputProps> = ({
                     img.onload = resolve;
                     img.onerror = resolve;
                 });
-                
-                let originalWidth = img.naturalWidth || 250;
-                let originalHeight = img.naturalHeight || 180;
+
+                const originalWidth = img.naturalWidth || 0;
+                const originalHeight = img.naturalHeight || 0;
+
+                // TIÊU CHÍ NHẬN DIỆN CÔNG THỨC TOÁN / RÁC ĐỊNH DẠNG:
+                // - Chiều cao <= 75px (công thức toán phân số / biểu thức dòng thường có chiều cao thấp)
+                // - Hoặc tỷ lệ chiều rộng / chiều cao > 3.0 và chiều cao <= 120px (dải công thức toán ngang)
+                // - Hoặc kích thước icon quá nhỏ (width <= 80 && height <= 80)
+                // - Hoặc có thuộc tính MATH_FORMULA từ OLE MathType
+                const isMathOrSmallIcon = (
+                    rep.fullTag.includes('MATH_FORMULA') ||
+                    (rep.crop && rep.crop.includes('MATH_FORMULA')) ||
+                    originalHeight <= 75 ||
+                    (originalWidth > 0 && originalHeight > 0 && (originalWidth / originalHeight > 3.0) && originalHeight <= 120) ||
+                    (originalWidth > 0 && originalHeight > 0 && originalWidth <= 80 && originalHeight <= 80)
+                );
+
+                if (isMathOrSmallIcon || originalWidth === 0 || originalHeight === 0) {
+                    // Xóa thẻ ảnh công thức khỏi HTML - TUYỆT ĐỐI KHÔNG sinh thẻ [HINHANHGOC_...] cho công thức toán
+                    html = html.replace(rep.fullTag, ' ');
+                    continue;
+                }
+
+                // ĐÂY LÀ HÌNH ẢNH HỌC LIỆU THẬT (Tranh vẽ SGK, Khinh khí cầu, Hình thang, Đồ thị, Thí nghiệm...)
+                realImageCounter++;
+                const cleanId = `HINHANHGOC_${realImageCounter}`;
+                const replacementTag = `[${cleanId}]`;
+
                 let finalDataUrl = rep.dataUrl;
+                let targetW = originalWidth;
+                let targetH = originalHeight;
 
                 if (rep.crop) {
                     const [cl, ct, cr, cb] = rep.crop.split(',').map(Number);
@@ -1043,7 +1014,6 @@ const ContentInput: React.FC<ContentInputProps> = ({
                         w: originalWidth - (cl + cr) * originalWidth,
                         h: originalHeight - (ct + cb) * originalHeight
                     };
-                    
                     const canvas = document.createElement('canvas');
                     canvas.width = cropBox.w;
                     canvas.height = cropBox.h;
@@ -1051,50 +1021,43 @@ const ContentInput: React.FC<ContentInputProps> = ({
                     if (ctx && cropBox.w > 0 && cropBox.h > 0) {
                         ctx.drawImage(img, cropBox.x, cropBox.y, cropBox.w, cropBox.h, 0, 0, cropBox.w, cropBox.h);
                         finalDataUrl = canvas.toDataURL('image/png');
-                        originalWidth = cropBox.w;
-                        originalHeight = cropBox.h;
+                        targetW = cropBox.w;
+                        targetH = cropBox.h;
                     }
                 }
-                
-                const targetWidth = 250;
-                let width = targetWidth;
-                let height = originalHeight * (targetWidth / originalWidth);
-                if (isNaN(height) || height <= 0) height = 180;
-                
-                const cleanId = rep.replacement.substring(1, rep.replacement.length - 1);
-                // Chỉ đánh dấu là ảnh công thức toán nếu thực sự là đối tượng MathType OLE và chiều cao rất nhỏ (<= 45px)
-                // Các hình vẽ giáo khoa (hình học, sơ đồ, đồ thị) có kích thước lớn hơn sẽ KHÔNG BAO GIỜ bị đánh dấu nhầm
-                const isMathFormula = (rep.match.includes('MATH_FORMULA') || (rep.crop ? rep.crop.includes('MATH_FORMULA') : false)) && originalHeight <= 45;
+
+                const maxRenderWidth = 260;
+                let renderWidth = maxRenderWidth;
+                let renderHeight = targetH * (maxRenderWidth / (targetW || 1));
+                if (isNaN(renderHeight) || renderHeight <= 0) renderHeight = 180;
 
                 const cachedObj = {
                     id: cleanId,
                     dataUrl: finalDataUrl,
-                    width,
-                    height,
-                    isMathFormula,
-                    originalWidth,
-                    originalHeight
+                    width: renderWidth,
+                    height: renderHeight,
+                    isMathFormula: false,
+                    originalWidth: targetW,
+                    originalHeight: targetH
                 };
-                
-                // Đăng ký nhiều alias để đảm bảo tra cứu luôn thành công
+
                 imageCache[cleanId] = cachedObj;
-                imageCache[`HINHANHGOC_${counter}`] = cachedObj;
-                imageCache[`HINHANHGOC${counter}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC_${counter}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC${counter}`] = cachedObj;
-                imageCache[`IMG${counter}`] = cachedObj;
-                imageCache[`IMG_${counter}`] = cachedObj;
-                imageCache[`HINH_ANH_${counter}`] = cachedObj;
-                imageCache[`HINHANH_${counter}`] = cachedObj;
-                imageCache[`HINHANH${counter}`] = cachedObj;
-                imageCache[`IMAGE_${counter}`] = cachedObj;
-                imageCache[`IMAGE${counter}`] = cachedObj;
-                imageCache[`${counter}`] = cachedObj;
+                imageCache[`HINHANHGOC${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_ANH_GOC_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_ANH_GOC${realImageCounter}`] = cachedObj;
+                imageCache[`IMG${realImageCounter}`] = cachedObj;
+                imageCache[`IMG_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH${realImageCounter}`] = cachedObj;
+                imageCache[`${realImageCounter}`] = cachedObj;
+
+                html = html.replace(rep.fullTag, `\n\n${replacementTag}\n\n`);
             } catch(e) {
-                console.log("Error caching image", e);
+                console.warn("Lỗi xử lý hình ảnh:", e);
+                html = html.replace(rep.fullTag, '');
             }
         }
-        
+
         return html;
     } catch (e) {
         console.error("Mammoth error", e);

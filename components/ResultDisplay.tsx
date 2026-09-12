@@ -1024,13 +1024,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       });
 
       if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_')) {
-        console.log("[DOCX Export] Tự động bảo tồn hình vẽ minh họa vào giáo án:", educationalImages);
-        const firstActivityMatch = preProcessedResult.match(/(?:Hoạt\s*động\s*1|Khởi\s*động)[\s\S]*?(?=\n\s*(?:#|Hoạt\s*động\s*2|2\.))/i);
-        if (firstActivityMatch) {
-          const insertTags = '\n\n' + educationalImages.join('\n\n') + '\n\n';
-          preProcessedResult = preProcessedResult.replace(firstActivityMatch[0], firstActivityMatch[0] + insertTags);
-        } else {
-          preProcessedResult += '\n\n' + educationalImages.join('\n\n') + '\n\n';
+        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu vào trong ô Bảng 2 cột:", educationalImages);
+        // Chèn vào Cột 1 (Hoạt động của GV và HS) của bảng 2 cột đầu tiên
+        const tableHeaderPattern = /(\|\s*Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh\s*\|\s*Kết\s*quả\s*hoạt\s*động\s*\|[\s\S]*?\|\s*:---[\s\S]*?\|\s*)([^|\n]+)(\|)/i;
+        if (tableHeaderPattern.test(preProcessedResult)) {
+          const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
+          preProcessedResult = preProcessedResult.replace(tableHeaderPattern, `$1$2 ${imgTagsInCell}$3`);
         }
       }
       const lines = preProcessedResult.split('\n');

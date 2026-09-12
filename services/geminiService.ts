@@ -419,7 +419,8 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
     - 🚨 BẢO TOÀN 100% HÌNH VẼ, HÌNH ẢNH, SƠ ĐỒ GỐC (BẮT BUỘC TUYỆT ĐỐI):
       * Tất cả các hình vẽ, hình ảnh, sơ đồ trong giáo án gốc có mã [HINHANHGOC_1], [HINHANHGOC_2]... hoặc [HINH_ANH_GOC_1], [IMG1]... BẮT BUỘC PHẢI GIỮ NGUYÊN 100% VỊ TRÍ VÀ NGUYÊN MÃ ĐỊNH DANH ĐÓ trong bảng hoạt động hoặc trong các bước thực hiện của giáo án mới (ưu tiên ghi dưới dạng [HINHANHGOC_1], [HINHANHGOC_2]...).
       * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ, KHÔNG ĐƯỢC THAY ĐỔI MÃ, KHÔNG ĐƯỢC BỎ QUÊN.
-      * Khi đặt thẻ hình trong bảng 2 cột, hãy đặt thẻ trên một dòng riêng biệt hoặc dùng <br>[HINHANHGOC_1]<br>.
+      * 🚨 VỊ TRÍ ĐẶT HÌNH ẢNH BẮT BUỘC: Thẻ hình ảnh [HINHANHGOC_1], [HINHANHGOC_2]... BẮT BUỘC PHẢI ĐƯỢC ĐẶT BÊN TRONG Ô CỦA BẢNG 2 CỘT (trong Cột 1 "Hoạt động của giáo viên và học sinh" ở Bước 1 Chuyển giao nhiệm vụ / Bước 2 Thực hiện nhiệm vụ hoặc Cột 2 "Kết quả hoạt động").
+      * TUYỆT ĐỐI CẤM KHÔNG ĐỂ HÌNH ẢNH Ở NGOÀI BẢNG, KHÔNG TẠO TRANG RIÊNG CHO HÌNH ẢNH. Khi đặt hình trong ô bảng 2 cột, hãy dùng cú pháp: <br>[HINHANHGOC_1]<br>.
     - KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) XÂY DỰNG THEO BÀI HỌC HOÀN CHỈNH. TUYỆT ĐỐI KHÔNG GHI NGÀY SOẠN, NGÀY GIẢNG. Thứ tự tiết ghi theo Phụ lục 3, sau hoạt động đầu tiên của mỗi tiết.
     - PHẦN MỤC TIÊU:
       1. Kiến thức: YCCĐ theo chương trình GDPT 2018.
