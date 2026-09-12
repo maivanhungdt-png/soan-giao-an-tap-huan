@@ -1,3 +1,8 @@
+declare global {
+  interface Window {
+    __globalImageCache?: Record<string, CachedImage>;
+  }
+}
 export interface CachedImage {
   id: string;
   dataUrl: string;
@@ -7,7 +12,7 @@ export interface CachedImage {
   originalWidth?: number;
   originalHeight?: number;
 }
-export const imageCache: Record<string, CachedImage> = {};
+export const imageCache: Record<string, CachedImage> = (typeof window !== 'undefined' && (window.__globalImageCache = window.__globalImageCache || {})) || {};
 
 export const clearImageCache = () => {
   for (const key in imageCache) {

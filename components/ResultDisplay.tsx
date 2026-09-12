@@ -878,53 +878,84 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         );
 
         if (isActivityTable) {
-            const rows = parsedRows.map((cells, rowIndex) => {
-                const isHeaderRow = rowIndex === 0;
-                let col0Text = '';
-                let col1Text = '';
+            // Chuẩn hóa bảng 2 cột Phụ lục 4:
+            // HÀNG 1: Tiêu đề "Hoạt động của giáo viên và học sinh" | "Kết quả hoạt động"
+            // HÀNG 2: Gộp toàn bộ các bước 1, 2, 3, 4 vào 1 ô duy nhất ở Cột 1; Toàn bộ kết quả ở Cột 2
+            
+            const headerRow = new TableRow({
+                children: [
+                    new TableCell({
+                        children: parseDocxCellContent("Hoạt động của giáo viên và học sinh", { bold: true }, true) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                    new TableCell({
+                        children: parseDocxCellContent("Kết quả hoạt động", { bold: true }, true) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                ]
+            });
 
-                if (isHeaderRow) {
-                    col0Text = "Hoạt động của giáo viên và học sinh";
-                    col1Text = "Kết quả hoạt động";
-                } else {
-                    col0Text = (cells[0] || '').trim();
-                    col1Text = reconstructCellWithSubTables(cells.slice(1));
-                }
+            // Gộp tất cả các hàng dữ liệu thành 1 hàng duy nhất
+            const dataRows = parsedRows.slice(1);
+            let combinedCol0Parts: string[] = [];
+            let combinedCol1Parts: string[] = [];
 
-                col0Text = col0Text.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
-                col1Text = col1Text.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
+            dataRows.forEach(cells => {
+                const c0 = (cells[0] || '').trim();
+                const c1 = reconstructCellWithSubTables(cells.slice(1)).trim();
+                if (c0) combinedCol0Parts.push(c0);
+                if (c1) combinedCol1Parts.push(c1);
+            });
 
-                const baseStyles = isHeaderRow ? { bold: true } : {};
+            let col0Text = combinedCol0Parts.join('<br>');
+            let col1Text = combinedCol1Parts.join('<br>');
 
-                const cell0 = new TableCell({
-                    children: parseDocxCellContent(col0Text, baseStyles, isHeaderRow) as any,
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: {
-                        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    },
-                });
+            if (!col1Text) {
+                col1Text = "- Học sinh hoàn thành các nhiệm vụ học tập theo yêu cầu của giáo viên.<br>- Lời giải, kết quả chi tiết các bài tập / hoạt động.";
+            }
 
-                const cell1 = new TableCell({
-                    children: parseDocxCellContent(col1Text, baseStyles, isHeaderRow) as any,
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: {
-                        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    },
-                });
+            col0Text = col0Text.replace(/^\*\s*/, "").replace(/^\\s+/, "");
+            col1Text = col1Text.replace(/^\*\s*/, "").replace(/^\\s+/, "");
 
-                return new TableRow({
-                    children: [cell0, cell1]
-                });
+            const contentRow = new TableRow({
+                children: [
+                    new TableCell({
+                        children: parseDocxCellContent(col0Text, {}, false) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                    new TableCell({
+                        children: parseDocxCellContent(col1Text, {}, false) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                ]
             });
 
             return new Table({
-                rows: rows,
+                rows: [headerRow, contentRow],
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 layout: TableLayoutType.AUTOFIT,
             });
