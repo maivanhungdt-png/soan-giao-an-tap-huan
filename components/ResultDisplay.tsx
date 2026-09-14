@@ -172,31 +172,47 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return !nonMathWord;
   };
 
-  // Helper: Làm sạch định dạng in đậm trên từng dòng / đoạn để CHỐNG IN ĐẬM TÙY TIỆN
+  // Helper: Chuẩn hóa và làm đậm chính xác các tiêu đề, đề mục mục tiêu, tiến trình, hoạt động và các bước
   const sanitizeLineBold = (line: string): string => {
     let s = line.trim();
     if (!s) return "";
 
-    // 0. Chuẩn hóa Bước 1..4 có dấu * thừa: *Bước 1: ...** -> **Bước 1: ...:**
-    s = s.replace(/^[\*\s#\-•]*((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]))[\s:*]*$/i, '**$1:**');
-
-    // 1. Nhận diện các nhãn tiêu đề hợp lệ để chỉ in đậm đúng nhãn, giữ phần thân bình thường:
-    const labelRegex = /^(?:[\*\s#\-•]*)(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|Luyện\s*tập\s*\d*\s*:?|Vận\s*dụng\s*\d*\s*:?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*(.*)$/i;
-    const labelMatch = s.match(labelRegex);
-    
-    if (labelMatch) {
-        let label = labelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^\*+/, '').replace(/\*+$/, '').trim();
-        if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label)) label += ':';
-        let rest = (labelMatch[2] || '').trim();
-        // Xóa toàn bộ ** trong phần nội dung sau nhãn để không in đậm cả câu
-        rest = rest.replace(/\*\*/g, '').trim();
-        return `**${label}** ${rest}`.trim();
+    // 1. Tiêu đề mục lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học, III. Tiến trình dạy học, IV. Hướng dẫn về nhà...)
+    if (/^(?:#+\s*)?(?:\*\*)?([I|V|X]+\.\s*[^:\n]+|Bài\s*\d+[^:\n]*|Tiết\s*\d+[^:\n]*)(?:\*\*)?$/i.test(s)) {
+      const cleanHeading = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
+      return `**${cleanHeading}**`;
     }
 
-    // 2. Với các dòng KHÔNG PHẢI tiêu đề: XÓA TOÀN BỘ IN ĐẬM ** ĐỂ CHỐNG IN ĐẬM TÙY TIỆN!
-    s = s.replace(/\*\*/g, '').trim();
+    // 2. Tiêu đề hoạt động dạy học (1. Hoạt động 1: Khởi động, Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng...)
+    if (/^(?:#+\s*)?(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(s)) {
+      const cleanAct = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
+      return `**${cleanAct}**`;
+    }
 
-    return s;
+    // 3. Tiêu đề "* Hướng dẫn về nhà"
+    if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(s)) {
+      return `**\* Hướng dẫn về nhà**`;
+    }
+
+    // 4. Nhận diện các nhãn đầu mục chuẩn: 1. Kiến thức:, 2. Năng lực:, a) Năng lực..., a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:, 1. Giáo viên:, 2. Học sinh:, 1. Ôn tập kiến thức:...
+    const sectionLabelRegex = /^[\*\s#\-•]*((?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)|[a-e]\)\s*(?:Năng\s*lực\s*đặc\s*thù[^\n:]*|Năng\s*lực\s*chung|Năng\s*lực\s*số[^\n:]*|Năng\s*lực\s*AI[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu)|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|Luyện\s*tập\s*\d*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*\d+\s*:?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
+
+    const match = s.match(sectionLabelRegex);
+    if (match) {
+      let label = match[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
+      if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label)) label += ':';
+      let rest = (match[2] || '').replace(/\*\*/g, '').trim();
+      return rest ? `**${label}** ${rest}` : `**${label}**`;
+    }
+
+    // 5. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu và làm sạch ** thừa
+    if (isIntegrationLine(s)) {
+      const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').replace(/\*\*/g, '').trim();
+      return `*${cleanInt}`;
+    }
+
+    // 6. Đối với các dòng văn bản bình thường (thân câu, giải thích, gạch đầu dòng): xóa các ký tự ** thừa để không in đậm tùy tiện
+    return s.replace(/\*\*/g, '').trim();
   };
 
   // Helper: Tự động phát hiện và chuyển đổi các biểu thức toán học / phân số / bất đẳng thức dạng text thô sang chuẩn LaTeX $...$

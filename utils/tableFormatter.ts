@@ -307,26 +307,27 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       .replace(/\|/g, ' ');
   };
 
+  // Helper to format section a, b, c with guaranteed bold prefix
+  const formatSectionText = (prefix: string, linesArr: string[], defaultText: string): string => {
+    if (linesArr.length === 0) return defaultText;
+    const first = linesArr[0].replace(/^[\*\s#\-•]*[a-e]\s*[\)\.:\-]?\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu)[\s:*]*/i, '').trim();
+    const rest = linesArr.slice(1);
+    const combinedFirst = first ? `**${prefix}** ${first}` : `**${prefix}**`;
+    return [combinedFirst, ...rest].join('\n');
+  };
+
+  const mucTieuText = formatSectionText('a) Mục tiêu:', mucTieu, '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.');
+  const noiDungText = formatSectionText('b) Nội dung:', noiDung, '**b) Nội dung:** Học sinh thực hiện các nhiệm vụ theo hướng dẫn của giáo viên.');
+  
+  let cDefault = isLuyenTap
+    ? '**c) Sản phẩm:** Đáp án, lời giải chi tiết các bài tập luyện tập của học sinh.'
+    : (isVanDung
+        ? '**c) Sản phẩm:** Kết quả giải quyết bài toán/vấn đề thực tế hoặc sản phẩm học tập của học sinh.'
+        : '**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.'
+      );
+  const cSanPhamText = formatSectionText('c) Sản phẩm:', sanPhamPre, cDefault);
   const col1Text = formatCellText(col1Items);
   const col2Text = formatCellText(col2Items);
-
-  // Format section a, b, c
-  const mucTieuText = mucTieu.length > 0
-    ? mucTieu.join('\n')
-    : '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.';
-  const noiDungText = noiDung.length > 0
-    ? noiDung.join('\n')
-    : '**b) Nội dung:** Học sinh thực hiện các nhiệm vụ theo hướng dẫn của giáo viên.';
-  
-  let cSanPhamText = sanPhamPre.length > 0
-    ? sanPhamPre.join('\n')
-    : (isLuyenTap
-        ? '**c) Sản phẩm:** Đáp án, lời giải chi tiết các bài tập luyện tập của học sinh.'
-        : (isVanDung
-            ? '**c) Sản phẩm:** Kết quả giải quyết bài toán/vấn đề thực tế hoặc sản phẩm học tập của học sinh.'
-            : '**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.'
-          )
-      );
 
   return `${headerLine}\n${mucTieuText}\n${noiDungText}\n${cSanPhamText}\n**d) Tổ chức thực hiện:**\n\n| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |\n| :--- | :--- |\n| ${col1Text} | ${col2Text} |`;
 };
