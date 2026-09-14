@@ -351,13 +351,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     const lines = text.split('\n');
 
-    // Cấu trúc Regex cho chuỗi phép tính số học / phân số / đại số
-    const op = '(?:<=|>=|!=|==|≤|≥|≠|<|>|=|≈|\\+|-|\\*|:|\\/|\\\\times|\\\\div|\\\\cdot|\\\\le|\\\\ge|\\\\neq|\\\\approx)';
-    const termWithPower = '(?:-?\\s*(?:\\d+(?:,\\d+)?\\s*)?[a-zA-Z](?:\\^[0-9a-zA-Z{}]+)?(?:[a-zA-Z](?:\\^[0-9a-zA-Z{}]+)?)*)';
-    const numTerm = `(?:(?:-\\s*)?(?:\\\\frac\\{[^}]+\\}\\{[^}]+\\}|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|-?\\d+(?:,\\d+)?|${termWithPower}))`;
-    const mathPattern = `(?:^|(?<=[\\s(:;]))(${numTerm}\\s*${op}\\s*${numTerm}(?:\\s*${op}\\s*${numTerm})*)(?=$|[\\s),.:;!?])`;
-    const mathExprRegex = new RegExp(mathPattern, 'g');
-
     const processedLines = lines.map(line => {
       if (!line.trim()) return line;
 
@@ -372,68 +365,68 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       // Bước 0: Khắc phục triệt để mọi trường hợp công thức bị mất \f thành rac
       cur = repairRacToFrac(cur);
 
-      // Bước 1: Chuẩn hóa khoảng trắng trong các lệnh LaTeX cơ bản: "\frac {2022} {2023}" -> "\frac{2022}{2023}"
-      cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (_match, p1, p2) => `\\frac{${p1}}{${p2}}`);
-      cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1}}`);
+      // Bước 1: Sửa các lỗi khoảng cách lệnh LaTeX cơ bản:
+      cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (_match, p1, p2) => `\\frac{${p1.trim()}}{${p2.trim()}}`);
+      cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
+      cur = cur.replace(/([0-9a-zA-Z])\s+([xyzabtuv])\^/g, '$1$2^');
 
-      // Bước 2: Tự động bọc toàn bộ chuỗi biểu thức / phép tính số học liên hoàn (kể cả phân số âm có dấu cách, hỗn số, số thập phân, chuỗi dấu = liên tiếp)
+      // Bước 2: Tự động bọc chuỗi đẳng thức / phương trình / biểu thức tính toán liên hoàn
+      // (ví dụ: A + B = 2x^2y + (-5x^2y) = [2 + (-5)]x^2y = -3x^2y, M + P = 2,5x^2y^3 + 8,5x^2y^3 = 11x^2y^3, S = -x^3y + ..., (-1 + 4 - 2) = 1, B = 5x^2y^3z)
       cur = transformNonLatex(cur, (t) => {
-        return t.replace(mathExprRegex, (match) => {
-          // Bỏ qua định dạng ngày tháng như 20/11/2024
-          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(match.trim())) return match;
-          let m = match.trim();
-
-          // Chuẩn hóa hỗn số: "1 5/12" -> "1\frac{5}{12}"
-          m = m.replace(/(\d+)\s+(\d+)\/(\d+)/g, (_m1, whole, num, den) => `${whole}\\frac{${num}}{${den}}`);
-
-          // Chuẩn hóa phân số âm có khoảng cách: "- 7/8" -> "-\frac{7}{8}"
-          m = m.replace(/-\s*(\d+)\/(\d+)/g, (_m1, num, den) => `-\\frac{${num}}{${den}}`);
-
-          // Chuẩn hóa phân số thông thường: "7/8" -> "\frac{7}{8}"
-          m = m.replace(/(^|[^\w\\])(\d+)\/(\d+)/g, (_m1, prefix, num, den) => `${prefix}\\frac{${num}}{${den}}`);
-
-          // Chuẩn hóa dấu so sánh và phép toán
-          m = m.replace(/<=|≤/g, ' \\le ');
-          m = m.replace(/>=|≥/g, ' \\ge ');
-          m = m.replace(/!=|≠/g, ' \\neq ');
-          m = m.replace(/≈/g, ' \\approx ');
-          m = m.replace(/×/g, ' \\times ');
-          m = m.replace(/÷/g, ' \\div ');
-          m = m.replace(/·/g, ' \\cdot ');
-
-          // Chuẩn hóa khoảng trắng quanh toán tử trong công thức
-          m = m.replace(/\s*([=+\-])\s*/g, ' $1 ');
-          // Chuẩn hóa dấu trừ trước phân số hoặc số: "- \frac" -> "-\frac", "= - " -> "= -"
-          m = m.replace(/(^|[=+\-\s(])-\s+(\\frac|\d+)/g, '$1-$2');
-          m = m.replace(/^-\s+/g, '-');
-          m = m.replace(/\(\s*-\s+/g, '(-');
-          m = m.replace(/=\s*-\s+/g, '= -');
-          m = m.replace(/\s+/g, ' ').trim();
-
+        return t.replace(/(?:^|(?<=[\s(:;]))([A-Za-z0-9\(\)\[\]\.,\+\-\*\/\\^_{}\s]+?\s*=\s*[A-Za-z0-9\(\)\[\]\.,\+\-\*\/\\^_{}\s]+(?:\s*=\s*[A-Za-z0-9\(\)\[\]\.,\+\-\*\/\\^_{}\s]+)*)(?=$|[\s),.:;!?\n])/g, (match) => {
+          const m = match.trim();
+          // Tránh bắt các chuỗi tiếng Việt có dấu =
+          if (/[à-ỹÀ-Ỹ]/.test(m)) return match;
+          if (!/[0-9a-zA-Z]/.test(m)) return match;
           return `$${m}$`;
         });
       });
 
-      // Bước 3: Tự động bọc các ký hiệu LaTeX độc lập chưa bọc $: \Rightarrow, \Leftrightarrow, \pm, \approx, \le, \ge, \neq, \cdot, \times, \div, \perp, \parallel, \in, \notin, \subset, \cup, \cap, \emptyset, \mathbb{R}, \mathbb{N}, \Delta
+      // Bước 3: Tự động bọc biểu thức có chứa lệnh LaTeX như \frac, \sqrt, \cdot, \times, \div cùng các biến số gắn liền
+      // (ví dụ: x^3 - \frac{1}{2}x, -\frac{1}{5}y^2 \cdot 5, xy \cdot 4x^2, \frac{5}{3}x^2y, \frac{1}{4}x^2y, -\frac{5}{9}xyz, \frac{x^2y}{2})
       cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(\\(?:Rightarrow|Leftarrow|Leftrightarrow|approx|pm|times|div|cdot|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|mathbb\{[A-Z]\})|\\Delta)(?=$|[\s),.:;!?])/g, (_m, p1) => `$${p1}$`);
-      });
-
-      // Bước 4: Tự động bọc \frac{...}{...} hoặc \sqrt{...} đơn lẻ chưa được bọc $...$
-      cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(-?\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}))(?=$|[\s),.:;!?])/g, (_m, p1) => `$${p1}$`);
-      });
-
-      // Bước 5: Tự động bọc các đơn thức có lũy thừa / biến số độc lập: ví dụ 2x^2y, -5x^2y, 17z^4, 3x^3y, 12x^5, x^2y^3, x^3y^2, 0,5x^4, 2,75x^4
-      cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(:;]))(-?\s*(?:\d+(?:,\d+)?\s*)?[a-zA-Z]\^[0-9a-zA-Z{}]+(?:[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?)*)(?=$|[\s),.:;!?])/g, (match) => {
-          return `$${match.trim()}$`;
+        return t.replace(/(?:^|(?<=[\s(:;]))(-?\s*(?:[0-9a-zA-Z\(\)\^_{}\s]*\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|mathbb\{[A-Z]\})[0-9a-zA-Z\(\)\^_{}\s\+\-\*\/]*)+)(?=$|[\s),.:;!?\n])/g, (_m, p1) => {
+          const m = p1.trim();
+          if (/[à-ỹÀ-Ỹ]/.test(m)) return p1;
+          return `$${m}$`;
         });
       });
 
-      // Bước 6: Tự động bọc phân số đơn lẻ dạng text thô còn sót: "1/2", "- 3/4", "-3/4"
+      // Bước 4: Tự động bọc chuỗi đa thức / phép tính cộng trừ biến số (ví dụ: x^2 - 2x, -2x + 7y, x + 2y - z, 2x^2y + (-5x^2y))
       cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(-?\s*\d+)\/(\d+)(?=$|[\s),.:;!?])/g, (_match, num, den) => {
+        return t.replace(/(?:^|(?<=[\s(:;]))(-?\s*(?:\d+(?:,\d+)?\s*)?[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?(?:[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?)*\s*[+\-]\s*(?:\d+(?:,\d+)?\s*)?[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?(?:[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?)*(?:\s*[+\-]\s*(?:\d+(?:,\d+)?\s*)?[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?(?:[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?)*)*)(?=$|[\s),.:;!?\n])/g, (match) => {
+          const m = match.trim();
+          if (/[à-ỹÀ-Ỹ]/.test(m)) return match;
+          return `$${m}$`;
+        });
+      });
+
+      // Bước 5: Tự động bọc các đơn thức có lũy thừa / biến số: ví dụ 2x^2y, -5x^2y, 17z^4, 3x^3y, 12x^5, x^2y^3, x^3y^2, 0,5x^4, 2,75x^4, x^2, x^3, -3x^3, 2x^2, x^3y, -x y^2, -2x y^2, 3x y^2
+      cur = transformNonLatex(cur, (t) => {
+        return t.replace(/(?:^|(?<=[\s(:;]))(-?\s*(?:\d+(?:,\d+)?\s*)?[a-zA-Z](?:\^[0-9a-zA-Z{}]+)+(?:[a-zA-Z](?:\^[0-9a-zA-Z{}]+)?)*|-?\s*\d+(?:,\d+)?\s*[a-zA-Z]{2,}(?:\^[0-9a-zA-Z{}]+)*|-?\s*[a-zA-Z]\s+[a-zA-Z]\^[0-9a-zA-Z{}]+)(?=$|[\s),.:;!?\n])/g, (match) => {
+          const m = match.trim();
+          if (/[à-ỹÀ-Ỹ]/.test(m)) return match;
+          return `$${m}$`;
+        });
+      });
+
+      // Bước 6: Tự động bọc đơn thức tích 2 biến như xy, x^2y, 5x^2y^3z khi đứng sau từ "đơn thức", "phần biến", "phần hệ số", "biến", "bằng", v.v.
+      cur = transformNonLatex(cur, (t) => {
+        return t.replace(/((?:đơn\s*thức|phần\s*biến|biến|đa\s*thức|hệ\s*số|là|bằng)\s+)([a-zA-Z]{1,3}(?:\^[0-9a-zA-Z{}]+)?)(?=$|[\s),.:;!?\n])/g, (_match, prefix, math) => {
+          return `${prefix}$${math.trim()}$`;
+        });
+      });
+
+      // Bước 7: Tự động bọc biến số đơn lẻ A, B, C đứng sau "đơn thức", "đa thức", "biểu thức"
+      cur = transformNonLatex(cur, (t) => {
+        return t.replace(/((?:đơn\s*thức|đa\s*thức|biểu\s*thức|tam\s*giác|góc|điểm)\s+)([A-Z])(?=$|[\s),.:;!?\n])/g, (_match, prefix, v) => {
+          return `${prefix}$${v}$`;
+        });
+      });
+
+      // Bước 8: Tự động bọc phân số đơn lẻ dạng text thô còn sót: "1/2", "- 3/4", "-3/4", "5/9"
+      cur = transformNonLatex(cur, (t) => {
+        return t.replace(/(?:^|(?<=[\s(]))(-?\s*\d+)\/(\d+)(?=$|[\s),.:;!?\n])/g, (_match, num, den) => {
           const cleanNum = num.replace(/\s+/g, '');
           const isNegative = cleanNum.startsWith('-');
           const absNum = isNegative ? cleanNum.slice(1) : cleanNum;
@@ -441,7 +434,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         });
       });
 
-      // Bước 7: Tự động bọc các ký tự toán học Unicode đơn lẻ còn sót lại
+      // Bước 9: Tự động bọc các ký tự toán học Unicode đơn lẻ còn sót lại
       cur = transformNonLatex(cur, (t) => {
         return t.replace(/≤/g, '$\\le$')
                 .replace(/≥/g, '$\\ge$')
@@ -462,23 +455,28 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     let s = line.trim();
     if (!s) return "";
 
-    // 1. Loại bỏ in đậm bao trùm toàn bộ gạch đầu dòng / bullet / câu GV / HS:
-    s = s.replace(/^\*\*\s*([•\-\+]\s*[^\n*]+?)\*\*$/g, '$1');
-    s = s.replace(/^\*\*\s*(\([a-d0-9]+\)\s*[^\n*]+?)\*\*$/g, '$1');
+    // 1. Nhận diện các nhãn tiêu đề hợp lệ để chỉ in đậm đúng nhãn, giữ phần thân bình thường:
+    const labelRegex = /^(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Ví\s*dụ\s*(?:về\s*đơn\s*thức\s*một\s*biến|\d+)?\s*:?|Luyện\s*tập\s*\d+\s*:?|Vận\s*dụng\s*\d*\s*:?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*(.*)$/i;
+    const labelMatch = s.match(labelRegex);
+    
+    if (labelMatch) {
+        let label = labelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+        if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label)) label += ':';
+        let rest = (labelMatch[2] || '').trim();
+        // Xóa toàn bộ ** bao bọc trong phần rest của câu để không in đậm cả câu
+        rest = rest.replace(/\*\*/g, '').trim();
+        return `**${label}** ${rest}`.trim();
+    }
 
-    // 2. Chuẩn hóa chỉ in đậm nhãn tên bước / đề mục:
-    s = s.replace(/^\*\*\s*(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?)\s*(.*?)\*\*$/gi, '**$1** $2');
-    s = s.replace(/^\*\*\s*(Bước\s*[1-4]\s*:)\s*(.*?)\*\*$/gi, '**$1** $2');
-    s = s.replace(/^\*\*\s*(Kết\s*luận|Nhận\s*xét|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Tranh\s*luận|Vận\s*dụng\s*\d*|HĐ\s*\d+):?\s*(.*?)\*\*$/gi, '**$1:** $2');
+    // 2. Nếu dòng là hành động của GV/HS hoặc câu thông thường bị in đậm cả dòng: Xóa toàn bộ **
+    if (/^(?:\*\*)?(?:GV|HS|Giáo\s*viên|Học\s*sinh|Yêu\s*cầu\s*HS|Tổ\s*chức|Hướng\s*dẫn\s*HS|Biểu\s*thức|Các\s*biểu\s*thức|Ta\s*có|Theo\s*yêu\s*cầu|Đại\s*diện|Một\s*HS|Sử\s*dụng|-|\+)\b/i.test(s) || (s.startsWith('**') && s.endsWith('**'))) {
+        s = s.replace(/\*\*/g, '').trim();
+    }
 
-    // 3. Nếu là dòng bắt đầu bằng nhãn chưa có in đậm: tự động in đậm đúng nhãn
-    s = s.replace(/^(?!\*\*)(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?)\s*(.*)$/gi, '**$1** $2');
-    s = s.replace(/^(?!\*\*)(Kết\s*luận|Nhận\s*xét|Ví\s*dụ\s*\d+|Luyện\s*tập\s*\d+|Tranh\s*luận|HĐ\s*\d+):?\s*(.*)$/gi, '**$1:** $2');
-
-    // 4. Xóa các cặp ** không đóng hoặc đóng mở lẻ loi
+    // 3. Xóa các dấu ** lẻ loi gây tràn in đậm
     const countBold = (s.match(/\*\*/g) || []).length;
     if (countBold % 2 !== 0) {
-      s = s.replace(/\*\*/g, '');
+        s = s.replace(/\*\*/g, '');
     }
 
     return s;
@@ -616,16 +614,17 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       const trimmed = str.trim();
       if (!trimmed) return false;
       // Tuyệt đối KHÔNG phải là bước thực hiện
-      if (/^\*?\s*Bước\s*[1-4]/i.test(trimmed)) return false;
+      if (/^[\*\-\+•\s]*Bước\s*[1-4]/i.test(trimmed)) return false;
       // Không phải tiêu đề Hướng dẫn về nhà
-      if (/^\*?\s*hướng\s*dẫn\s*(?:về\s*nhà|tự\s*học|học\s*ở\s*nhà)/i.test(trimmed)) return false;
+      if (/^[\*\-\+•\s]*hướng\s*dẫn\s*(?:về\s*nhà|tự\s*học|học\s*ở\s*nhà)/i.test(trimmed)) return false;
       // Không phải là tiêu đề đánh số 1. 2. 3.
-      if (/^\*?\s*\d+\.\s+[A-ZÀ-ỹ]/i.test(trimmed)) return false;
+      if (/^[\*\-\+•\s]*\d+\.\s+[A-ZÀ-ỹ]/i.test(trimmed)) return false;
 
-      // Bắt buộc bắt đầu bằng dấu * tích hợp hoặc từ khóa tích hợp
+      // Nhận diện các dòng tích hợp NLS, AI, HSKT, GDQP-AN, STEM hoặc mã chỉ báo
       return (
-          /^\*?\s*(?:tích\s*hợp|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật|stem|lồng\s*ghép|gdqp|nls|ai|giáo\s*dục\s*hòa\s*nhập)/i.test(trimmed) ||
-          /^(?:tích\s*hợp\s*(?:năng\s*lực\s*số|năng\s*lực\s*ai|stem|giáo\s*dục\s*hòa\s*nhập|lồng\s*ghép|gdqp)|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật)/i.test(trimmed)
+          /^[\*\-\+•\s]*(?:tích\s*hợp|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật|stem|lồng\s*ghép|gdqp|nls|ai|giáo\s*dục\s*hòa\s*nhập)/i.test(trimmed) ||
+          /(?:tích\s*hợp\s*(?:năng\s*lực\s*số|năng\s*lực\s*ai|stem|giáo\s*dục\s*hòa\s*nhập|lồng\s*ghép|gdqp)|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật)/i.test(trimmed) ||
+          /\(\s*(?:\d+\.\d+\.[A-Z0-9a-z]+|\d+\.[A-Z0-9a-z]+|NLS_[^)]+|AI_[^)]+|GDQP_[^)]+|\d+\.A\d+\.\d+)\s*\)/i.test(trimmed)
       );
   };
 
@@ -645,7 +644,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         let isMatched = false;
 
         // Chỉ bôi đỏ nếu đoạn văn bản THỰC SỰ là nội dung tích hợp
-        if (!matchStyles.color && !part.startsWith('**') && isIntegrationToken(part)) {
+        if (!matchStyles.color && isIntegrationToken(part)) {
             matchStyles.color = "FF0000";
             matchStyles.italics = false;
         }
@@ -817,14 +816,22 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               // Tách theo từng dòng (<br> hoặc \n) thành từng Paragraph riêng biệt
               // Giúp định dạng không bị tràn (leak) giữa các dòng, và bôi đỏ chính xác 100% dòng tích hợp
               const lines = part.split(/<br\s*\/?>|\r?\n/gi);
+              let inIntegration = false;
+
               lines.forEach(line => {
                   const trimmedLine = line.trim();
                   if (!trimmedLine) return;
 
-                  // Kiểm tra bôi đỏ nội dung tích hợp
-                  const isIntegration = isIntegrationToken(trimmedLine);
+                  // Kiểm tra trạng thái dòng tích hợp:
+                  // Bắt đầu khi gặp từ khóa tích hợp, chỉ kết thúc khi gặp đầu mục bước/hoạt động mới
+                  if (isIntegrationToken(trimmedLine)) {
+                      inIntegration = true;
+                  } else if (/^(?:\*\*)?(?:Bước\s*[1-4]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Tranh\s*luận|Kết\s*luận|Nhận\s*xét|[a-e]\))\b/i.test(trimmedLine) || trimmedLine.startsWith('|')) {
+                      inIntegration = false;
+                  }
+
                   const lineStyles = { ...baseStyles };
-                  if (isIntegration) {
+                  if (inIntegration || isIntegrationToken(trimmedLine)) {
                       lineStyles.color = "FF0000";
                   }
 
@@ -1374,11 +1381,22 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               alignment: AlignmentType.JUSTIFIED
             }));
         }
-        // 4. List Handling
-        else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ')) {
-            const content = trimmed.substring(2);
+        // 4. List Handling & Integration Lines outside table
+        else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ') || isIntegrationToken(trimmed)) {
+            const isInt = isIntegrationToken(trimmed);
+            const lineStyles: any = isInt ? { color: "FF0000" } : {};
+            let cleanLineText = trimmed;
+            if (isInt) {
+                // Giữ nguyên dấu * ở đầu câu cho dòng tích hợp, không đổi thành gạch đầu dòng
+                if (!cleanLineText.startsWith('*')) {
+                    cleanLineText = `*${cleanLineText.replace(/^[\-\+•\s]+/, '')}`;
+                }
+            } else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ')) {
+                cleanLineText = `- ${trimmed.substring(2)}`;
+            }
+
             children.push(new Paragraph({
-                children: parseTextWithFormatting(`- ${content}`),
+                children: parseTextWithFormatting(cleanLineText, lineStyles),
                 spacing: PARAGRAPH_SPACING,
                 indent: { firstLine: FIRST_LINE_INDENT },
                 alignment: AlignmentType.JUSTIFIED
@@ -1386,6 +1404,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
         // 5. Regular Text
         else {
+            const isInt = isIntegrationToken(trimmed);
+            const lineStyles: any = isInt ? { color: "FF0000" } : {};
             const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
             if (trimmed.match(tableRegex)) {
                 const parts = trimmed.split(tableRegex);
@@ -1395,7 +1415,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                 parts.forEach((part, index) => {
                     if (part.trim() || parts.length === 1) {
                          children.push(new Paragraph({
-                            children: parseTextWithFormatting(part.trim() || " "),
+                            children: parseTextWithFormatting(part.trim() || " ", lineStyles),
                             spacing: PARAGRAPH_SPACING,
                             indent: { firstLine: FIRST_LINE_INDENT },
                             alignment: AlignmentType.JUSTIFIED
@@ -1409,7 +1429,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                 });
             } else {
                  children.push(new Paragraph({
-                    children: parseTextWithFormatting(trimmed),
+                    children: parseTextWithFormatting(trimmed, lineStyles),
                     spacing: PARAGRAPH_SPACING,
                     indent: { firstLine: FIRST_LINE_INDENT },
                     alignment: AlignmentType.JUSTIFIED
@@ -1596,9 +1616,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`);
 
     // 3. Tự động bôi đỏ tất cả các dòng tích hợp trên giao diện xem trước (cả trong bảng và ngoài bảng)
-    html = html.replace(/(?:^|<br\s*\/?>|\n)[ \t]*(\*?\s*(?:Tích\s*hợp|HS\s*khuyết\s*tật|Học\s*sinh\s*khuyết\s*tật|Lồng\s*ghép\s*GDQP|STEM|GDQP)[^<\n|]+)/gmi, (match, content) => {
-        const prefix = match.startsWith('<br') ? '<br>' : (match.startsWith('\n') ? '\n' : '');
-        return `${prefix}<span style="color: #dc2626; font-weight: 500;">${content.trim()}</span>`;
+    html = html.replace(/(?:^|<br\s*\/?>|\n)[ \t]*([\*\-\+•\s]*(?:Tích\s*hợp|HS\s*khuyết\s*tật|Học\s*sinh\s*khuyết\s*tật|Lồng\s*ghép\s*GDQP|STEM|GDQP)[^<\n|]+|\([0-9\.]+[A-Za-z0-9\._\-]+\)[^<\n|]*|[^<\n|]+\([0-9\.]+[A-Za-z0-9\._\-]+\)[^<\n|]*)/gmi, (match, content) => {
+        const trimmed = content.trim();
+        if (isIntegrationToken(trimmed)) {
+            const prefix = match.startsWith('<br') ? '<br>' : (match.startsWith('\n') ? '\n' : '');
+            return `${prefix}<span style="color: #dc2626; font-weight: 500;">${trimmed}</span>`;
+        }
+        return match;
     });
 
     // Render KaTeX block math $$...$$ directly into HTML for 100% crisp formulas
