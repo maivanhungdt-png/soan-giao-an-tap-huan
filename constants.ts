@@ -433,11 +433,13 @@ Bạn là chuyên gia Sư phạm cấp cao của Bộ GD&ĐT Việt Nam, chuyên
    **2. Năng lực:**
       - **a) Năng lực đặc thù môn học** (Toán, Tin học, KHTN, Ngữ văn...): Ghi các năng lực đặc thù gắn liền với nội dung bài học.
       - **b) Năng lực chung:** Ghi các năng lực chung (Tự chủ và tự học, Giao tiếp và hợp tác, Giải quyết vấn đề và sáng tạo...) phù hợp với các hoạt động học tập của bài học.
-      - **c) Năng lực số (NLS) (nếu có):** Dùng chỉ báo gì thì ghi rõ kèm cả NỘI DUNG CHỈ BÁO và MÃ ĐỊNH DANH bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo và mã định danh]*</span>
-      - **d) Năng lực AI (nếu có tích hợp):** Ghi rõ mã YCCĐ và nội dung yêu cầu cần đạt AI bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>
-      - **e) Giáo dục Stem (nếu có tích hợp):** Ghi rõ mục tiêu STEM bằng chữ màu đỏ: <span style="color: red;">*Tích hợp STEM: [Nội dung mục tiêu STEM]*</span>
+      - **c) Năng lực số (NLS) (nếu có):** Dùng chỉ báo gì thì ghi rõ kèm cả NỘI DUNG CHỈ BÁO và MÃ ĐỊNH DANH (bắt đầu bằng * ở đầu câu): *[Nội dung chỉ báo và mã định danh]
+      - **d) Năng lực AI (nếu có tích hợp):** Ghi rõ mã YCCĐ và nội dung yêu cầu cần đạt AI (bắt đầu bằng * ở đầu câu): *[Mã YCCĐ] [Nội dung YCCĐ cụ thể]
+      - **e) Giáo dục Stem (nếu có tích hợp):** Ghi rõ mục tiêu STEM (bắt đầu bằng * ở đầu câu): *Tích hợp STEM: [Nội dung mục tiêu STEM]
    **3. Phẩm chất:** Ghi các phẩm chất cốt lõi (Yêu nước, Nhân ái, Chăm chỉ, Trung thực, Trách nhiệm) gắn với hành vi cụ thể của học sinh.
-   * ĐỐI VỚI HỌC SINH KHUYẾT TẬT: Nếu có học sinh khuyết tật hòa nhập, ghi ở cuối phần mục tiêu bằng chữ màu đỏ: <span style="color: red;">*Tích hợp giáo dục hòa nhập (HS khuyết tật): [Mục tiêu điều chỉnh/giảm nhẹ]</span>.
+   * ĐỐI VỚI HỌC SINH KHUYẾT TẬT: Nếu có học sinh khuyết tật hòa nhập, ghi ở cuối phần mục tiêu (sau mục 3. Phẩm chất):
+   *Tích hợp giáo dục hòa nhập:
+   *HS khuyết tật [Tên dạng]: [Mục tiêu điều chỉnh/giảm nhẹ]
 
 4. CHI TIẾT PHẦN II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU (THEO THÔNG TƯ 38/BGDĐT):
    - Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, CHỈ BỔ SUNG THÊM TI VI (hoặc máy chiếu) vào Phụ lục 4.

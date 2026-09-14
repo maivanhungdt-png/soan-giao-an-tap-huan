@@ -256,27 +256,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 11. Remove duplicate top header metadata lines that may be extracted from the old file
     clean = clean.replace(/^(?:#+\s*)?Phụ\s*lục\s*(?:IV|4)\b[^\n]*\n?/gim, "");
-    clean = clean.replace(/^(?:#+\s*)?Trường\s*:\s*[^\n]*\n?/gim, "");
-    clean = clean.replace(/^(?:#+\s*)?Tổ\s*:\s*[^\n]*\n?/gim, "");
-    clean = clean.replace(/^(?:#+\s*)?Họ\s*và\s*tên\s*giáo\s*viên\s*:\s*[^\n]*\n?/gim, "");
-    clean = clean.replace(/^(?:#+\s*)?Giáo\s*viên\s*:\s*[^\n]*\n?/gim, "");
 
-    // 12. Remove trailing duplicate signature placeholders if present in raw text
-    clean = clean.replace(/(?:\n|^)\s*(?:(?:Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Tổ\s*trưởng\s*chuyên\s*môn|Ký\s*duyệt\s*của\s*BGH)[\s\S]*)$/gi, '');
-
-    // 13. Standardize Roman Numerals Sections to Bold and Sentence Case:
-    clean = clean.replace(/^(?:#+\s*)?(?:\*\*)?(?:I|1)\.?\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|Mục\s*Tiêu)(?:\*\*)?\s*$/gmi, '**I. Mục tiêu**');
-    clean = clean.replace(/^(?:#+\s*)?(?:\*\*)?(?:II|2)\.?\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|Thiết\s*bị\s*dạy\s*học)(?:\*\*)?\s*$/gmi, '**II. Thiết bị dạy học và học liệu**');
-    clean = clean.replace(/^(?:#+\s*)?(?:\*\*)?(?:III|3)\.?\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|Tiến\s*trình\s*bài\s*dạy)(?:\*\*)?\s*$/gmi, '**III. Tiến trình dạy học**');
-
-    // 14. Auto bold main subheadings
-    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Kiến\s*thức:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Năng\s*lực:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Phẩm\s*chất:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Thiết\s*bị\s*dạy\s*học:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*liệu:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Giáo\s*viên:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*sinh:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
+    // 14. Auto bold main subheadings (Chỉ in đậm tiêu đề, không in đậm toàn bộ nội dung câu)
+    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Kiến\s*thức:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Năng\s*lực:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Phẩm\s*chất:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Thiết\s*bị\s*dạy\s*học:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*liệu:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Giáo\s*viên:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*sinh:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
 
     // 15. Auto bold activities
     clean = clean.replace(/^(?:\*\*)?((?:\d+\.\s*)?Hoạt\s*động\s*\d+\s*:[^\n]*?)(?:\*\*)?$/gmi, (m, p1) => {
@@ -284,13 +272,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         return `**${t}**`;
     });
 
-    // 16. Auto bold sub-steps (a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:)
-    clean = clean.replace(/^(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-    clean = clean.replace(/^(?:\*\*)?([a-c]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
+    // 16. Auto bold sub-steps (a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:) - Chỉ in đậm đúng tiêu đề
+    clean = clean.replace(/(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
+    clean = clean.replace(/(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
 
-    // 17. Auto bold Bước 1, Bước 2, Bước 3, Bước 4 inside or outside tables
-    clean = clean.replace(/^(?:\*\*)?(Bước\s*[1-4]\s*:[^\n]*?)(?:\*\*)?$/gmi, '**$1**');
-    clean = clean.replace(/(?<!\*\*)(Bước\s*[1-4]\s*:[^\n<|*]+?)(?=(?:;|\.|\n|<|\||\*\*|$))/g, '**$1**');
+    // 17. Auto bold đúng nhãn Bước 1, Bước 2, Bước 3, Bước 4 (chỉ in đậm nhãn tên bước, KHÔNG in đậm nội dung câu)
+    clean = clean.replace(/(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?)(?:\*\*)?/gmi, (m, p1) => {
+        const t = p1.trim();
+        return `**${t.endsWith(':') ? t : t + ':'}**`;
+    });
+    clean = clean.replace(/(?:\*\*)?(Bước\s*[1-4]\s*:)(?!\s*(?:Chuyển\s*giao|Thực\s*hiện|Báo\s*cáo|Kết\s*luận))(?:\*\*)?/gmi, '**$1**');
 
     // Clean NLS brackets: e.g. [1.1.TC1a] -> 1.1.TC1a (excluding image tags)
     clean = clean.replace(/\[(?!(?:HINHANHGOC|HINH|IMG|IMAGE|HÌNH))([\d\.]+[\.A-Z0-9a-z]+)\]/gi, '$1');
@@ -299,7 +290,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/\\\*/g, '*');
     
     // 18. Xóa các định dạng in nghiêng tùy tiện
-    // Convert <em>, <i> to normal text
     clean = clean.replace(/<\/?(?:em|i)>/gi, '');
     
     // 19. Remove common AI intros
@@ -320,7 +310,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     const joinedClean = lines.join('\n').trim();
     return autoConvertPlainTextToLatex(joinedClean);
   };
-
 
   // Helper: Tự động phát hiện và chuyển đổi các biểu thức toán học / phân số / bất đẳng thức dạng text thô sang chuẩn LaTeX $...$
   const autoConvertPlainTextToLatex = (text: string): string => {
@@ -546,18 +535,14 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         let innerText = part;
         let isMatched = false;
 
-        // Auto color red if contains integration indicator and guarantee upright non-italic
-        if (!matchStyles.color && (
+        // Chỉ bôi đỏ nếu đoạn văn bản THỰC SỰ là nội dung tích hợp bắt đầu bằng dấu *
+        const isStrictIntegration = (
             lowerPart.startsWith('*tích hợp') || 
-            lowerPart.startsWith('tích hợp') ||
             lowerPart.startsWith('*hs khuyết tật') ||
-            lowerPart.startsWith('hs khuyết tật') ||
-            lowerPart.includes('tích hợp năng lực') || 
-            lowerPart.includes('tích hợp giáo dục hòa nhập') || 
-            lowerPart.includes('tích hợp lồng ghép gdqp') ||
-            lowerPart.includes('tích hợp stem') ||
-            lowerPart.includes('khuyết tật')
-        )) {
+            lowerPart.startsWith('*học sinh khuyết tật')
+        );
+
+        if (!matchStyles.color && isStrictIntegration) {
             matchStyles.color = "FF0000";
             matchStyles.italics = false;
         }
@@ -1471,21 +1456,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`);
 
-    // 3. Tự động bôi đỏ tất cả các dòng tích hợp trên giao diện xem trước (mỗi dòng độc lập, không vắt dòng)
+    // 3. Tự động bôi đỏ tất cả các dòng tích hợp trên giao diện xem trước (chỉ bôi đỏ dòng thực sự bắt đầu bằng dấu * tích hợp)
     const lines = html.split('\n');
     const styledLines = lines.map(line => {
       const trimmed = line.trim();
       const lower = trimmed.toLowerCase();
       const isIntegrationLine = (
         lower.startsWith('*tích hợp') ||
-        lower.startsWith('tích hợp') ||
         lower.startsWith('*hs khuyết tật') ||
-        lower.startsWith('hs khuyết tật') ||
-        lower.includes('tích hợp năng lực số') ||
-        lower.includes('tích hợp giáo dục hòa nhập') ||
-        lower.includes('tích hợp lồng ghép gdqp') ||
-        lower.includes('tích hợp stem') ||
-        lower.includes('tích hợp năng lực ai')
+        lower.startsWith('*học sinh khuyết tật')
       );
 
       if (isIntegrationLine && !trimmed.startsWith('|') && !trimmed.startsWith('#')) {
