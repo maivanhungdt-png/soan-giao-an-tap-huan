@@ -447,12 +447,12 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
       | :--- | :--- |
       | (Cột 1: Đặt tên chính xác là "Hoạt động của giáo viên và học sinh" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Kết quả hoạt động" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
-    - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI:
-      * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...").
-      * Trình bày gồm các mục:
-        1. Ôn tập kiến thức: (Nội dung ôn tập kiến thức cốt lõi)
-        2. Bài tập về nhà: (Bài tập cụ thể trong SGK/SBT hoặc bài tập ứng dụng)
-        3. Chuẩn bị bài mới: (Nội dung bài tiếp theo cần đọc trước)
+    - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI (ĐẶT HOÀN TOÀN NGOÀI BẢNG):
+      * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà: (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...", VÀ PHẢI ĐẶT NGOÀI BẢNG).
+      * Trình bày gồm 3 gạch đầu dòng chuẩn theo mẫu:
+        - Ôn tập kiến thức: (Ghi nhớ nội dung kiến thức cốt lõi của bài học)
+        - Bài tập về nhà: (Hoàn thành các bài tập còn lại trong SBT/SGK)
+        - Chuẩn bị bài mới: (Đọc trước và chuẩn bị nội dung bài tiếp theo)
     =========================================================
     `;
     
