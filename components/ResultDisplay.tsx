@@ -33,7 +33,7 @@ import FileSaver from 'file-saver';
 import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
-import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine } from '../utils/tableFormatter';
+import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings } from '../utils/tableFormatter';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -254,19 +254,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
 
       // 2. Tách nhãn tiêu đề (nếu có) để xử lý riêng
-      const labelRegex = /^(?:[\*\s#\-•]*)(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|\?:\s*(?:SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*(.*)$/i;
+      const labelRegex = /^(?:[\*\s#\-•]*)((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực[^\n:]*)|(?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh)|HĐ\s*\d+|Kết\s*luận|Nhận\s*xét|Tranh\s*luận|Chú\s*ý|Quy\s*tắc|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|\?:(?:\s*SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?|[a-e]\))[:\s\*\-]*)(.*)$/i;
       const labelMatch = cur.match(labelRegex);
 
       let prefixLabel = "";
       let mathBody = cur;
 
       if (labelMatch) {
-        let label = labelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^\*+/, '').replace(/\*+$/, '').trim();
-        if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label)) label += ':';
+        let label = labelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
+        if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label) && !/^\d+\./.test(label)) label += ':';
         prefixLabel = `**${label}** `;
-        mathBody = (labelMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/\*\*$/, '').trim();
+        mathBody = (labelMatch[2] || '').replace(/^[:\*\-\s]+/, '').replace(/\*\*+$/, '').trim();
       } else {
-        mathBody = mathBody.replace(/^\*\*|\*\*$/g, '').trim();
+        mathBody = mathBody.replace(/^\*\*|\*\*$/g, '').replace(/\*\*+$/, '').trim();
       }
 
       // 3. Nếu toàn bộ phần thân là biểu thức toán học thuần túy (Pure Math Expression)
@@ -346,6 +346,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // Phục hồi công thức phân số bị lỗi trước khi làm sạch
     let clean = repairRacToFrac(text);
+
+    // Tách tất cả các đề mục bị dính liền trên 1 dòng
+    clean = splitAllMergedHeadings(clean);
 
     // Đảm bảo khoảng cách công thức toán không dính sát chữ
     clean = ensureMathFormulaSpacing(clean);
@@ -1159,9 +1162,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       preProcessedResult = repairRacToFrac(preProcessedResult);
       preProcessedResult = ensureMathFormulaSpacing(preProcessedResult);
-      if (layoutFormat !== 'no_table') {
-        preProcessedResult = ensureAllActivitiesInTwoColumnTable(preProcessedResult);
-      }
       preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
 
       // Tự động kiểm tra và bảo tồn tất cả hình vẽ gốc từ imageCache vào CỘT 2 (Kết quả hoạt động) của bảng giáo án

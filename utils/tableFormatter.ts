@@ -74,6 +74,48 @@ export const isIntegrationLine = (text: string): boolean => {
   return hasIndicatorCode;
 };
 
+// Helper to split any concatenated headings merged into a single line
+export const splitAllMergedHeadings = (text: string): string => {
+  if (!text) return "";
+  let s = text;
+
+  // 1. I. Mục tiêu + 1. Kiến thức: / 2. Năng lực: / II. Thiết bị...
+  s = s.replace(/(?:\*\*)?([I|V|X]+\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|THIẾT\s*BỊ|Thiết\s*bị[^\n*]*|TIẾN\s*TRÌNH|Tiến\s*trình[^\n*]*))(?:\*\*)?[ \t]*(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Giáo\s*viên|Học\s*sinh))/gmi, '**$1**\n\n**$2**');
+
+  // 2. III. Tiến trình dạy học + 1. Hoạt động... / Hoạt động...
+  s = s.replace(/(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)[^\n*]*)(?:\*\*)?[ \t\n]*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^\n]+)/gmi, '**$1**\n\n**$2**');
+
+  // 3. 2. Năng lực + a) Năng lực đặc thù môn Toán:
+  s = s.replace(/(?:\*\*)?(2\.\s*Năng\s*lực:?)(?:\*\*)?[ \t\-]*(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n]*)/gmi, '**$1**\n**$2**');
+
+  // 4. II. Thiết bị dạy học... + 1. Giáo viên:
+  s = s.replace(/(?:\*\*)?(II\.\s*Thiết\s*bị\s*dạy\s*học[^\n*:]*:?)(?:\*\*)?[ \t]*(?:\*\*)?(1\.\s*Giáo\s*viên:?)/gmi, '**$1**\n**$2**');
+
+  // 5. 1. Giáo viên... + 2. Học sinh:
+  s = s.replace(/(?:\*\*)?(1\.\s*Giáo\s*viên[^\n*]*)(?:\*\*)?[ \t\n]+(?:\*\*)?(2\.\s*Học\s*sinh)/gmi, '$1\n**$2**');
+
+  // 6. 2. Học sinh missing colon / bold:
+  s = s.replace(/(?:^|\n)\s*(?:\*\*)?(2\.\s*Học\s*sinh)(?:\*\*)?[ \t]*[:\-]?\s*(?=[A-Z0-9À-Ỹ])/gmi, '\n**$1:** ');
+
+  // 7. Hoạt động header + a) Mục tiêu: / b) Nội dung:
+  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*[\d\.]*(?:\s*:[^\n*a-e\)]*)?)(?:\*\*)?[ \t]*(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[^\n]*)/gmi, '**$1**\n**$2**');
+
+  // 8. a) Mục tiêu:... + b) Nội dung: ...
+  s = s.replace(/(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?(b\)\s*Nội\s*dung)/gmi, '$1\n**$2**');
+
+  // 9. b) Nội dung:... + c) Sản phẩm: ...
+  s = s.replace(/(b\)\s*Nội\s*dung[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?(c\)\s*Sản\s*phẩm)/gmi, '$1\n**$2**');
+
+  // 10. c) Sản phẩm:... + d) Tổ chức thực hiện: ...
+  s = s.replace(/(c\)\s*Sản\s*phẩm[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?(d\)\s*Tổ\s*chức\s*thực\s*hiện)/gmi, '$1\n**$2**');
+
+  // 11. Remove any trailing ** on headings or lines
+  s = s.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
+  s = s.replace(/([a-zA-Z0-9À-ỹ\)]+:)\s*\*\*(?!\w)/g, '$1');
+
+  return s;
+};
+
 /**
  * Parses and converts an activity block into a standard 2-column table.
  * Accurately sorts teacher/student actions into Column 1, and products/exercises/solutions/images into Column 2.
@@ -81,16 +123,27 @@ export const isIntegrationLine = (text: string): boolean => {
 export const convertActivityBlockToTable = (activityBlock: string): string => {
   if (!activityBlock.trim()) return activityBlock;
 
-  const lines = activityBlock.split(/\r?\n/);
+  // Split any merged headings first
+  const normalizedBlock = splitAllMergedHeadings(activityBlock);
+  const lines = normalizedBlock.split(/\r?\n/);
   if (lines.length === 0) return activityBlock;
 
   // Header line of the activity
-  let headerLine = lines[0].trim();
-  if (!headerLine.startsWith('**') && !headerLine.startsWith('#')) {
-    headerLine = `**${headerLine.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '')}**`;
+  let rawHeader = lines[0].trim();
+  let restLines = lines.slice(1);
+
+  // If lines[0] has concatenated activity header + a) Mục tiêu / b) Nội dung, extract it
+  const headerSplit = rawHeader.match(/^([\s\S]*?(?:Hoạt\s*động\s*[\d\.]*(?:\s*:[^\n*a-e\)]*)?))(?:\*\*)?[ \t]*(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[\s\S]*)$/i);
+  if (headerSplit) {
+    rawHeader = headerSplit[1].trim();
+    const remainingAfterHeader = headerSplit[2].trim();
+    if (remainingAfterHeader) {
+      restLines.unshift(remainingAfterHeader);
+    }
   }
 
-  const restLines = lines.slice(1);
+  let headerLine = rawHeader.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+  headerLine = `**${headerLine}**`;
 
   let mucTieu: string[] = [];
   let noiDung: string[] = [];
@@ -335,7 +388,8 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     let combined = linesArr.join('\n');
     // Strip all occurrences of prefix, including repeated "a) Mục tiêu: a) Mục tiêu: **", "**a) Mục tiêu:**", etc.
     combined = combined.replace(/^(?:[\s\*\-#•]*[a-e]\s*[\)\.:\-]?\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức\s*thực\s*hiện)\s*[:\*\-]*\s*)+/gmi, '').trim();
-    combined = combined.replace(/^[:\*\-\s]+/, '').trim();
+    combined = combined.replace(/^[:\*\-\s]+/, '').replace(/[\*\s]+$/, '').trim();
+    combined = combined.replace(/\*\*+$/, '').trim();
     return combined ? `**${prefix}** ${combined}` : `**${prefix}**`;
   };
 
@@ -362,7 +416,9 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
   if (!text) return text;
 
-  const lines = text.split(/\r?\n/);
+  // Pre-split all merged headings across the document
+  const normalizedText = splitAllMergedHeadings(text);
+  const lines = normalizedText.split(/\r?\n/);
   const resultLines: string[] = [];
 
   let inSectionIII = false;
