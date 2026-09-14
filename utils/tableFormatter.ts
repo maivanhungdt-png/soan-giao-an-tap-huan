@@ -38,23 +38,40 @@ export const isIntegrationLine = (text: string): boolean => {
   const trimmed = text.trim();
   if (!trimmed) return false;
 
-  // Tuyệt đối không bôi đỏ các tiêu đề mục, bước, bài tập, lời giải, hay hướng dẫn về nhà
-  if (/^[\*\-\+•\s#]*(?:Phần|Chương|Bài\s*\d+|[I|V|X]+\.|\d+\.\s*(?:Mục\s*tiêu|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Tiến\s*trình|Hoạt\s*động|Giáo\s*viên|Học\s*sinh|Ôn\s*tập|Bài\s*tập|Chuẩn\s*bị)|Hoạt\s*động\s*\d+|Hướng\s*dẫn\s*(?:về\s*nhà|tự\s*học)|Bước\s*[1-4]|HĐ\s*\d+|Ví\s*dụ|Luyện\s*tập|Vận\s*dụng|Bài\s*\d+|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Nhận\s*xét|Chú\s*ý|[a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức))/i.test(trimmed)) {
+  // Tuyệt đối không bôi đỏ các tiêu đề mục lớn, bước, bài tập, lời giải, hay hướng dẫn về nhà
+  if (/^[\*\-\+•\s#]*(?:Phần|Chương|Bài\s*\d+|[I|V|X]+\.|\d+\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Tiến\s*trình|Hoạt\s*động|Giáo\s*viên|Học\s*sinh|Ôn\s*tập|Bài\s*tập|Chuẩn\s*bị)|Hoạt\s*động\s*\d+|Hướng\s*dẫn\s*(?:về\s*nhà|tự\s*học)|Bước\s*[1-4]|HĐ\s*\d+|Ví\s*dụ|Luyện\s*tập|Vận\s*dụng|Bài\s*\d+|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Nhận\s*xét|Chú\s*ý|[a-b]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức)|[a-b]\)\s*Năng\s*lực\s*(?:đặc\s*thù|chung))/i.test(trimmed)) {
     return false;
   }
 
-  // Phải khớp các từ khóa tích hợp chuẩn hoặc mã chỉ báo
-  const hasIntegrationKeyword = (
-    /^[\*\-\+•\s]*(?:Tích\s*hợp\s+(?:năng\s*lực\s*số|năng\s*lực\s*ai|ai|stem|gdqp|an\s*ninh\s*quốc\s*phòng|giáo\s*dục\s*hòa\s*nhập|bảo\s*vệ\s*môi\s*trường)|HS\s*khuyết\s*tật|Học\s*sinh\s*khuyết\s*tật|Lựa\s*chọn\s*và\s*sử\s*dụng\s*công\s*nghệ\s*số|Sử\s*dụng\s*công\s*nghệ\s*số|Ứng\s*dụng\s*(?:công\s*nghệ\s*số|cntt|ai))/i.test(trimmed) ||
-    /(?:tích\s*hợp\s+(?:năng\s*lực\s*số|năng\s*lực\s*ai|ai|stem|gdqp|giáo\s*dục\s*hòa\s*nhập)|học\s*sinh\s*khuyết\s*tật)/i.test(trimmed)
-  );
+  // Khớp các mục tích hợp chuẩn ở phần Mục tiêu hoặc trong Bảng:
+  // 1. c) Năng lực số / d) Năng lực AI / e) STEM / e) GDQP
+  if (/^[ \t]*[\*\-\+•]*(?:[c-e]\)\s*)?(?:Năng\s*lực\s*số|Năng\s*lực\s*AI|Năng\s*lực\s*trí\s*tuệ\s*nhân\s*tạo|Giáo\s*dục\s*STEM|GDQP|Lồng\s*ghép\s*GDQP)/i.test(trimmed)) {
+    return true;
+  }
 
+  // 2. *Tích hợp... hoặc Tích hợp...
+  if (/^[ \t]*[\*\-\+•]*Tích\s*hợp\s+(?:năng\s*lực\s*số|năng\s*lực\s*AI|AI|STEM|GDQP|an\s*ninh\s*quốc\s*phòng|giáo\s*dục\s*hòa\s*nhập|bảo\s*vệ\s*môi\s*trường)/i.test(trimmed)) {
+    return true;
+  }
+
+  // 3. Học sinh khuyết tật / HS khuyết tật (vận động, trí tuệ, nghe, nhìn, tự kỷ, chung...)
+  if (/^[ \t]*[\*\-\+•]*(?:HS|Học\s*sinh)\s*khuyết\s*tật/i.test(trimmed) || /^\*Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập/i.test(trimmed)) {
+    return true;
+  }
+
+  // 4. Dòng nội dung hướng dẫn sử dụng công cụ số / AI / phần mềm tích hợp
+  if (/^[ \t]*[\*\-\+•]*(?:GV\s*(?:hướng\s*dẫn|giới\s*thiệu|yêu\s*cầu)|HS\s*(?:sử\s*dụng|thực\s*hành|thao\s*tác)).*?(?:Google\s*Sheets|Excel|GeoGebra|ChatGPT|Copilot|AI|công\s*cụ\s*số|phần\s*mềm)/i.test(trimmed)) {
+    return true;
+  }
+
+  // 5. Mã chỉ báo NLS, AI, GDQP, STEM: (Mã chỉ báo: ...), (NLS: ...), (AI: ...)
   const hasIndicatorCode = (
-    /\(\s*(?:Mã\s*chỉ\s*báo\s*:?\s*[\w\.\s]+|\d+\.\d+\.(?:TC|NC)\s*\w+|NLS_[^)]+|AI_[^)]+|GDQP_[^)]+)\s*\)/i.test(trimmed) ||
-    /Mã\s*chỉ\s*báo\s*:\s*[\w\.\s]+/i.test(trimmed)
+    /\(\s*(?:Mã\s*chỉ\s*báo\s*:?\s*[\w\.\s]+|\d+\.\d+\.(?:TC|NC|CB)\s*\w+|NLS[_:\s][^)]+|AI[_:\s][^)]+|GDQP[_:\s][^)]+|STEM[_:\s][^)]+)\s*\)/i.test(trimmed) ||
+    /Mã\s*chỉ\s*báo\s*:\s*[\w\.\s]+/i.test(trimmed) ||
+    /\((?:NLS|AI)\s*:\s*[\w\.\s]+\)/i.test(trimmed)
   );
 
-  return hasIntegrationKeyword || hasIndicatorCode;
+  return hasIndicatorCode;
 };
 
 /**
@@ -217,13 +234,13 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
 
     // Check indicators for Col 2 (Exercises, Solutions, Knowledge Boxes, Formulas)
-    if (/^(?:\*\*|\*|_)?(?:HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Lời\s*giải|Đáp\s*án|Dự\s*đoán)\b/i.test(line)) {
+    if (/^(?:\*\*|\*|_)?(?:\d+\.\s*[A-ZÀ-Ỹ]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|\?:|Lời\s*giải|Đáp\s*án|Dự\s*đoán)\b/i.test(line)) {
       currentTargetCol = 2;
       let cleanItem = line.replace(/^[\*\-\+•\s_]+/, '').replace(/[\*\s_]+$/, '').trim();
-      const itemMatch = cleanItem.match(/^(HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Lời\s*giải|Đáp\s*án|Dự\s*đoán)[:\s]*(.*)$/i);
+      const itemMatch = cleanItem.match(/^(\d+\.\s*[^:\n]+|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|\?:|Lời\s*giải|Đáp\s*án|Dự\s*đoán)[:\s]*(.*)$/i);
       if (itemMatch) {
         let label = itemMatch[1].trim();
-        if (!label.endsWith(':')) label += ':';
+        if (!label.endsWith(':') && !/^\d+\./.test(label)) label += ':';
         let rest = (itemMatch[2] || '').trim();
         cleanItem = rest ? `**${label}** ${rest}` : `**${label}**`;
       }

@@ -177,13 +177,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     let s = line.trim();
     if (!s) return "";
 
-    // 1. Tiêu đề mục lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học, III. Tiến trình dạy học, IV. Hướng dẫn về nhà...)
+    // 0. Bảng markdown: giữ nguyên toàn bộ cú pháp ô và hàng
+    if (s.startsWith('|') || s.endsWith('|') || /^:?-+:?$/.test(s)) {
+      return s;
+    }
+
+    // 1. Tiêu đề mục lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học, IV. Hướng dẫn về nhà...)
     if (/^(?:#+\s*)?(?:\*\*)?([I|V|X]+\.\s*[^:\n]+|Bài\s*\d+[^:\n]*|Tiết\s*\d+[^:\n]*)(?:\*\*)?$/i.test(s)) {
       const cleanHeading = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
       return `**${cleanHeading}**`;
     }
 
-    // 2. Tiêu đề hoạt động dạy học (1. Hoạt động 1: Khởi động, Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng...)
+    // 2. Tiêu đề hoạt động dạy học (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng...)
     if (/^(?:#+\s*)?(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(s)) {
       const cleanAct = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
       return `**${cleanAct}**`;
@@ -191,28 +196,34 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 3. Tiêu đề "* Hướng dẫn về nhà"
     if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(s)) {
-      return `**\* Hướng dẫn về nhà**`;
+      return `**\* Hướng dẫn về nhà:**`;
     }
 
-    // 4. Nhận diện các nhãn đầu mục chuẩn: 1. Kiến thức:, 2. Năng lực:, a) Năng lực..., a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:, 1. Giáo viên:, 2. Học sinh:, 1. Ôn tập kiến thức:...
-    const sectionLabelRegex = /^[\*\s#\-•]*((?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)|[a-e]\)\s*(?:Năng\s*lực\s*đặc\s*thù[^\n:]*|Năng\s*lực\s*chung|Năng\s*lực\s*số[^\n:]*|Năng\s*lực\s*AI[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu)|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|Luyện\s*tập\s*\d*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*\d+\s*:?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
+    // 4. Nhận diện các nhãn đầu mục chuẩn và các bước, đề mục bài học:
+    const sectionLabelRegex = /^[\*\s#\-•\+]*((?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Khái\s*niệm[^\n:]*|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|[a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|Năng\s*lực\s*(?:tư\s*duy|giải\s*quyết|giao\s*tiếp|tự\s*chủ|hợp\s*tác)[^\n:]*|Chăm\s*chỉ|Trung\s*thực|Trách\s*nhiệm|Yêu\s*nước|Nhân\s*ái|HS\s*khuyết\s*tật[^\n:]*|Học\s*sinh\s*khuyết\s*tật[^\n:]*|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|\?:\s*(?:SGK)?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*\d+\s*:?|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Ký\s*duyệt)\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
 
-    const match = s.match(sectionLabelRegex);
+    const bulletPrefixMatch = s.match(/^([\s\-\+•\*]*)(.*)$/);
+    const bulletPrefix = bulletPrefixMatch ? bulletPrefixMatch[1] : '';
+    const cleanContent = bulletPrefixMatch ? bulletPrefixMatch[2] : s;
+
+    const match = cleanContent.match(sectionLabelRegex);
     if (match) {
       let label = match[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
-      if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label)) label += ':';
-      let rest = (match[2] || '').replace(/\*\*/g, '').trim();
-      return rest ? `**${label}** ${rest}` : `**${label}**`;
+      if (!label.endsWith(':') && !/^\d+\./.test(label) && !/^[a-e]\)$/i.test(label) && !/Người\s*(?:kiểm\s*tra|xây\s*dựng)/i.test(label)) {
+        label += ':';
+      }
+      let rest = (match[2] || '').trim();
+      const prefix = bulletPrefix.includes('-') ? '- ' : (bulletPrefix.includes('+') ? '+ ' : (bulletPrefix.includes('*') && isIntegrationLine(s) ? '*' : ''));
+      return rest ? `${prefix}**${label}** ${rest}` : `${prefix}**${label}**`;
     }
 
-    // 5. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu và làm sạch ** thừa
+    // 5. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu
     if (isIntegrationLine(s)) {
-      const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').replace(/\*\*/g, '').trim();
+      const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').trim();
       return `*${cleanInt}`;
     }
 
-    // 6. Đối với các dòng văn bản bình thường (thân câu, giải thích, gạch đầu dòng): xóa các ký tự ** thừa để không in đậm tùy tiện
-    return s.replace(/\*\*/g, '').trim();
+    return s;
   };
 
   // Helper: Tự động phát hiện và chuyển đổi các biểu thức toán học / phân số / bất đẳng thức dạng text thô sang chuẩn LaTeX $...$
@@ -228,7 +239,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       let cur = segment;
       if (!cur.trim()) return cur;
 
-      // 1. Khắc phục in đậm tùy tiện trên từng dòng
+      // Giữ nguyên dòng bảng markdown (| ... |)
+      if (cur.trim().startsWith('|') || cur.trim().endsWith('|')) {
+        return cur;
+      }
+
+      // 1. Khắc phục in đậm chuẩn trên từng dòng
       cur = sanitizeLineBold(cur);
 
       // Phục hồi công thức phân số bị lỗi tiền tố rac -> \frac
@@ -237,7 +253,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
 
       // 2. Tách nhãn tiêu đề (nếu có) để xử lý riêng
-      const labelRegex = /^(?:[\*\s#\-•]*)(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|Luyện\s*tập\s*\d*\s*:?|Vận\s*dụng\s*\d*\s*:?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*(.*)$/i;
+      const labelRegex = /^(?:[\*\s#\-•]*)(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định):?|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|\?:\s*(?:SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?\s*:?|[a-e]\))\s*(?:\*\*)?\s*(.*)$/i;
       const labelMatch = cur.match(labelRegex);
 
       let prefixLabel = "";
@@ -653,7 +669,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const parseTextWithFormatting = (text: string, inheritedStyles: any = {}): any[] => {
     const runs: any[] = [];
     // Prioritize Image tags, Math formulas, and HTML tags OVER markdown
-    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000|#dc2626)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*(?:red|#dc2626);?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[^\*\n\r<>]+\*\*|_[\s\S]*?_)/gi;
+    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000|#dc2626)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*(?:red|#dc2626);?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[^\*\n\r]+\*\*|_[\s\S]*?_)/gi;
     const parts = text.split(regex);
 
     parts.forEach(part => {
@@ -1136,6 +1152,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       preProcessedResult = repairRacToFrac(preProcessedResult);
       preProcessedResult = ensureMathFormulaSpacing(preProcessedResult);
+      if (layoutFormat !== 'no_table') {
+        preProcessedResult = ensureAllActivitiesInTwoColumnTable(preProcessedResult);
+      }
       preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
 
       // Tự động kiểm tra và bảo tồn tất cả hình vẽ gốc từ imageCache vào CỘT 2 (Kết quả hoạt động) của bảng giáo án
@@ -1401,8 +1420,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             const lineStyles: any = isInt ? { color: "FF0000" } : {};
             let cleanLineText = sanitizeLineBold(trimmed);
             if (isInt) {
-                // Giữ nguyên dấu * ở đầu câu cho dòng tích hợp, không đổi thành gạch đầu dòng
-                if (!cleanLineText.startsWith('*')) {
+                // Giữ nguyên đề mục c) Năng lực số, d) Năng lực AI hoặc dấu * ở đầu câu cho dòng tích hợp
+                if (!cleanLineText.startsWith('*') && !cleanLineText.startsWith('-') && !cleanLineText.startsWith('+') && !cleanLineText.startsWith('**c)') && !cleanLineText.startsWith('**d)') && !cleanLineText.startsWith('c)') && !cleanLineText.startsWith('d)')) {
                     cleanLineText = `*${cleanLineText.replace(/^[\-\+•\s]+/, '')}`;
                 }
             } else if (cleanLineText.startsWith('- ') || cleanLineText.startsWith('+ ') || cleanLineText.startsWith('* ')) {
