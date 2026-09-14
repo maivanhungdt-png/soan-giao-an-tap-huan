@@ -132,7 +132,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       continue;
     }
     if (/^(?:\*\*|\*|_)?(?:c|d)\s*[\)\.:\-]\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(trimmed) ||
-        /^(?:\*\*|\*|_)?Tổ\s*chức\s*thực\s*hiện\s*:?/i.test(trimmed)) {
+      /^(?:\*\*|\*|_)?Tổ\s*chức\s*thực\s*hiện\s*:?/i.test(trimmed)) {
       state = 'tochuc';
       continue;
     }
@@ -198,7 +198,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 
     // Image tags ALWAYS go to Col 2 (Sản phẩm / Kết quả)
     if (/\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH|ẢNH_GỐC|ẢNH)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]/i.test(line) ||
-        (line.startsWith('![') && line.includes(')'))) {
+      (line.startsWith('![') && line.includes(')'))) {
       col2Items.push(line);
       continue;
     }
@@ -220,7 +220,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       continue;
     }
     if (/^(?:\*\*|\*|_)?(?:Tích\s*hợp|Lựa\s*chọn\s*và\s*sử\s*dụng\s*công\s*nghệ\s*số|HS\s*khuyết\s*tật|Học\s*sinh\s*khuyết\s*tật)/i.test(line) ||
-        /\(\s*(?:Mã\s*chỉ\s*báo|\d+\.\d+\.TC|\d+\.\d+\.NC|NLS_|AI_|GDQP_)/i.test(line)) {
+      /\(\s*(?:Mã\s*chỉ\s*báo|\d+\.\d+\.TC|\d+\.\d+\.NC|NLS_|AI_|GDQP_)/i.test(line)) {
       currentTargetCol = 1;
       let cleanInt = line.replace(/^[\-\+•\s_]+/, '').trim();
       if (!cleanInt.startsWith('*')) cleanInt = `*${cleanInt}`;
@@ -335,13 +335,13 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 
   const mucTieuText = formatSectionText('a) Mục tiêu:', mucTieu, '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.');
   const noiDungText = formatSectionText('b) Nội dung:', noiDung, '**b) Nội dung:** Học sinh thực hiện các nhiệm vụ theo hướng dẫn của giáo viên.');
-  
+
   let cDefault = isLuyenTap
     ? '**c) Sản phẩm:** Đáp án, lời giải chi tiết các bài tập luyện tập của học sinh.'
     : (isVanDung
-        ? '**c) Sản phẩm:** Kết quả giải quyết bài toán/vấn đề thực tế hoặc sản phẩm học tập của học sinh.'
-        : '**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.'
-      );
+      ? '**c) Sản phẩm:** Kết quả giải quyết bài toán/vấn đề thực tế hoặc sản phẩm học tập của học sinh.'
+      : '**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.'
+    );
   const cSanPhamText = formatSectionText('c) Sản phẩm:', sanPhamPre, cDefault);
   const col1Text = formatCellText(col1Items);
   const col2Text = formatCellText(col2Items);

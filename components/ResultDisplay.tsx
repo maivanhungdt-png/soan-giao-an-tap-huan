@@ -8,16 +8,16 @@ import remarkBreaks from 'remark-breaks';
 import rehypeKatex from 'rehype-katex';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { 
-  Document, 
-  Paragraph, 
-  TextRun, 
-  HeadingLevel, 
-  Packer, 
-  UnderlineType, 
-  Table, 
-  TableRow, 
-  TableCell, 
+import {
+  Document,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  Packer,
+  UnderlineType,
+  Table,
+  TableRow,
+  TableCell,
   BorderStyle,
   WidthType,
   AlignmentType,
@@ -155,7 +155,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (!trimmed) return false;
     // Nếu có chứa dấu tiếng Việt -> không phải là biểu thức toán học thuần túy
     if (/[à-ỹÀ-Ỹ]/.test(trimmed)) return false;
-    
+
     // Bắt buộc phải có các dấu hiệu toán học: lệnh LaTeX, dấu =, +, -, *, /, ^ hoặc biến số toán học
     const hasMathFeatures = (
       /\\(?:frac|sqrt|left|right|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|gamma|pi|Delta|begin|end|widehat|vec|overrightarrow)/.test(trimmed) ||
@@ -324,9 +324,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       // D. Ký tự so sánh Unicode còn sót
       processedBody = transformNonLatex(processedBody, (t) => {
         return t.replace(/≤/g, '$\\le$')
-                .replace(/≥/g, '$\\ge$')
-                .replace(/≠/g, '$\\neq$')
-                .replace(/±/g, '$\\pm$');
+          .replace(/≥/g, '$\\ge$')
+          .replace(/≠/g, '$\\neq$')
+          .replace(/±/g, '$\\pm$');
       });
 
       // Đảm bảo khoảng cách giữa chữ và $
@@ -342,7 +342,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   // Helper: Clean raw AI result to remove conversational filler and specific artifacts
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
-    
+
     // Phục hồi công thức phân số bị lỗi trước khi làm sạch
     let clean = repairRacToFrac(text);
 
@@ -365,10 +365,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 1. Remove markdown code blocks
     clean = clean.replace(/^```markdown\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
-    
+
     // 2. Remove HTML Anchors (Bookmarks artifacts from Word conversion) e.g., <a id="_Hlk147258080"></a>
     clean = clean.replace(/<a\s+id="[^"]*"><\/a>/gi, "");
-    
+
     // 3. Remove stray empty heading lines
     if (format !== 'no_table') {
       clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
@@ -376,10 +376,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 4. Clean all markdown hash subheadings (#####, ####, ###) into bold text to eliminate #####
     clean = clean.replace(/^(?:#{3,6})\s*(.*)$/gm, (match, p1) => {
-        const trimmedP1 = p1.trim();
-        if (!trimmedP1) return '';
-        if (trimmedP1.startsWith('**') && trimmedP1.endsWith('**')) return trimmedP1;
-        return `**${trimmedP1}**`;
+      const trimmedP1 = p1.trim();
+      if (!trimmedP1) return '';
+      if (trimmedP1.startsWith('**') && trimmedP1.endsWith('**')) return trimmedP1;
+      return `**${trimmedP1}**`;
     });
     clean = clean.replace(/#{3,6}/g, '');
 
@@ -395,7 +395,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/^[ \t]*(?!\*)(Tích\s*hợp\s*[^:\n]+:)/gmi, '*$1');
     clean = clean.replace(/^[ \t]*(?!\*)(HS\s*khuyết\s*tật[^:\n]*:)/gmi, '*$1');
     clean = clean.replace(/^[ \t]*[\-\+•]+\s*\*(Tích\s*hợp|HS\s*khuyết\s*tật)/gmi, '*$1');
-    
+
     // Loại bỏ các dấu * ở cuối câu/dòng tích hợp tránh bị in nghiêng
     clean = clean.replace(/(\*Tích\s*hợp[^\n*]+)\*+/gi, '$1');
     clean = clean.replace(/(\*HS\s*khuyết\s*tật[^\n*]+)\*+/gi, '$1');
@@ -406,20 +406,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 7. Consolidate repeated "Tích hợp giáo dục hòa nhập" lines into 1 unified block cleanly with * prefix (NO bullet dashes, NO italics asterisks)
     clean = clean.replace(/(?:(?:\s*(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)\*?\s*\n?))+/gmi, (match) => {
-        const itemRegex = /(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)/gmi;
-        const items: string[] = [];
-        let m;
-        while ((m = itemRegex.exec(match)) !== null) {
-            const rawType = (m[1] || m[2] || '').trim();
-            const content = (m[3] || '').trim().replace(/\*+$/, '').trim();
-            const cleanType = rawType.replace(/^(?:học\s*sinh\s*|hs\s*)/i, '').replace(/^khuyết\s*tật\s*/i, '').trim();
-            const prefix = cleanType.toLowerCase() === 'chung' ? 'HS khuyết tật chung' : (cleanType.toLowerCase() === 'nghe' ? 'HS khuyết tật nghe' : (cleanType.toLowerCase() === 'vận động' || cleanType.toLowerCase() === 'van dong' ? 'HS khuyết tật vận động' : `HS khuyết tật ${cleanType}`));
-            items.push(`*${prefix}: ${content}`);
-        }
-        if (items.length > 0) {
-            return `*Tích hợp giáo dục hòa nhập:\n${items.join('\n')}\n`;
-        }
-        return match;
+      const itemRegex = /(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)/gmi;
+      const items: string[] = [];
+      let m;
+      while ((m = itemRegex.exec(match)) !== null) {
+        const rawType = (m[1] || m[2] || '').trim();
+        const content = (m[3] || '').trim().replace(/\*+$/, '').trim();
+        const cleanType = rawType.replace(/^(?:học\s*sinh\s*|hs\s*)/i, '').replace(/^khuyết\s*tật\s*/i, '').trim();
+        const prefix = cleanType.toLowerCase() === 'chung' ? 'HS khuyết tật chung' : (cleanType.toLowerCase() === 'nghe' ? 'HS khuyết tật nghe' : (cleanType.toLowerCase() === 'vận động' || cleanType.toLowerCase() === 'van dong' ? 'HS khuyết tật vận động' : `HS khuyết tật ${cleanType}`));
+        items.push(`*${prefix}: ${content}`);
+      }
+      if (items.length > 0) {
+        return `*Tích hợp giáo dục hòa nhập:\n${items.join('\n')}\n`;
+      }
+      return match;
     });
 
     // 7d. REPOSITIONING GUARANTEE: Move any "Tích hợp giáo dục hòa nhập" in Section I (Mục tiêu) to the END of "3. Phẩm chất:"
@@ -432,34 +432,34 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     const disMatch = clean.match(disBlockRegex);
 
     if (pcMatch && disMatch && pcMatch.index !== undefined && disMatch.index !== undefined) {
-        if (disMatch.index < pcMatch.index) {
-            const rawDisBlock = disMatch[0];
-            clean = clean.replace(rawDisBlock, '');
+      if (disMatch.index < pcMatch.index) {
+        const rawDisBlock = disMatch[0];
+        clean = clean.replace(rawDisBlock, '');
 
-            const rawLines = rawDisBlock.split('\n').map(l => l.trim()).filter(Boolean);
-            const subItems: string[] = [];
-            for (const line of rawLines) {
-                if (/Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập/i.test(line)) continue;
-                let cleanLine = line.replace(/^\s*[\*\-\+•]+\s*/, '').replace(/\*+$/, '').trim();
-                if (cleanLine) {
-                    if (!/^HS\s*khuyết\s*tật|^Học\s*sinh\s*khuyết\s*tật/i.test(cleanLine)) {
-                        cleanLine = `HS khuyết tật: ${cleanLine}`;
-                    }
-                    subItems.push(`*${cleanLine}`);
-                }
+        const rawLines = rawDisBlock.split('\n').map(l => l.trim()).filter(Boolean);
+        const subItems: string[] = [];
+        for (const line of rawLines) {
+          if (/Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập/i.test(line)) continue;
+          let cleanLine = line.replace(/^\s*[\*\-\+•]+\s*/, '').replace(/\*+$/, '').trim();
+          if (cleanLine) {
+            if (!/^HS\s*khuyết\s*tật|^Học\s*sinh\s*khuyết\s*tật/i.test(cleanLine)) {
+              cleanLine = `HS khuyết tật: ${cleanLine}`;
             }
-
-            const cleanFormattedDisBlock = subItems.length > 0
-                ? `\n*Tích hợp giáo dục hòa nhập:\n${subItems.join('\n')}\n`
-                : `\n*Tích hợp giáo dục hòa nhập:\n`;
-
-            const updatedTbMatch = clean.match(thietBiRegex);
-            if (updatedTbMatch && updatedTbMatch.index !== undefined) {
-                clean = clean.slice(0, updatedTbMatch.index) + cleanFormattedDisBlock + '\n' + clean.slice(updatedTbMatch.index);
-            } else {
-                clean = clean.replace(phamChatRegex, `$1\n${cleanFormattedDisBlock}`);
-            }
+            subItems.push(`*${cleanLine}`);
+          }
         }
+
+        const cleanFormattedDisBlock = subItems.length > 0
+          ? `\n*Tích hợp giáo dục hòa nhập:\n${subItems.join('\n')}\n`
+          : `\n*Tích hợp giáo dục hòa nhập:\n`;
+
+        const updatedTbMatch = clean.match(thietBiRegex);
+        if (updatedTbMatch && updatedTbMatch.index !== undefined) {
+          clean = clean.slice(0, updatedTbMatch.index) + cleanFormattedDisBlock + '\n' + clean.slice(updatedTbMatch.index);
+        } else {
+          clean = clean.replace(phamChatRegex, `$1\n${cleanFormattedDisBlock}`);
+        }
+      }
     }
 
     // 8. Đảm bảo toàn bộ dòng tích hợp bắt đầu bằng dấu * đứng đầu câu và không có gạch đầu dòng
@@ -468,11 +468,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 9. Normalize 2-column markdown table header lines to standard "Hoạt động của giáo viên và học sinh" & "Kết quả hoạt động"
     clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm|Kết\s*quả\s*hoạt\s*động|Kết\s*quả)\s*\|/gi, '| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |');
-    // 9b. Đảm bảo 100% TRƯỚC BẢNG 2 CỘT HOẠT ĐỘNG LUÔN CÓ DÒNG **d) Tổ chức thực hiện:**
-    clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?c\)\s*Sản\s*phẩm:?[^\n]*\n+)(?![ \t]*(?:\*\*)?d\)\s*Tổ\s*chức\s*thực\s*hiện)([ \t]*\|[ \t]*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/gi, '$1\n**d) Tổ chức thực hiện:**\n\n$2');
-    
-    // Trường hợp sau mục b hoặc bất kỳ nội dung nào nhảy thẳng vào bảng mà không có d) Tổ chức thực hiện
-    clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?b\)\s*Nội\s*dung:?[^\n]*\n+)(?![ \t]*(?:\*\*)?[cd]\)\s*)([ \t]*\|[ \t]*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/gi, '$1\n**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.\n\n**d) Tổ chức thực hiện:**\n\n$2');
 
     // 10. Replace "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" and variants with "* Hướng dẫn về nhà"
     clean = clean.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:(?:IV|4|IV\.|4\.)\s*)?(?:HƯỚNG\s*DẪN\s*TỰ\s*HỌC\s*VÀ\s*DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*TỰ\s*HỌC|HƯỚNG\s*DẪN\s*VỀ\s*NHÀ|DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*HỌC\s*Ở\s*NHÀ|Hướng\s*dẫn\s*tự\s*học\s*và\s*dặn\s*dò\s*về\s*nhà|Hướng\s*dẫn\s*tự\s*học)[^\n]*/gi, '\n\n* Hướng dẫn về nhà');
@@ -481,60 +476,71 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/^(?:#+\s*)?Phụ\s*lục\s*(?:IV|4)\b[^\n]*\n?/gim, "");
 
     // 14. Tách 2. Năng lực: và a) Năng lực đặc thù... xuống dòng riêng biệt
-    clean = clean.replace(/(?:\*\*)?([1-3]\.\s*Năng\s*lực:?)(?:\*\*)?\s*(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n]*)/gmi, (_m, p1, p2) => {
-        const t1 = p1.trim();
-        const t2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-        return `**${t1.endsWith(':') ? t1 : t1 + ':'}**\n**${t2.endsWith(':') ? t2 : t2 + ':'}**`;
+    clean = clean.replace(/(?:\*\*)?(?:2\.|2\))\s*Năng\s*lực(?::|\*\*)?[ \t]*(?:-\s*|\+\s*)?(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n]*)/gmi, (_m, p1) => {
+      const cleanP1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[\*\s\-]+/, '').trim();
+      return `**2. Năng lực:**\n**${cleanP1.endsWith(':') ? cleanP1 : cleanP1 + ':'}**`;
     });
 
     // Auto bold main subheadings (Chỉ in đậm tiêu đề, không in đậm toàn bộ nội dung câu)
-    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Kiến\s*thức:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
-    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Năng\s*lực:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => {
-        const trimmedP2 = p2.trim();
-        if (trimmedP2.startsWith('a)') || trimmedP2.startsWith('**a)')) {
-            return `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**\n${trimmedP2}`;
-        }
-        return `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${trimmedP2}`.trim();
+    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Phẩm\s*chất))(?::|\*\*)?[ \t]*(?:\*\*\s*)?(?:-\s*|\+\s*)?(.*)$/gmi, (_m, p1, p2) => {
+      const label = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') ? label : label + ':';
+      const rest = p2.replace(/^\*\*/, '').replace(/^[:\-\s]+/, '').replace(/\*\*$/, '').trim();
+      return rest ? `**${cleanLabel}**\n- ${rest}` : `**${cleanLabel}**`;
     });
-    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Phẩm\s*chất:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Thiết\s*bị\s*dạy\s*học:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*liệu:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Giáo\s*viên:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
-    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*sinh:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${p2.trim()}`.trim());
+    clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Năng\s*lực:?)(?:\*\*)?\s*(.*)$/gmi, (_m, p1, p2) => {
+      const trimmedP2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      if (trimmedP2.startsWith('a)') || trimmedP2.startsWith('**a)')) {
+        return `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**\n${trimmedP2}`;
+      }
+      return trimmedP2 ? `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}** ${trimmedP2}` : `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`;
+    });
+    clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*(?:Thiết\s*bị\s*dạy\s*học|Học\s*liệu|Giáo\s*viên|Học\s*sinh))(?::|\*\*)?[ \t]*(?:\*\*\s*)?(.*)$/gmi, (_m, p1, p2) => {
+      const label = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') ? label : label + ':';
+      const rest = p2.replace(/^\*\*/, '').replace(/^[:\-\s]+/, '').replace(/\*\*$/, '').trim();
+      return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
+    });
 
     // 15. Auto bold activities
     clean = clean.replace(/^(?:\*\*)?((?:\d+\.\s*)?Hoạt\s*động\s*\d+\s*:[^\n]*?)(?:\*\*)?$/gmi, (m, p1) => {
-        const t = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-        return `**${t}**`;
+      const t = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      return `**${t}**`;
     });
 
     // 16. Auto bold sub-steps (a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:) - Chỉ in đậm đúng tiêu đề
     clean = clean.replace(/(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
     clean = clean.replace(/(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
 
+    // Clean up any double-asterisk artifacts: "** : **", ":**", "** **"
+    clean = clean.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
+    clean = clean.replace(/([a-zA-Z0-9À-ỹ\)]+:)\s*\*\*(?!\w)/g, '$1');
+    clean = clean.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
+    clean = clean.replace(/\*\*\s*\*\*/g, '');
+
     // Clean NLS brackets: e.g. [1.1.TC1a] -> 1.1.TC1a (excluding image tags)
     clean = clean.replace(/\[(?!(?:HINHANHGOC|HINH|IMG|IMAGE|HÌNH))([\d\.]+[\.A-Z0-9a-z]+)\]/gi, '$1');
-    
+
     // Remove slash-escaped asterisks often generated by AI
     clean = clean.replace(/\\\*/g, '*');
-    
+
     // 19. Xóa các định dạng in nghiêng tùy tiện
     clean = clean.replace(/<\/?(?:em|i)>/gi, '');
-    
+
     // 20. Remove common AI intros
     const lines = clean.split('\n');
     if (lines.length > 0) {
-        const firstLine = lines[0].trim().toLowerCase();
-        const introPatterns = [
-            "dưới đây là", "sau đây là", "đây là", "kết quả", 
-            "here is", "sure, here", "giáo án đã được", 
-            "bản giáo án", "nội dung giáo án", "chào bạn"
-        ];
-        
-        if (firstLine.length < 100 && introPatterns.some(p => firstLine.includes(p))) {
-             lines.shift(); 
-             if (lines.length > 0 && lines[0].trim() === "") lines.shift(); 
-        }
+      const firstLine = lines[0].trim().toLowerCase();
+      const introPatterns = [
+        "dưới đây là", "sau đây là", "đây là", "kết quả",
+        "here is", "sure, here", "giáo án đã được",
+        "bản giáo án", "nội dung giáo án", "chào bạn"
+      ];
+
+      if (firstLine.length < 100 && introPatterns.some(p => firstLine.includes(p))) {
+        lines.shift();
+        if (lines.length > 0 && lines[0].trim() === "") lines.shift();
+      }
     }
     const joinedClean = lines.join('\n').trim();
     return autoConvertPlainTextToLatex(joinedClean);
@@ -555,7 +561,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       const len = binary_string.length;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) {
-          bytes[i] = binary_string.charCodeAt(i);
+        bytes[i] = binary_string.charCodeAt(i);
       }
       return bytes;
     } catch (err) {
@@ -566,103 +572,103 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
   // Helper: Format raw text segments into Docx TextRuns
   const createTextRuns = (content: string, styles: any): any[] => {
-      const segRuns: any[] = [];
-      const segments = content.split(/<br\s*\/?>/gi);
-      segments.forEach((seg, index) => {
-          if (index > 0) {
-              segRuns.push(new TextRun({ text: "", break: 1 }));
+    const segRuns: any[] = [];
+    const segments = content.split(/<br\s*\/?>/gi);
+    segments.forEach((seg, index) => {
+      if (index > 0) {
+        segRuns.push(new TextRun({ text: "", break: 1 }));
+      }
+      if (seg) {
+        const segStyles = { ...styles };
+
+        // Hỗ trợ bắt tất cả các biến thể gắn thẻ ảnh [HINHANHGOC_1], [HINH_ANH_GOC_1], [IMG1], [Hình 1], ![...](...), v.v.
+        const parts = seg.split(/(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve|Hinh|Anh|So\s*do)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$)/gi);
+        parts.forEach(part => {
+          if (!part) return;
+
+          // Giữ nguyên $...$ cho công thức toán học để tương thích 100% OMML và MathType
+          if (part.startsWith('$$') && part.endsWith('$$')) {
+            segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
+            return;
           }
-          if (seg) {
-              const segStyles = { ...styles };
-
-              // Hỗ trợ bắt tất cả các biến thể gắn thẻ ảnh [HINHANHGOC_1], [HINH_ANH_GOC_1], [IMG1], [Hình 1], ![...](...), v.v.
-              const parts = seg.split(/(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve|Hinh|Anh|So\s*do)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$)/gi);
-              parts.forEach(part => {
-                 if (!part) return;
-                 
-                 // Giữ nguyên $...$ cho công thức toán học để tương thích 100% OMML và MathType
-                 if (part.startsWith('$$') && part.endsWith('$$')) {
-                     segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
-                     return;
-                 }
-                 if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
-                     segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
-                     return;
-                 }
-
-                 let isImgTag = (part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh|So\s*do)/i.test(part)) ||
-                                  (part.startsWith('![') && part.includes(')'));
-
-                 // Tuyệt đối không coi công thức toán học, phân số, MathType là thẻ ảnh
-                 if (/MATH|CÔNG_THỨC|PHÂN_SỐ|\d+\/\d+|\$|\\frac/i.test(part)) {
-                     isImgTag = false;
-                 }
-
-                 if (isImgTag) {
-                     const cleanPart = part.replace(/^[*_~`#\s]+|[*_~`#\s:.\-]+$/g, '');
-                     const rawId = cleanPart.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
-                     console.log("[DOCX Render] Trying to embed image tag:", rawId);
-                     
-                     const numMatch = cleanPart.match(/\d+/);
-                     const num = numMatch ? numMatch[0] : '1';
-                     const cachedImg = lookupCachedImage(cleanPart) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
-
-                     if (cachedImg && cachedImg.dataUrl) {
-                          try {
-                              console.log("[DOCX Render] Success embed image:", rawId);
-                              const buffer = base64DataURLToArrayBuffer(cachedImg.dataUrl);
-                              if (buffer && buffer.length > 0) {
-                                  const renderW = Math.round(cachedImg.width || 260);
-                                  const renderH = Math.round(cachedImg.height || 180);
-                                  segRuns.push(new ImageRun({
-                                      data: buffer,
-                                      transformation: {
-                                          width: Math.min(Math.max(renderW, 80), 380),
-                                          height: Math.min(Math.max(renderH, 60), 280),
-                                      }
-                                  }) as any);
-                              } else {
-                                  throw new Error("Empty image buffer");
-                              }
-                          } catch (e) {
-                              console.error("[DOCX Render] Failed to embed image:", rawId, e);
-                              segRuns.push(new TextRun({ text: `[HÌNH VẼ GỐC ${num}]`, color: "4F46E5", font: "Times New Roman", size: 28, italics: true }));
-                          }
-                     } else {
-                         console.warn("[DOCX Render] Image NOT found in cache:", rawId);
-                         segRuns.push(new TextRun({ text: `[HÌNH VẼ GỐC ${num}]`, color: "4F46E5", font: "Times New Roman", size: 28, italics: true }));
-                     }
-                 } else {
-                     let unescapedSeg = part
-                         .replace(/&amp;/g, '&')
-                         .replace(/&quot;/g, '"')
-                         .replace(/&#39;/g, "'");
-
-                     unescapedSeg = unescapedSeg.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, '');
-                     unescapedSeg = repairRacToFrac(unescapedSeg);
-
-                     // Use inherited color if available
-                     const runOptions: any = {
-                         text: unescapedSeg,
-                         bold: segStyles.bold,
-                         italics: segStyles.italics,
-                         underline: segStyles.underline ? { type: UnderlineType.SINGLE } : undefined,
-                         subScript: segStyles.subScript,
-                         superScript: segStyles.superScript,
-                         font: "Times New Roman",
-                         size: segStyles.size || 28, // 14pt
-                     };
-                     
-                     if (segStyles.color) {
-                         runOptions.color = segStyles.color;
-                     }
-
-                     segRuns.push(new TextRun(runOptions));
-                 }
-              });
+          if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
+            segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
+            return;
           }
-      });
-      return segRuns;
+
+          let isImgTag = (part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh|So\s*do)/i.test(part)) ||
+            (part.startsWith('![') && part.includes(')'));
+
+          // Tuyệt đối không coi công thức toán học, phân số, MathType là thẻ ảnh
+          if (/MATH|CÔNG_THỨC|PHÂN_SỐ|\d+\/\d+|\$|\\frac/i.test(part)) {
+            isImgTag = false;
+          }
+
+          if (isImgTag) {
+            const cleanPart = part.replace(/^[*_~`#\s]+|[*_~`#\s:.\-]+$/g, '');
+            const rawId = cleanPart.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
+            console.log("[DOCX Render] Trying to embed image tag:", rawId);
+
+            const numMatch = cleanPart.match(/\d+/);
+            const num = numMatch ? numMatch[0] : '1';
+            const cachedImg = lookupCachedImage(cleanPart) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
+
+            if (cachedImg && cachedImg.dataUrl) {
+              try {
+                console.log("[DOCX Render] Success embed image:", rawId);
+                const buffer = base64DataURLToArrayBuffer(cachedImg.dataUrl);
+                if (buffer && buffer.length > 0) {
+                  const renderW = Math.round(cachedImg.width || 260);
+                  const renderH = Math.round(cachedImg.height || 180);
+                  segRuns.push(new ImageRun({
+                    data: buffer,
+                    transformation: {
+                      width: Math.min(Math.max(renderW, 80), 380),
+                      height: Math.min(Math.max(renderH, 60), 280),
+                    }
+                  }) as any);
+                } else {
+                  throw new Error("Empty image buffer");
+                }
+              } catch (e) {
+                console.error("[DOCX Render] Failed to embed image:", rawId, e);
+                segRuns.push(new TextRun({ text: `[HÌNH VẼ GỐC ${num}]`, color: "4F46E5", font: "Times New Roman", size: 28, italics: true }));
+              }
+            } else {
+              console.warn("[DOCX Render] Image NOT found in cache:", rawId);
+              segRuns.push(new TextRun({ text: `[HÌNH VẼ GỐC ${num}]`, color: "4F46E5", font: "Times New Roman", size: 28, italics: true }));
+            }
+          } else {
+            let unescapedSeg = part
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'");
+
+            unescapedSeg = unescapedSeg.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, '');
+            unescapedSeg = repairRacToFrac(unescapedSeg);
+
+            // Use inherited color if available
+            const runOptions: any = {
+              text: unescapedSeg,
+              bold: segStyles.bold,
+              italics: segStyles.italics,
+              underline: segStyles.underline ? { type: UnderlineType.SINGLE } : undefined,
+              subScript: segStyles.subScript,
+              superScript: segStyles.superScript,
+              font: "Times New Roman",
+              size: segStyles.size || 28, // 14pt
+            };
+
+            if (segStyles.color) {
+              runOptions.color = segStyles.color;
+            }
+
+            segRuns.push(new TextRun(runOptions));
+          }
+        });
+      }
+    });
+    return segRuns;
   };
 
   // Helper: Recursive parser to handle inline formatting without overlapping regex issues
@@ -673,60 +679,60 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     const parts = text.split(regex);
 
     parts.forEach(part => {
-        if (!part) return;
-        const lowerPart = part.toLowerCase();
-        
-        let matchStyles = { ...inheritedStyles };
-        let innerText = part;
-        let isMatched = false;
+      if (!part) return;
+      const lowerPart = part.toLowerCase();
+
+      let matchStyles = { ...inheritedStyles };
+      let innerText = part;
+      let isMatched = false;
 
 
-        // 1. If it is an image tag, render it directly as an image without breaking into italics
-        if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
-            (part.startsWith('![') && part.includes(')'))) {
-            runs.push(...createTextRuns(part, matchStyles));
-            return;
-        } else if (part.startsWith('$$') && part.endsWith('$$')) {
-            // Giữ nguyên $...$ cho công thức MathType / OMML
-            runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
-            return;
-        } else if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
-            // Giữ nguyên $...$ cho công thức MathType / OMML
-            runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
-            return;
-        } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00') || lowerPart.includes('#dc2626'))) {
-            innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
-            matchStyles.color = "FF0000";
-            matchStyles.italics = false;
-            isMatched = true;
-        } else if (lowerPart.startsWith('<font') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00'))) {
-            innerText = part.replace(/^<font[^>]*>|<\/font>$/gi, '');
-            matchStyles.color = "FF0000";
-            matchStyles.italics = false;
-            isMatched = true;
-        } else if (lowerPart.startsWith('<sub') && lowerPart.endsWith('</sub>')) {
-            innerText = part.replace(/^<sub\s*>|<\/sub\s*>$/gi, '');
-            matchStyles.subScript = true;
-            isMatched = true;
-        } else if (lowerPart.startsWith('<sup') && lowerPart.endsWith('</sup>')) {
-            innerText = part.replace(/^<sup\s*>|<\/sup\s*>$/gi, '');
-            matchStyles.superScript = true;
-            isMatched = true;
-        } else if (part.startsWith('**') && part.endsWith('**')) {
-            innerText = part.slice(2, -2);
-            matchStyles.bold = true;
-            isMatched = true;
-        } else if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
-             innerText = part.slice(1, -1);
-             matchStyles.italics = true;
-             isMatched = true;
-        }
+      // 1. If it is an image tag, render it directly as an image without breaking into italics
+      if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
+        (part.startsWith('![') && part.includes(')'))) {
+        runs.push(...createTextRuns(part, matchStyles));
+        return;
+      } else if (part.startsWith('$$') && part.endsWith('$$')) {
+        // Giữ nguyên $...$ cho công thức MathType / OMML
+        runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
+        return;
+      } else if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
+        // Giữ nguyên $...$ cho công thức MathType / OMML
+        runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
+        return;
+      } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00') || lowerPart.includes('#dc2626'))) {
+        innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
+        matchStyles.color = "FF0000";
+        matchStyles.italics = false;
+        isMatched = true;
+      } else if (lowerPart.startsWith('<font') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00'))) {
+        innerText = part.replace(/^<font[^>]*>|<\/font>$/gi, '');
+        matchStyles.color = "FF0000";
+        matchStyles.italics = false;
+        isMatched = true;
+      } else if (lowerPart.startsWith('<sub') && lowerPart.endsWith('</sub>')) {
+        innerText = part.replace(/^<sub\s*>|<\/sub\s*>$/gi, '');
+        matchStyles.subScript = true;
+        isMatched = true;
+      } else if (lowerPart.startsWith('<sup') && lowerPart.endsWith('</sup>')) {
+        innerText = part.replace(/^<sup\s*>|<\/sup\s*>$/gi, '');
+        matchStyles.superScript = true;
+        isMatched = true;
+      } else if (part.startsWith('**') && part.endsWith('**')) {
+        innerText = part.slice(2, -2);
+        matchStyles.bold = true;
+        isMatched = true;
+      } else if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+        innerText = part.slice(1, -1);
+        matchStyles.italics = true;
+        isMatched = true;
+      }
 
-        if (isMatched) {
-             runs.push(...parseTextWithFormatting(innerText, matchStyles));
-        } else {
-             runs.push(...createTextRuns(part, matchStyles));
-        }
+      if (isMatched) {
+        runs.push(...parseTextWithFormatting(innerText, matchStyles));
+      } else {
+        runs.push(...createTextRuns(part, matchStyles));
+      }
     });
 
     return runs;
@@ -734,390 +740,390 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
   // Helper: Smart split for markdown tables that ignores pipes inside math formulas ($...$)
   const smartSplitTableLine = (line: string): string[] => {
-      const cells: string[] = [];
-      let currentCell = '';
-      let inMath = false;
-      let inDoubleMath = false;
+    const cells: string[] = [];
+    let currentCell = '';
+    let inMath = false;
+    let inDoubleMath = false;
 
-      for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          const nextChar = line[i + 1];
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
 
-          if (char === '\\' && nextChar === '|') {
-              currentCell += '|';
-              i++; // skip next |
-          } else if (char === '$' && nextChar === '$') {
-              inDoubleMath = !inDoubleMath;
-              currentCell += '$$';
-              i++; // skip next $
-          } else if (char === '$' && !inDoubleMath) {
-              inMath = !inMath;
-              currentCell += '$';
-          } else if (char === '|' && !inMath && !inDoubleMath) {
-              cells.push(currentCell);
-              currentCell = '';
-          } else {
-              currentCell += char;
-          }
+      if (char === '\\' && nextChar === '|') {
+        currentCell += '|';
+        i++; // skip next |
+      } else if (char === '$' && nextChar === '$') {
+        inDoubleMath = !inDoubleMath;
+        currentCell += '$$';
+        i++; // skip next $
+      } else if (char === '$' && !inDoubleMath) {
+        inMath = !inMath;
+        currentCell += '$';
+      } else if (char === '|' && !inMath && !inDoubleMath) {
+        cells.push(currentCell);
+        currentCell = '';
+      } else {
+        currentCell += char;
       }
-      cells.push(currentCell);
-      return cells;
+    }
+    cells.push(currentCell);
+    return cells;
   };
 
   const parseHtmlTableToDocx = (htmlTable: string, baseStyles: any): Table => {
-      let docxRows: TableRow[] = [];
-      try {
-          const doc = new DOMParser().parseFromString(htmlTable, "text/html");
-          const tableNode = doc.querySelector("table");
-          let tableFontSize = 28; // default 14pt -> 28 half-points
-          if (tableNode?.style?.fontSize) {
-              const ptMatch = tableNode.style.fontSize.match(/(\d+)/);
+    let docxRows: TableRow[] = [];
+    try {
+      const doc = new DOMParser().parseFromString(htmlTable, "text/html");
+      const tableNode = doc.querySelector("table");
+      let tableFontSize = 28; // default 14pt -> 28 half-points
+      if (tableNode?.style?.fontSize) {
+        const ptMatch = tableNode.style.fontSize.match(/(\d+)/);
+        if (ptMatch) {
+          tableFontSize = parseInt(ptMatch[1], 10) * 2;
+        }
+      }
+
+      // Only get rows that belong to this table directly (skip rows in nested tables)
+      const trs = tableNode
+        ? Array.from(tableNode.children).flatMap(child =>
+          child.tagName === 'TR' ? [child] : Array.from(child.children).filter(c => c.tagName === 'TR')
+        )
+        : Array.from(doc.querySelectorAll("tr"));
+
+      docxRows = trs.map((tr, rowIndex) => {
+        const cells = Array.from(tr.children).filter(c => c.tagName === 'TD' || c.tagName === 'TH');
+        if (cells.length === 0) return null;
+
+        const isHeaderRow = cells.some(c => c.tagName === 'TH') || rowIndex === 0;
+
+        return new TableRow({
+          children: cells.map(td => {
+            let cellFontSize = tableFontSize;
+            const htmlTd = td as HTMLElement;
+            if (htmlTd.style.fontSize) {
+              const ptMatch = htmlTd.style.fontSize.match(/(\d+)/);
               if (ptMatch) {
-                  tableFontSize = parseInt(ptMatch[1], 10) * 2;
+                cellFontSize = parseInt(ptMatch[1], 10) * 2;
               }
-          }
+            }
 
-          // Only get rows that belong to this table directly (skip rows in nested tables)
-          const trs = tableNode 
-              ? Array.from(tableNode.children).flatMap(child => 
-                  child.tagName === 'TR' ? [child] : Array.from(child.children).filter(c => c.tagName === 'TR')
-                ) 
-              : Array.from(doc.querySelectorAll("tr"));
-          
-          docxRows = trs.map((tr, rowIndex) => {
-              const cells = Array.from(tr.children).filter(c => c.tagName === 'TD' || c.tagName === 'TH');
-              if (cells.length === 0) return null;
+            const cellStyles = { ...baseStyles, size: cellFontSize, bold: isHeaderRow ? true : baseStyles.bold };
+            const text = td.innerHTML || "";
+            return new TableCell({
+              children: parseDocxCellContent(text.trim(), cellStyles, isHeaderRow) as any,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+              ...(td.getAttribute("width") || htmlTd.style.width ? {
+                width: (td.getAttribute("width") || htmlTd.style.width).includes("%")
+                  ? { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0"), type: WidthType.PERCENTAGE }
+                  : { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0") * 15, type: WidthType.DXA }
+              } : {})
+            });
+          })
+        });
+      }).filter((row): row is TableRow => row !== null);
+    } catch (e) {
+      console.error("Failed to parse HTML table", e);
+    }
 
-              const isHeaderRow = cells.some(c => c.tagName === 'TH') || rowIndex === 0;
+    if (docxRows.length === 0) {
+      docxRows.push(new TableRow({ children: [new TableCell({ children: [new Paragraph("")] })] }));
+    }
 
-              return new TableRow({
-                  children: cells.map(td => {
-                      let cellFontSize = tableFontSize;
-                      const htmlTd = td as HTMLElement;
-                      if (htmlTd.style.fontSize) {
-                          const ptMatch = htmlTd.style.fontSize.match(/(\d+)/);
-                          if (ptMatch) {
-                              cellFontSize = parseInt(ptMatch[1], 10) * 2;
-                          }
-                      }
-                      
-                      const cellStyles = { ...baseStyles, size: cellFontSize, bold: isHeaderRow ? true : baseStyles.bold };
-                      const text = td.innerHTML || "";
-                      return new TableCell({
-                          children: parseDocxCellContent(text.trim(), cellStyles, isHeaderRow) as any,
-                          borders: {
-                              top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                              bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                              left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                              right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                          },
-                          ...(td.getAttribute("width") || htmlTd.style.width ? {
-                              width: (td.getAttribute("width") || htmlTd.style.width).includes("%") 
-                                  ? { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0"), type: WidthType.PERCENTAGE }
-                                  : { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0") * 15, type: WidthType.DXA }
-                          } : {})
-                      });
-                  })
-              });
-          }).filter((row): row is TableRow => row !== null);
-      } catch (e) {
-          console.error("Failed to parse HTML table", e);
-      }
-      
-      if (docxRows.length === 0) {
-          docxRows.push(new TableRow({ children: [new TableCell({ children: [new Paragraph("")] })] }));
-      }
-      
-      return new Table({
-          rows: docxRows,
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          layout: TableLayoutType.AUTOFIT,
-      });
+    return new Table({
+      rows: docxRows,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.AUTOFIT,
+    });
   };
 
   const parseDocxCellContent = (cellText: string, baseStyles: any, isHeaderRow: boolean): any[] => {
-      const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
-      const parts = cellText.split(tableRegex);
-      const matches = cellText.match(tableRegex);
-      
-      const children: any[] = [];
-      let matchIdx = 0;
-      
-      parts.forEach((part, index) => {
-          if (part.trim() || parts.length === 1) {
-              // Tách theo từng dòng (<br> hoặc \n) thành từng Paragraph riêng biệt
-              // Giúp định dạng không bị tràn (leak) giữa các dòng, và bôi đỏ chính xác 100% dòng tích hợp
-              const lines = part.split(/<br\s*\/?>|\r?\n/gi);
+    const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
+    const parts = cellText.split(tableRegex);
+    const matches = cellText.match(tableRegex);
 
-              lines.forEach(line => {
-                  const trimmedLine = line.trim();
-                  if (!trimmedLine) return;
+    const children: any[] = [];
+    let matchIdx = 0;
 
-                  const isInt = isIntegrationLine(trimmedLine);
-                  const lineStyles = { ...baseStyles };
-                  if (isInt) {
-                      lineStyles.color = "FF0000";
-                      lineStyles.italics = false;
-                  }
+    parts.forEach((part, index) => {
+      if (part.trim() || parts.length === 1) {
+        // Tách theo từng dòng (<br> hoặc \n) thành từng Paragraph riêng biệt
+        // Giúp định dạng không bị tràn (leak) giữa các dòng, và bôi đỏ chính xác 100% dòng tích hợp
+        const lines = part.split(/<br\s*\/?>|\r?\n/gi);
 
-                  // Làm sạch in đậm tùy tiện trên dòng này
-                  let formattedLine = isHeaderRow ? trimmedLine : sanitizeLineBold(trimmedLine);
-                  if (isInt && !formattedLine.startsWith('*')) {
-                      formattedLine = `*${formattedLine.replace(/^[\-\+•\s]+/, '')}`;
-                  }
+        lines.forEach(line => {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) return;
 
-                  children.push(new Paragraph({
-                      children: parseTextWithFormatting(formattedLine, lineStyles),
-                      spacing: { before: 60, after: 60, line: 240, lineRule: LineRuleType.AUTO },
-                      indent: { firstLine: 0, left: 0, right: 0 },
-                      alignment: isHeaderRow ? AlignmentType.CENTER : AlignmentType.LEFT
-                  }));
-              });
+          const isInt = isIntegrationLine(trimmedLine);
+          const lineStyles = { ...baseStyles };
+          if (isInt) {
+            lineStyles.color = "FF0000";
+            lineStyles.italics = false;
           }
-          if (matches && matchIdx < matches.length && index < parts.length - 1) {
-              const htmlTable = matches[matchIdx];
-              matchIdx++;
-              children.push(parseHtmlTableToDocx(htmlTable, baseStyles));
+
+          // Làm sạch in đậm tùy tiện trên dòng này
+          let formattedLine = isHeaderRow ? trimmedLine : sanitizeLineBold(trimmedLine);
+          if (isInt && !formattedLine.startsWith('*')) {
+            formattedLine = `*${formattedLine.replace(/^[\-\+•\s]+/, '')}`;
           }
-      });
-      
-      if (children.length === 0) {
-          children.push(new Paragraph(""));
+
+          children.push(new Paragraph({
+            children: parseTextWithFormatting(formattedLine, lineStyles),
+            spacing: { before: 60, after: 60, line: 240, lineRule: LineRuleType.AUTO },
+            indent: { firstLine: 0, left: 0, right: 0 },
+            alignment: isHeaderRow ? AlignmentType.CENTER : AlignmentType.LEFT
+          }));
+        });
       }
-      return children;
+      if (matches && matchIdx < matches.length && index < parts.length - 1) {
+        const htmlTable = matches[matchIdx];
+        matchIdx++;
+        children.push(parseHtmlTableToDocx(htmlTable, baseStyles));
+      }
+    });
+
+    if (children.length === 0) {
+      children.push(new Paragraph(""));
+    }
+    return children;
   };
 
   // Helper: Reconstruct sub-table or join extra cells in 2-column activity tables
   const reconstructCellWithSubTables = (rawCells: string[]): string => {
-      if (rawCells.length === 0) return '';
-      if (rawCells.length === 1) return rawCells[0] || '';
+    if (rawCells.length === 0) return '';
+    if (rawCells.length === 1) return rawCells[0] || '';
 
-      // Check if there are markdown table separator/alignment tokens (:---, ---, :---:)
-      const sepIndices: number[] = [];
-      rawCells.forEach((c, idx) => {
-          if (/^:?-{2,}:?$/.test(c.trim()) || /^:?-+:?$/.test(c.trim())) {
-              sepIndices.push(idx);
-          }
-      });
+    // Check if there are markdown table separator/alignment tokens (:---, ---, :---:)
+    const sepIndices: number[] = [];
+    rawCells.forEach((c, idx) => {
+      if (/^:?-{2,}:?$/.test(c.trim()) || /^:?-+:?$/.test(c.trim())) {
+        sepIndices.push(idx);
+      }
+    });
 
-      if (sepIndices.length > 0) {
-          const firstSep = sepIndices[0];
-          let sepCount = 1;
-          while (sepCount < sepIndices.length && sepIndices[sepCount] === firstSep + sepCount) {
-              sepCount++;
-          }
-
-          const subCols = sepCount;
-          const headerStart = firstSep - subCols;
-
-          if (headerStart >= 0) {
-              const beforeText = rawCells.slice(0, headerStart).join(' ').trim();
-              const subHeaders = rawCells.slice(headerStart, firstSep);
-              
-              let dataIdx = firstSep + subCols;
-              const subRows: string[][] = [];
-              
-              while (dataIdx + subCols <= rawCells.length) {
-                  const candidateRow = rawCells.slice(dataIdx, dataIdx + subCols);
-                  subRows.push(candidateRow);
-                  dataIdx += subCols;
-                  if (dataIdx < rawCells.length && dataIdx + subCols > rawCells.length) {
-                      break;
-                  }
-              }
-
-              const afterText = rawCells.slice(dataIdx).join(' ').trim();
-
-              let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
-              htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 4px; text-align: center; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
-              subRows.forEach(r => {
-                  htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 4px; text-align: center;">${d.trim()}</td>`).join('')}</tr>`;
-              });
-              htmlSubTable += `</table>`;
-
-              let result = '';
-              if (beforeText) result += beforeText + '<br>';
-              result += htmlSubTable;
-              if (afterText) result += '<br>' + afterText;
-              return result;
-          }
+    if (sepIndices.length > 0) {
+      const firstSep = sepIndices[0];
+      let sepCount = 1;
+      while (sepCount < sepIndices.length && sepIndices[sepCount] === firstSep + sepCount) {
+        sepCount++;
       }
 
-      // Default: join multiple cells with <br>
-      return rawCells.join('<br>');
+      const subCols = sepCount;
+      const headerStart = firstSep - subCols;
+
+      if (headerStart >= 0) {
+        const beforeText = rawCells.slice(0, headerStart).join(' ').trim();
+        const subHeaders = rawCells.slice(headerStart, firstSep);
+
+        let dataIdx = firstSep + subCols;
+        const subRows: string[][] = [];
+
+        while (dataIdx + subCols <= rawCells.length) {
+          const candidateRow = rawCells.slice(dataIdx, dataIdx + subCols);
+          subRows.push(candidateRow);
+          dataIdx += subCols;
+          if (dataIdx < rawCells.length && dataIdx + subCols > rawCells.length) {
+            break;
+          }
+        }
+
+        const afterText = rawCells.slice(dataIdx).join(' ').trim();
+
+        let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
+        htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 4px; text-align: center; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
+        subRows.forEach(r => {
+          htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 4px; text-align: center;">${d.trim()}</td>`).join('')}</tr>`;
+        });
+        htmlSubTable += `</table>`;
+
+        let result = '';
+        if (beforeText) result += beforeText + '<br>';
+        result += htmlSubTable;
+        if (afterText) result += '<br>' + afterText;
+        return result;
+      }
+    }
+
+    // Default: join multiple cells with <br>
+    return rawCells.join('<br>');
   };
 
   // Helper: Create Docx Table from Markdown lines
   const createTableFromMarkdown = (tableLines: string[]): Table | null => {
     try {
-        const validLines = tableLines.filter(line => !line.match(/^\|?\s*[-:]+[-|\s:]*\|?\s*$/));
-        if (validLines.length === 0) return null;
-        
-        const parsedRows = validLines.map(line => {
-            let cells = smartSplitTableLine(line);
-            if (line.trim().startsWith('|') && cells.length > 0 && cells[0].trim() === '') cells.shift();
-            if (line.trim().endsWith('|') && cells.length > 0 && cells[cells.length - 1].trim() === '') cells.pop();
-            return cells;
+      const validLines = tableLines.filter(line => !line.match(/^\|?\s*[-:]+[-|\s:]*\|?\s*$/));
+      if (validLines.length === 0) return null;
+
+      const parsedRows = validLines.map(line => {
+        let cells = smartSplitTableLine(line);
+        if (line.trim().startsWith('|') && cells.length > 0 && cells[0].trim() === '') cells.shift();
+        if (line.trim().endsWith('|') && cells.length > 0 && cells[cells.length - 1].trim() === '') cells.pop();
+        return cells;
+      });
+
+      if (parsedRows.length === 0) return null;
+
+      // Check if this is a 2-column Activity Table (Phụ lục 4)
+      const headerRow0 = parsedRows[0];
+      const isActivityTable = (
+        headerRow0.length === 2 ||
+        /(?:tổ\s*chức\s*thực\s*hiện|hoạt\s*động)/i.test(headerRow0[0] || '') ||
+        /sản\s*phẩm/i.test(headerRow0[1] || '')
+      );
+
+      if (isActivityTable) {
+        // Chuẩn hóa bảng 2 cột Phụ lục 4:
+        // HÀNG 1: Tiêu đề "Hoạt động của giáo viên và học sinh" | "Kết quả hoạt động"
+        // HÀNG 2: Gộp toàn bộ các bước 1, 2, 3, 4 vào 1 ô duy nhất ở Cột 1; Toàn bộ kết quả và hình ảnh ở Cột 2
+
+        const headerRow = new TableRow({
+          children: [
+            new TableCell({
+              children: parseDocxCellContent("Hoạt động của giáo viên và học sinh", { bold: true }, true) as any,
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+            }),
+            new TableCell({
+              children: parseDocxCellContent("Kết quả hoạt động", { bold: true }, true) as any,
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+            }),
+          ]
         });
 
-        if (parsedRows.length === 0) return null;
+        // Gộp tất cả các hàng dữ liệu thành 1 hàng duy nhất
+        const dataRows = parsedRows.slice(1);
+        let combinedCol0Parts: string[] = [];
+        let combinedCol1Parts: string[] = [];
 
-        // Check if this is a 2-column Activity Table (Phụ lục 4)
-        const headerRow0 = parsedRows[0];
-        const isActivityTable = (
-            headerRow0.length === 2 ||
-            /(?:tổ\s*chức\s*thực\s*hiện|hoạt\s*động)/i.test(headerRow0[0] || '') ||
-            /sản\s*phẩm/i.test(headerRow0[1] || '')
-        );
+        dataRows.forEach(cells => {
+          while (cells.length > 0 && (cells[0].trim() === '' || cells[0].trim() === '\\')) {
+            cells.shift();
+          }
+          if (cells.length === 0) return;
 
-        if (isActivityTable) {
-            // Chuẩn hóa bảng 2 cột Phụ lục 4:
-            // HÀNG 1: Tiêu đề "Hoạt động của giáo viên và học sinh" | "Kết quả hoạt động"
-            // HÀNG 2: Gộp toàn bộ các bước 1, 2, 3, 4 vào 1 ô duy nhất ở Cột 1; Toàn bộ kết quả và hình ảnh ở Cột 2
-            
-            const headerRow = new TableRow({
-                children: [
-                    new TableCell({
-                        children: parseDocxCellContent("Hoạt động của giáo viên và học sinh", { bold: true }, true) as any,
-                        width: { size: 50, type: WidthType.PERCENTAGE },
-                        borders: {
-                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        },
-                    }),
-                    new TableCell({
-                        children: parseDocxCellContent("Kết quả hoạt động", { bold: true }, true) as any,
-                        width: { size: 50, type: WidthType.PERCENTAGE },
-                        borders: {
-                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        },
-                    }),
-                ]
-            });
+          const c0 = (cells[0] || '').trim().replace(/^[\\|\s]+/, '');
+          const c1 = reconstructCellWithSubTables(cells.slice(1)).trim().replace(/^[\\|\s]+/, '');
+          if (c0) combinedCol0Parts.push(c0);
+          if (c1) combinedCol1Parts.push(c1);
+        });
 
-            // Gộp tất cả các hàng dữ liệu thành 1 hàng duy nhất
-            const dataRows = parsedRows.slice(1);
-            let combinedCol0Parts: string[] = [];
-            let combinedCol1Parts: string[] = [];
+        let col0Text = combinedCol0Parts.join('<br>');
+        let col1Text = combinedCol1Parts.join('<br>');
 
-            dataRows.forEach(cells => {
-                while (cells.length > 0 && (cells[0].trim() === '' || cells[0].trim() === '\\')) {
-                    cells.shift();
-                }
-                if (cells.length === 0) return;
-
-                const c0 = (cells[0] || '').trim().replace(/^[\\|\s]+/, '');
-                const c1 = reconstructCellWithSubTables(cells.slice(1)).trim().replace(/^[\\|\s]+/, '');
-                if (c0) combinedCol0Parts.push(c0);
-                if (c1) combinedCol1Parts.push(c1);
-            });
-
-            let col0Text = combinedCol0Parts.join('<br>');
-            let col1Text = combinedCol1Parts.join('<br>');
-
-            // Khắc phục trường hợp Col 0 bị rỗng do bảng markdown lệch cột
-            if (!col0Text && col1Text) {
-                if (/Bước\s*[1-4]|GV|Giáo\s*viên/i.test(col1Text)) {
-                    col0Text = col1Text;
-                    col1Text = "- Học sinh hoàn thành các nhiệm vụ học tập theo yêu cầu của giáo viên.<br>- Lời giải, kết quả chi tiết các bài tập / hoạt động.";
-                }
-            }
-
-            if (!col1Text) {
-                col1Text = "- Học sinh hoàn thành các nhiệm vụ học tập theo yêu cầu của giáo viên.<br>- Lời giải, kết quả chi tiết các bài tập / hoạt động.";
-            }
-
-            col0Text = col0Text.replace(/^\*\s*/, "").replace(/^\\s+/, "").replace(/^[\\|\s]+/, "");
-            col1Text = col1Text.replace(/^\*\s*/, "").replace(/^\\s+/, "").replace(/^[\\|\s]+/, "");
-
-            // ĐẢM BẢO 100% HÌNH ẢNH / HÌNH VẼ ĐƯỢC CHUYỂN VỀ CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM)
-            const imgTagRegex = /\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)/gi;
-            const col0Imgs = col0Text.match(imgTagRegex);
-            if (col0Imgs && col0Imgs.length > 0) {
-                col0Text = col0Text.replace(imgTagRegex, '').replace(/(?:<br>\s*)+/g, '<br>').trim();
-                col1Text = `${col1Text}<br>${col0Imgs.join('<br>')}`.trim();
-            }
-
-            const contentRow = new TableRow({
-                children: [
-                    new TableCell({
-                        children: parseDocxCellContent(col0Text, {}, false) as any,
-                        width: { size: 50, type: WidthType.PERCENTAGE },
-                        borders: {
-                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        },
-                    }),
-                    new TableCell({
-                        children: parseDocxCellContent(col1Text, {}, false) as any,
-                        width: { size: 50, type: WidthType.PERCENTAGE },
-                        borders: {
-                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        },
-                    }),
-                ]
-            });
-
-            return new Table({
-                rows: [headerRow, contentRow],
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                layout: TableLayoutType.AUTOFIT,
-            });
+        // Khắc phục trường hợp Col 0 bị rỗng do bảng markdown lệch cột
+        if (!col0Text && col1Text) {
+          if (/Bước\s*[1-4]|GV|Giáo\s*viên/i.test(col1Text)) {
+            col0Text = col1Text;
+            col1Text = "- Học sinh hoàn thành các nhiệm vụ học tập theo yêu cầu của giáo viên.<br>- Lời giải, kết quả chi tiết các bài tập / hoạt động.";
+          }
         }
 
-        // Generic Table (not 2-column activity table)
-        let maxCols = 0;
-        parsedRows.forEach(cells => {
-            if (cells.length > maxCols) maxCols = cells.length;
-        });
+        if (!col1Text) {
+          col1Text = "- Học sinh hoàn thành các nhiệm vụ học tập theo yêu cầu của giáo viên.<br>- Lời giải, kết quả chi tiết các bài tập / hoạt động.";
+        }
 
-        const rows = parsedRows.map((cells, rowIndex) => {
-            while (cells.length < maxCols) {
-                cells.push('');
-            }
-            if (cells.length === 0) {
-                cells = [''];
-            }
+        col0Text = col0Text.replace(/^\*\s*/, "").replace(/^\\s+/, "").replace(/^[\\|\s]+/, "");
+        col1Text = col1Text.replace(/^\*\s*/, "").replace(/^\\s+/, "").replace(/^[\\|\s]+/, "");
 
-            const isHeaderRow = rowIndex === 0;
+        // ĐẢM BẢO 100% HÌNH ẢNH / HÌNH VẼ ĐƯỢC CHUYỂN VỀ CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM)
+        const imgTagRegex = /\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)/gi;
+        const col0Imgs = col0Text.match(imgTagRegex);
+        if (col0Imgs && col0Imgs.length > 0) {
+          col0Text = col0Text.replace(imgTagRegex, '').replace(/(?:<br>\s*)+/g, '<br>').trim();
+          col1Text = `${col1Text}<br>${col0Imgs.join('<br>')}`.trim();
+        }
 
-            return new TableRow({
-                children: cells.map((cellContent) => {
-                    let cellText = cellContent.trim();
-                    cellText = cellText.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
-                    const baseStyles = isHeaderRow ? { bold: true } : {};
-
-                    return new TableCell({
-                        children: parseDocxCellContent(cellText, baseStyles, isHeaderRow) as any,
-                        borders: {
-                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        },
-                    });
-                })
-            });
+        const contentRow = new TableRow({
+          children: [
+            new TableCell({
+              children: parseDocxCellContent(col0Text, {}, false) as any,
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+            }),
+            new TableCell({
+              children: parseDocxCellContent(col1Text, {}, false) as any,
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+            }),
+          ]
         });
 
         return new Table({
-            rows: rows,
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            layout: TableLayoutType.AUTOFIT,
+          rows: [headerRow, contentRow],
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          layout: TableLayoutType.AUTOFIT,
         });
+      }
+
+      // Generic Table (not 2-column activity table)
+      let maxCols = 0;
+      parsedRows.forEach(cells => {
+        if (cells.length > maxCols) maxCols = cells.length;
+      });
+
+      const rows = parsedRows.map((cells, rowIndex) => {
+        while (cells.length < maxCols) {
+          cells.push('');
+        }
+        if (cells.length === 0) {
+          cells = [''];
+        }
+
+        const isHeaderRow = rowIndex === 0;
+
+        return new TableRow({
+          children: cells.map((cellContent) => {
+            let cellText = cellContent.trim();
+            cellText = cellText.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
+            const baseStyles = isHeaderRow ? { bold: true } : {};
+
+            return new TableCell({
+              children: parseDocxCellContent(cellText, baseStyles, isHeaderRow) as any,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+            });
+          })
+        });
+      });
+
+      return new Table({
+        rows: rows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        layout: TableLayoutType.AUTOFIT,
+      });
     } catch (e) {
-        console.error("Lỗi parse table:", e);
-        return null;
+      console.error("Lỗi parse table:", e);
+      return null;
     }
   };
 
@@ -1175,11 +1181,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_') && !preProcessedResult.includes('[HÌNH_VẼ_GỐC_') && !preProcessedResult.includes('[HÌNH VẼ GỐC')) {
         console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào Cột 2 (Sản phẩm / Kết quả hoạt động):", educationalImages);
         const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
-        
+
         // Chèn vào Cột 2 của bảng 2 cột
         const tableRowMatch = preProcessedResult.match(/(\|\s*[^|\n]+\|)([^|\n]+)(\|)/);
         if (tableRowMatch) {
-            preProcessedResult = preProcessedResult.replace(tableRowMatch[0], `${tableRowMatch[1]}${tableRowMatch[2]} ${imgTagsInCell}${tableRowMatch[3]}`);
+          preProcessedResult = preProcessedResult.replace(tableRowMatch[0], `${tableRowMatch[1]}${tableRowMatch[2]} ${imgTagsInCell}${tableRowMatch[3]}`);
         }
       }
       const lines = preProcessedResult.split('\n');
@@ -1203,86 +1209,86 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       // Header Phụ lục IV & Thông tin Trường / Tổ / Giáo viên
       if (teacherInfo?.includeInHeader && (teacherInfo.schoolName || teacherInfo.teacherName || teacherInfo.department)) {
-          // 1. Phụ lục IV ở góc trên bên phải
-          children.push(new Paragraph({
+        // 1. Phụ lục IV ở góc trên bên phải
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: "Phụ lục IV",
+              bold: true,
+              size: 28,
+              font: "Times New Roman"
+            })
+          ],
+          alignment: AlignmentType.RIGHT,
+          spacing: { before: 0, after: 100, line: 240, lineRule: LineRuleType.AUTO }
+        }));
+
+        let schoolClean = teacherInfo.schoolName || "THCS Đồng Yên";
+        if (schoolClean.startsWith("Trường: ")) schoolClean = schoolClean.replace(/^Trường:\s*/i, '');
+        else if (schoolClean.startsWith("Trường ")) schoolClean = schoolClean.replace(/^Trường\s+/i, '');
+
+        let deptClean = teacherInfo.department || "Khoa học Tự Nhiên";
+        if (deptClean.startsWith("Tổ: ")) deptClean = deptClean.replace(/^Tổ:\s*/i, '');
+        else if (deptClean.startsWith("Tổ ")) deptClean = deptClean.replace(/^Tổ\s+/i, '');
+
+        const teacherClean = teacherInfo.teacherName || "Mai Văn Hùng";
+
+        // 2. Bảng 2 cột không viền (Trường, Tổ bôi đỏ bên trái & Họ tên giáo viên bên phải)
+        const headerTable = new Table({
+          borders: noBorders,
+          rows: [
+            new TableRow({
               children: [
-                  new TextRun({
-                      text: "Phụ lục IV",
-                      bold: true,
-                      size: 28,
-                      font: "Times New Roman"
-                  })
-              ],
-              alignment: AlignmentType.RIGHT,
-              spacing: { before: 0, after: 100, line: 240, lineRule: LineRuleType.AUTO }
-          }));
-
-          let schoolClean = teacherInfo.schoolName || "THCS Đồng Yên";
-          if (schoolClean.startsWith("Trường: ")) schoolClean = schoolClean.replace(/^Trường:\s*/i, '');
-          else if (schoolClean.startsWith("Trường ")) schoolClean = schoolClean.replace(/^Trường\s+/i, '');
-
-          let deptClean = teacherInfo.department || "Khoa học Tự Nhiên";
-          if (deptClean.startsWith("Tổ: ")) deptClean = deptClean.replace(/^Tổ:\s*/i, '');
-          else if (deptClean.startsWith("Tổ ")) deptClean = deptClean.replace(/^Tổ\s+/i, '');
-
-          const teacherClean = teacherInfo.teacherName || "Mai Văn Hùng";
-
-          // 2. Bảng 2 cột không viền (Trường, Tổ bôi đỏ bên trái & Họ tên giáo viên bên phải)
-          const headerTable = new Table({
-              borders: noBorders,
-              rows: [
-                  new TableRow({
+                new TableCell({
+                  width: { size: 55, type: WidthType.PERCENTAGE },
+                  borders: noBorders,
+                  children: [
+                    new Paragraph({
                       children: [
-                          new TableCell({
-                              width: { size: 55, type: WidthType.PERCENTAGE },
-                              borders: noBorders,
-                              children: [
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: "Trường: ", bold: true, size: 28, font: "Times New Roman" }),
-                                          new TextRun({ text: schoolClean, bold: true, size: 28, font: "Times New Roman" })
-                                      ],
-                                      spacing: { before: 0, after: 60, line: 240, lineRule: LineRuleType.AUTO },
-                                      alignment: AlignmentType.LEFT
-                                  }),
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: "Tổ: ", bold: true, size: 28, font: "Times New Roman" }),
-                                          new TextRun({ text: deptClean, bold: true, color: "FF0000", size: 28, font: "Times New Roman" })
-                                      ],
-                                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO },
-                                      alignment: AlignmentType.LEFT
-                                  })
-                              ]
-                          }),
-                          new TableCell({
-                              width: { size: 45, type: WidthType.PERCENTAGE },
-                              borders: noBorders,
-                              children: [
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: "Họ và tên giáo viên:", size: 28, font: "Times New Roman" })
-                                      ],
-                                      spacing: { before: 0, after: 60, line: 240, lineRule: LineRuleType.AUTO },
-                                      alignment: AlignmentType.CENTER
-                                  }),
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: teacherClean, bold: true, size: 28, font: "Times New Roman" })
-                                      ],
-                                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO },
-                                      alignment: AlignmentType.CENTER
-                                  })
-                              ]
-                          })
-                      ]
-                  })
-              ],
-              width: { size: 100, type: WidthType.PERCENTAGE },
-              layout: TableLayoutType.AUTOFIT,
-          });
+                        new TextRun({ text: "Trường: ", bold: true, size: 28, font: "Times New Roman" }),
+                        new TextRun({ text: schoolClean, bold: true, size: 28, font: "Times New Roman" })
+                      ],
+                      spacing: { before: 0, after: 60, line: 240, lineRule: LineRuleType.AUTO },
+                      alignment: AlignmentType.LEFT
+                    }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({ text: "Tổ: ", bold: true, size: 28, font: "Times New Roman" }),
+                        new TextRun({ text: deptClean, bold: true, color: "FF0000", size: 28, font: "Times New Roman" })
+                      ],
+                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO },
+                      alignment: AlignmentType.LEFT
+                    })
+                  ]
+                }),
+                new TableCell({
+                  width: { size: 45, type: WidthType.PERCENTAGE },
+                  borders: noBorders,
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({ text: "Họ và tên giáo viên:", size: 28, font: "Times New Roman" })
+                      ],
+                      spacing: { before: 0, after: 60, line: 240, lineRule: LineRuleType.AUTO },
+                      alignment: AlignmentType.CENTER
+                    }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({ text: teacherClean, bold: true, size: 28, font: "Times New Roman" })
+                      ],
+                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO },
+                      alignment: AlignmentType.CENTER
+                    })
+                  ]
+                })
+              ]
+            })
+          ],
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          layout: TableLayoutType.AUTOFIT,
+        });
 
-           children.push(headerTable);
+        children.push(headerTable);
       }
 
       let docxInIntegration = false;
@@ -1294,7 +1300,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         // --- CLEANING ARTIFACTS START ---
         // 1. Remove leftover HTML anchors if any
         trimmed = trimmed.replace(/<a\s+id="[^"]*"><\/a>/gi, "");
-        
+
         // 2. Remove escaped asterisk at start (e.g. "\* Text")
         trimmed = trimmed.replace(/^\\\*\s*/, "");
 
@@ -1303,26 +1309,26 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
         // 4. Remove any markdown hashes ##### or #### at the start of lines
         trimmed = trimmed.replace(/^#{3,6}\s*/, "");
-        
+
         // Re-trim after cleaning
         trimmed = trimmed.trim();
 
         // Bảo toàn tuyệt đối 100% mục c) Sản phẩm và d) Tổ chức thực hiện trong DOCX (Không bỏ qua)
-        
+
         // 1. Table Handling
         if (trimmed.startsWith('|')) {
-            inTable = true;
-            tableBuffer.push(rawLine);
-            continue;
+          inTable = true;
+          tableBuffer.push(rawLine);
+          continue;
         } else if (inTable) {
-            if (tableBuffer.length > 0) {
-                const tableNode = createTableFromMarkdown(tableBuffer);
-                if (tableNode) {
-                    children.push(tableNode);
-                }
-                tableBuffer = [];
+          if (tableBuffer.length > 0) {
+            const tableNode = createTableFromMarkdown(tableBuffer);
+            if (tableNode) {
+              children.push(tableNode);
             }
-            inTable = false;
+            tableBuffer = [];
+          }
+          inTable = false;
         }
 
         // 2. Empty Line Handling
@@ -1372,7 +1378,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             spacing: { before: 180, after: 60, line: 240, lineRule: LineRuleType.AUTO },
             alignment: AlignmentType.CENTER
           }));
-        } 
+        }
         else if (/^(?:Môn\s*học|Thời\s*gian\s*thực\s*hiện|Số\s*báo\s*giảng)/i.test(trimmed) && trimmed.length < 220) {
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed),
@@ -1395,10 +1401,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             indent: { firstLine: FIRST_LINE_INDENT },
             alignment: AlignmentType.JUSTIFIED
           }));
-        } 
+        }
         else if (trimmed.startsWith('### ')) {
           children.push(new Paragraph({
-             children: parseTextWithFormatting(trimmed.replace('### ', '')),
+            children: parseTextWithFormatting(trimmed.replace('### ', '')),
             heading: HeadingLevel.HEADING_2,
             spacing: PARAGRAPH_SPACING,
             indent: { firstLine: FIRST_LINE_INDENT },
@@ -1406,137 +1412,137 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         else if (trimmed.startsWith('#### ')) {
+          children.push(new Paragraph({
+            children: parseTextWithFormatting(trimmed.replace('#### ', '')),
+            heading: HeadingLevel.HEADING_3,
+            spacing: PARAGRAPH_SPACING,
+            indent: { firstLine: FIRST_LINE_INDENT },
+            alignment: AlignmentType.JUSTIFIED
+          }));
+        }
+        // 4. List Handling & Integration Lines outside table
+        else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ') || isIntegrationLine(trimmed)) {
+          const isInt = isIntegrationLine(trimmed);
+          const lineStyles: any = isInt ? { color: "FF0000" } : {};
+          let cleanLineText = sanitizeLineBold(trimmed);
+          if (isInt) {
+            // Giữ nguyên đề mục c) Năng lực số, d) Năng lực AI hoặc dấu * ở đầu câu cho dòng tích hợp
+            if (!cleanLineText.startsWith('*') && !cleanLineText.startsWith('-') && !cleanLineText.startsWith('+') && !cleanLineText.startsWith('**c)') && !cleanLineText.startsWith('**d)') && !cleanLineText.startsWith('c)') && !cleanLineText.startsWith('d)')) {
+              cleanLineText = `*${cleanLineText.replace(/^[\-\+•\s]+/, '')}`;
+            }
+          } else if (cleanLineText.startsWith('- ') || cleanLineText.startsWith('+ ') || cleanLineText.startsWith('* ')) {
+            cleanLineText = `- ${cleanLineText.substring(2)}`;
+          }
+
+          children.push(new Paragraph({
+            children: parseTextWithFormatting(cleanLineText, lineStyles),
+            spacing: PARAGRAPH_SPACING,
+            indent: { firstLine: FIRST_LINE_INDENT },
+            alignment: AlignmentType.JUSTIFIED
+          }));
+        }
+        // 5. Regular Text
+        else {
+          const isInt = isIntegrationLine(trimmed);
+          const lineStyles: any = isInt ? { color: "FF0000" } : {};
+          const cleanRegularText = sanitizeLineBold(trimmed);
+          const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
+          if (cleanRegularText.match(tableRegex)) {
+            const parts = cleanRegularText.split(tableRegex);
+            const matches = cleanRegularText.match(tableRegex);
+            let matchIdx = 0;
+
+            parts.forEach((part, index) => {
+              if (part.trim() || parts.length === 1) {
+                children.push(new Paragraph({
+                  children: parseTextWithFormatting(part.trim() || " ", lineStyles),
+                  spacing: PARAGRAPH_SPACING,
+                  indent: { firstLine: FIRST_LINE_INDENT },
+                  alignment: AlignmentType.JUSTIFIED
+                }));
+              }
+              if (matches && matchIdx < matches.length && index < parts.length - 1) {
+                const htmlTable = matches[matchIdx];
+                matchIdx++;
+                children.push(parseHtmlTableToDocx(htmlTable, {}));
+              }
+            });
+          } else {
             children.push(new Paragraph({
-               children: parseTextWithFormatting(trimmed.replace('#### ', '')),
-              heading: HeadingLevel.HEADING_3,
+              children: parseTextWithFormatting(cleanRegularText, lineStyles),
               spacing: PARAGRAPH_SPACING,
               indent: { firstLine: FIRST_LINE_INDENT },
               alignment: AlignmentType.JUSTIFIED
             }));
-        }
-        // 4. List Handling & Integration Lines outside table
-        else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ') || isIntegrationLine(trimmed)) {
-            const isInt = isIntegrationLine(trimmed);
-            const lineStyles: any = isInt ? { color: "FF0000" } : {};
-            let cleanLineText = sanitizeLineBold(trimmed);
-            if (isInt) {
-                // Giữ nguyên đề mục c) Năng lực số, d) Năng lực AI hoặc dấu * ở đầu câu cho dòng tích hợp
-                if (!cleanLineText.startsWith('*') && !cleanLineText.startsWith('-') && !cleanLineText.startsWith('+') && !cleanLineText.startsWith('**c)') && !cleanLineText.startsWith('**d)') && !cleanLineText.startsWith('c)') && !cleanLineText.startsWith('d)')) {
-                    cleanLineText = `*${cleanLineText.replace(/^[\-\+•\s]+/, '')}`;
-                }
-            } else if (cleanLineText.startsWith('- ') || cleanLineText.startsWith('+ ') || cleanLineText.startsWith('* ')) {
-                cleanLineText = `- ${cleanLineText.substring(2)}`;
-            }
-
-            children.push(new Paragraph({
-                children: parseTextWithFormatting(cleanLineText, lineStyles),
-                spacing: PARAGRAPH_SPACING,
-                indent: { firstLine: FIRST_LINE_INDENT },
-                alignment: AlignmentType.JUSTIFIED
-            }));
-        }
-        // 5. Regular Text
-        else {
-            const isInt = isIntegrationLine(trimmed);
-            const lineStyles: any = isInt ? { color: "FF0000" } : {};
-            const cleanRegularText = sanitizeLineBold(trimmed);
-            const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
-            if (cleanRegularText.match(tableRegex)) {
-                const parts = cleanRegularText.split(tableRegex);
-                const matches = cleanRegularText.match(tableRegex);
-                let matchIdx = 0;
-                
-                parts.forEach((part, index) => {
-                    if (part.trim() || parts.length === 1) {
-                         children.push(new Paragraph({
-                            children: parseTextWithFormatting(part.trim() || " ", lineStyles),
-                            spacing: PARAGRAPH_SPACING,
-                            indent: { firstLine: FIRST_LINE_INDENT },
-                            alignment: AlignmentType.JUSTIFIED
-                        }));
-                    }
-                    if (matches && matchIdx < matches.length && index < parts.length - 1) {
-                        const htmlTable = matches[matchIdx];
-                        matchIdx++;
-                        children.push(parseHtmlTableToDocx(htmlTable, {}));
-                    }
-                });
-            } else {
-                 children.push(new Paragraph({
-                    children: parseTextWithFormatting(cleanRegularText, lineStyles),
-                    spacing: PARAGRAPH_SPACING,
-                    indent: { firstLine: FIRST_LINE_INDENT },
-                    alignment: AlignmentType.JUSTIFIED
-                }));
-            }
+          }
         }
       }
 
       // Flush remaining table
       if (tableBuffer.length > 0) {
-         const tableNode = createTableFromMarkdown(tableBuffer);
-         if (tableNode) children.push(tableNode);
+        const tableNode = createTableFromMarkdown(tableBuffer);
+        if (tableNode) children.push(tableNode);
       }
 
       // Bảng chữ ký phê duyệt ở cuối văn bản (Ảnh 3)
       if (teacherInfo?.includeInHeader) {
-          const reviewerClean = teacherInfo.reviewerName || "Nguyễn Thị Huệ";
-          const teacherClean = teacherInfo.teacherName || "Mai Văn Hùng";
+        const reviewerClean = teacherInfo.reviewerName || "Nguyễn Thị Huệ";
+        const teacherClean = teacherInfo.teacherName || "Mai Văn Hùng";
 
-          const signatureTable = new Table({
-              borders: noBorders,
-              rows: [
-                  new TableRow({
+        const signatureTable = new Table({
+          borders: noBorders,
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  width: { size: 50, type: WidthType.PERCENTAGE },
+                  borders: noBorders,
+                  children: [
+                    new Paragraph({
                       children: [
-                          new TableCell({
-                              width: { size: 50, type: WidthType.PERCENTAGE },
-                              borders: noBorders,
-                              children: [
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: "Người kiểm tra", bold: true, size: 28, font: "Times New Roman" })
-                                      ],
-                                      alignment: AlignmentType.CENTER,
-                                      spacing: { before: 200, after: 800, line: 240, lineRule: LineRuleType.AUTO }
-                                  }),
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: reviewerClean, bold: true, size: 28, font: "Times New Roman" })
-                                      ],
-                                      alignment: AlignmentType.CENTER,
-                                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO }
-                                  })
-                              ]
-                          }),
-                          new TableCell({
-                              width: { size: 50, type: WidthType.PERCENTAGE },
-                              borders: noBorders,
-                              children: [
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: "Người xây dựng kế hoạch", bold: true, size: 28, font: "Times New Roman" })
-                                      ],
-                                      alignment: AlignmentType.CENTER,
-                                      spacing: { before: 200, after: 800, line: 240, lineRule: LineRuleType.AUTO }
-                                  }),
-                                  new Paragraph({
-                                      children: [
-                                          new TextRun({ text: teacherClean, bold: true, size: 28, font: "Times New Roman" })
-                                      ],
-                                      alignment: AlignmentType.CENTER,
-                                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO }
-                                  })
-                              ]
-                          })
-                      ]
-                  })
-              ],
-              width: { size: 100, type: WidthType.PERCENTAGE },
-              layout: TableLayoutType.AUTOFIT
-          });
+                        new TextRun({ text: "Người kiểm tra", bold: true, size: 28, font: "Times New Roman" })
+                      ],
+                      alignment: AlignmentType.CENTER,
+                      spacing: { before: 200, after: 800, line: 240, lineRule: LineRuleType.AUTO }
+                    }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({ text: reviewerClean, bold: true, size: 28, font: "Times New Roman" })
+                      ],
+                      alignment: AlignmentType.CENTER,
+                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO }
+                    })
+                  ]
+                }),
+                new TableCell({
+                  width: { size: 50, type: WidthType.PERCENTAGE },
+                  borders: noBorders,
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({ text: "Người xây dựng kế hoạch", bold: true, size: 28, font: "Times New Roman" })
+                      ],
+                      alignment: AlignmentType.CENTER,
+                      spacing: { before: 200, after: 800, line: 240, lineRule: LineRuleType.AUTO }
+                    }),
+                    new Paragraph({
+                      children: [
+                        new TextRun({ text: teacherClean, bold: true, size: 28, font: "Times New Roman" })
+                      ],
+                      alignment: AlignmentType.CENTER,
+                      spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO }
+                    })
+                  ]
+                })
+              ]
+            })
+          ],
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          layout: TableLayoutType.AUTOFIT
+        });
 
-          children.push(new Paragraph({ spacing: { before: 240, after: 120 } }));
-          children.push(signatureTable);
+        children.push(new Paragraph({ spacing: { before: 240, after: 120 } }));
+        children.push(signatureTable);
       }
 
       // === PAGE MARGINS ===
@@ -1554,20 +1560,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               }
             },
             title: {
-                run: { size: 32, bold: true, font: "Times New Roman", color: "000000" },
-                paragraph: { spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER }
+              run: { size: 32, bold: true, font: "Times New Roman", color: "000000" },
+              paragraph: { spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER }
             },
             heading1: {
-                run: { size: 28, bold: true, font: "Times New Roman", color: "000000" },
-                paragraph: { spacing: { before: 120, after: 0 }, indent: { firstLine: FIRST_LINE_INDENT } }
+              run: { size: 28, bold: true, font: "Times New Roman", color: "000000" },
+              paragraph: { spacing: { before: 120, after: 0 }, indent: { firstLine: FIRST_LINE_INDENT } }
             },
             heading2: {
-                run: { size: 28, bold: true, font: "Times New Roman", color: "000000" },
-                paragraph: { spacing: { before: 120, after: 0 }, indent: { firstLine: FIRST_LINE_INDENT } }
+              run: { size: 28, bold: true, font: "Times New Roman", color: "000000" },
+              paragraph: { spacing: { before: 120, after: 0 }, indent: { firstLine: FIRST_LINE_INDENT } }
             },
             heading3: {
-                run: { size: 28, bold: true, font: "Times New Roman", color: "000000" },
-                paragraph: { spacing: { before: 120, after: 0 }, indent: { firstLine: FIRST_LINE_INDENT } }
+              run: { size: 28, bold: true, font: "Times New Roman", color: "000000" },
+              paragraph: { spacing: { before: 120, after: 0 }, indent: { firstLine: FIRST_LINE_INDENT } }
             }
           }
         },
@@ -1577,7 +1583,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               margin: {
                 top: 1134,
                 bottom: 1134,
-                left: 1418, 
+                left: 1418,
                 right: 1134,
               },
             },
@@ -1621,18 +1627,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     const imgRegex = /(?:!\[([^\]]*)\]\(([^)]+)\)|\*{0,2}\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]\*{0,2})/gi;
 
     html = html.replace(imgRegex, (match, p1, p2, offset) => {
-       const cleanMatch = match.replace(/^\*+|\*+$/g, '').trim();
-       const rawId = cleanMatch.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
-       const numMatch = cleanMatch.match(/\d+/);
-       const num = numMatch ? numMatch[0] : '1';
-       
-       const cachedImg = lookupCachedImage(cleanMatch) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
+      const cleanMatch = match.replace(/^\*+|\*+$/g, '').trim();
+      const rawId = cleanMatch.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
+      const numMatch = cleanMatch.match(/\d+/);
+      const num = numMatch ? numMatch[0] : '1';
 
-       if (cachedImg && typeof cachedImg.dataUrl === 'string' && cachedImg.dataUrl.trim() !== '') {
-           return `<img src="${cachedImg.dataUrl}" alt="Hình ${num}: Minh họa trực quan" data-img-num="${num}" />`;
-       }
+      const cachedImg = lookupCachedImage(cleanMatch) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
 
-       return `<div class="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">[Hình vẽ gốc ${num}]</div>`;
+      if (cachedImg && typeof cachedImg.dataUrl === 'string' && cachedImg.dataUrl.trim() !== '') {
+        return `<img src="${cachedImg.dataUrl}" alt="Hình ${num}: Minh họa trực quan" data-img-num="${num}" />`;
+      }
+
+      return `<div class="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">[Hình vẽ gốc ${num}]</div>`;
     });
 
     // Remove any empty img tags that might cause React warning: <img src="" ...> or <img ... src="" ...>
@@ -1653,17 +1659,17 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     const previewTokens = html.split(/(<br\s*\/?>|\r?\n)/gi);
     let previewInIntegration = false;
     const styledTokens = previewTokens.map((tok, idx) => {
-        if (idx % 2 === 1) return tok;
-        const trimmed = tok.trim();
-        if (!trimmed) return tok;
+      if (idx % 2 === 1) return tok;
+      const trimmed = tok.trim();
+      if (!trimmed) return tok;
 
-        if (isIntegrationLine(trimmed)) {
-            if (tok.includes('color: #dc2626') || tok.includes('color:#dc2626') || tok.includes('color: red')) {
-                return tok;
-            }
-            return `<span style="color: #dc2626; font-weight: 500;">${tok}</span>`;
+      if (isIntegrationLine(trimmed)) {
+        if (tok.includes('color: #dc2626') || tok.includes('color:#dc2626') || tok.includes('color: red')) {
+          return tok;
         }
-        return tok;
+        return `<span style="color: #dc2626; font-weight: 500;">${tok}</span>`;
+      }
+      return tok;
     });
     html = styledTokens.join('');
 
@@ -1707,39 +1713,39 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       {/* Banner Thành công hoặc Đang tải */}
       <div className="bg-slate-900 px-6 py-8 sm:py-10 flex flex-col items-center justify-center text-center space-y-3 text-white">
         <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-           {loading ? <Sparkles size={26} className="animate-spin" /> : <CheckCircle size={26} />}
+          {loading ? <Sparkles size={26} className="animate-spin" /> : <CheckCircle size={26} />}
         </div>
-        
+
         <div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-              {loading ? 'Đang tạo giáo án trực tiếp (Streaming)...' : 'Kế hoạch bài dạy đã được xử lý hoàn tất'}
-            </h2>
-            <p className="text-slate-300 mt-1 max-w-lg mx-auto text-xs sm:text-sm font-normal">
-              {loading ? 'Nội dung đang được AI sinh trực tiếp theo thời gian thực bên dưới.' : 'Tài liệu đã được tích hợp đầy đủ năng lực mục tiêu và định dạng sẵn sàng cho Word (.docx).'}
-            </p>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+            {loading ? 'Đang tạo giáo án trực tiếp (Streaming)...' : 'Kế hoạch bài dạy đã được xử lý hoàn tất'}
+          </h2>
+          <p className="text-slate-300 mt-1 max-w-lg mx-auto text-xs sm:text-sm font-normal">
+            {loading ? 'Nội dung đang được AI sinh trực tiếp theo thời gian thực bên dưới.' : 'Tài liệu đã được tích hợp đầy đủ năng lực mục tiêu và định dạng sẵn sàng cho Word (.docx).'}
+          </p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-3 mt-4 w-full max-w-md">
-          <button 
+          <button
             onClick={generateDocx}
             disabled={isGeneratingDoc}
             className="flex-1 flex items-center justify-center space-x-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-colors shadow-sm active:scale-95 cursor-pointer"
           >
-             {isGeneratingDoc ? (
-                 <span className="animate-pulse">Đang xuất file Word...</span>
-             ) : (
-                 <>
-                    <Download size={18} />
-                    <span>Tải về file Word (.docx)</span>
-                 </>
-             )}
+            {isGeneratingDoc ? (
+              <span className="animate-pulse">Đang xuất file Word...</span>
+            ) : (
+              <>
+                <Download size={18} />
+                <span>Tải về file Word (.docx)</span>
+              </>
+            )}
           </button>
           <button
-             onClick={onReset}
-             className="flex items-center justify-center space-x-1.5 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-semibold transition-colors border border-slate-700 active:scale-95 cursor-pointer"
+            onClick={onReset}
+            className="flex items-center justify-center space-x-1.5 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-semibold transition-colors border border-slate-700 active:scale-95 cursor-pointer"
           >
-             <RotateCcw size={16} />
-             <span>Soạn bài khác</span>
+            <RotateCcw size={16} />
+            <span>Soạn bài khác</span>
           </button>
         </div>
 
@@ -1755,105 +1761,105 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       {/* Accordion Toggle */}
       <div className="bg-white">
-        <button 
-            onClick={() => setShowPreview(!showPreview)}
-            className="w-full flex items-center justify-center text-slate-700 text-xs font-bold uppercase tracking-wider py-3.5 hover:bg-slate-50 transition-colors border-b border-slate-100 cursor-pointer"
+        <button
+          onClick={() => setShowPreview(!showPreview)}
+          className="w-full flex items-center justify-center text-slate-700 text-xs font-bold uppercase tracking-wider py-3.5 hover:bg-slate-50 transition-colors border-b border-slate-100 cursor-pointer"
         >
-            {showPreview ? (
-                <>Thu gọn bản xem trước <ChevronUp size={16} className="ml-1.5" /></>
-            ) : (
-                <>Xem trước nội dung văn bản <ChevronDown size={16} className="ml-1.5" /></>
-            )}
+          {showPreview ? (
+            <>Thu gọn bản xem trước <ChevronUp size={16} className="ml-1.5" /></>
+          ) : (
+            <>Xem trước nội dung văn bản <ChevronDown size={16} className="ml-1.5" /></>
+          )}
         </button>
       </div>
 
       {showPreview && (
         <div className="p-6 sm:p-10 border-t border-slate-200 bg-white font-serif max-w-none text-slate-800 text-sm sm:text-base leading-relaxed overflow-x-auto [&_p]:my-2 [&_p]:leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:border-slate-400 [&_table]:my-4 [&_th]:border [&_th]:border-slate-400 [&_th]:p-2.5 [&_th]:bg-slate-100 [&_th]:font-bold [&_th]:text-center [&_td]:border [&_td]:border-slate-400 [&_td]:p-2.5 [&_td]:align-top [&_td]:leading-relaxed [&_h1]:text-xl [&_h1]:font-bold [&_h1]:my-4 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:my-3 [&_h3]:text-base [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:my-1 [&_li]:leading-relaxed [&_.katex-display]:my-3 [&_.katex-display]:overflow-x-auto [&_.katex]:text-slate-900 [&_span[style*='color: red']]:text-red-600 [&_span[style*='color: red']]:font-semibold [&_font[color='red']]:text-red-600 [&_font[color='red']]:font-semibold">
-            {/* Top Header Mockup */}
-            {teacherInfo?.includeInHeader && (
-              <div className="mb-6 pb-2">
-                <div className="text-right font-bold text-sm sm:text-base mb-2">Phụ lục IV</div>
-                <div className="grid grid-cols-2 gap-4 text-sm sm:text-base">
-                  <div>
-                    <p className="font-bold text-slate-900">
-                      Trường: {teacherInfo.schoolName ? teacherInfo.schoolName.replace(/^Trường:\s*/i, '').replace(/^Trường\s+/i, '') : 'THCS Đồng Yên'}
-                    </p>
-                    <p className="font-bold text-slate-900">
-                      Tổ: <span className="text-red-600 font-bold">{teacherInfo.department ? teacherInfo.department.replace(/^Tổ:\s*/i, '').replace(/^Tổ\s+/i, '') : 'Khoa học Tự Nhiên'}</span>
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-slate-800">Họ và tên giáo viên:</p>
-                    <p className="font-bold text-slate-900">{teacherInfo.teacherName || 'Mai Văn Hùng'}</p>
-                  </div>
+          {/* Top Header Mockup */}
+          {teacherInfo?.includeInHeader && (
+            <div className="mb-6 pb-2">
+              <div className="text-right font-bold text-sm sm:text-base mb-2">Phụ lục IV</div>
+              <div className="grid grid-cols-2 gap-4 text-sm sm:text-base">
+                <div>
+                  <p className="font-bold text-slate-900">
+                    Trường: {teacherInfo.schoolName ? teacherInfo.schoolName.replace(/^Trường:\s*/i, '').replace(/^Trường\s+/i, '') : 'THCS Đồng Yên'}
+                  </p>
+                  <p className="font-bold text-slate-900">
+                    Tổ: <span className="text-red-600 font-bold">{teacherInfo.department ? teacherInfo.department.replace(/^Tổ:\s*/i, '').replace(/^Tổ\s+/i, '') : 'Khoa học Tự Nhiên'}</span>
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-800">Họ và tên giáo viên:</p>
+                  <p className="font-bold text-slate-900">{teacherInfo.teacherName || 'Mai Văn Hùng'}</p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            <ReactMarkdown 
-                remarkPlugins={[remarkMath, remarkGfm, remarkBreaks]} 
-                rehypePlugins={[rehypeRaw, rehypeKatex]}
-                components={{
-                  img: ({ src, alt }) => {
-                    if (!src || typeof src !== 'string' || src.trim() === '') {
-                      return null;
-                    }
-                    let realSrc = src;
-                    if (!realSrc.startsWith('data:image/') && !realSrc.startsWith('blob:') && !realSrc.startsWith('http://') && !realSrc.startsWith('https://')) {
-                      const cached = lookupCachedImage(src) || lookupCachedImage(alt || '');
-                      if (cached?.dataUrl) {
-                        realSrc = cached.dataUrl;
-                      } else {
-                        realSrc = '';
-                      }
-                    }
-
-                    if (!realSrc) {
-                      return (
-                        <div className="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">
-                          [Hình vẽ gốc / Ảnh minh họa]
-                        </div>
-                      );
-                    }
-
-                    const numMatch = (alt || src).match(/\d+/);
-                    const num = numMatch ? numMatch[0] : '1';
-
-                    return (
-                      <EducationalImageRenderer
-                        src={realSrc}
-                        alt={alt || `Hình vẽ / Sơ đồ minh họa ${num}`}
-                        num={num}
-                        id={src}
-                      />
-                    );
+          <ReactMarkdown
+            remarkPlugins={[remarkMath, remarkGfm, remarkBreaks]}
+            rehypePlugins={[rehypeRaw, rehypeKatex]}
+            components={{
+              img: ({ src, alt }) => {
+                if (!src || typeof src !== 'string' || src.trim() === '') {
+                  return null;
+                }
+                let realSrc = src;
+                if (!realSrc.startsWith('data:image/') && !realSrc.startsWith('blob:') && !realSrc.startsWith('http://') && !realSrc.startsWith('https://')) {
+                  const cached = lookupCachedImage(src) || lookupCachedImage(alt || '');
+                  if (cached?.dataUrl) {
+                    realSrc = cached.dataUrl;
+                  } else {
+                    realSrc = '';
                   }
-                }}
-            >
-            {getPreviewHtml(safeResult)}
-            </ReactMarkdown>
+                }
 
-            {/* Bottom Signatures Mockup */}
-            {teacherInfo?.includeInHeader && (
-              <div className="mt-12 pt-4">
-                <div className="grid grid-cols-2 gap-6 text-center text-sm sm:text-base">
-                  <div>
-                    <p className="font-bold text-slate-900">Người kiểm tra</p>
-                    <div className="h-20 flex items-center justify-center text-xs text-slate-400 italic">
-                      (Ký và ghi rõ họ tên)
+                if (!realSrc) {
+                  return (
+                    <div className="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">
+                      [Hình vẽ gốc / Ảnh minh họa]
                     </div>
-                    <p className="font-bold text-slate-900">{teacherInfo.reviewerName || 'Nguyễn Thị Huệ'}</p>
+                  );
+                }
+
+                const numMatch = (alt || src).match(/\d+/);
+                const num = numMatch ? numMatch[0] : '1';
+
+                return (
+                  <EducationalImageRenderer
+                    src={realSrc}
+                    alt={alt || `Hình vẽ / Sơ đồ minh họa ${num}`}
+                    num={num}
+                    id={src}
+                  />
+                );
+              }
+            }}
+          >
+            {getPreviewHtml(safeResult)}
+          </ReactMarkdown>
+
+          {/* Bottom Signatures Mockup */}
+          {teacherInfo?.includeInHeader && (
+            <div className="mt-12 pt-4">
+              <div className="grid grid-cols-2 gap-6 text-center text-sm sm:text-base">
+                <div>
+                  <p className="font-bold text-slate-900">Người kiểm tra</p>
+                  <div className="h-20 flex items-center justify-center text-xs text-slate-400 italic">
+                    (Ký và ghi rõ họ tên)
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Người xây dựng kế hoạch</p>
-                    <div className="h-20 flex items-center justify-center text-xs text-slate-400 italic">
-                      (Ký và ghi rõ họ tên)
-                    </div>
-                    <p className="font-bold text-slate-900">{teacherInfo.teacherName || 'Mai Văn Hùng'}</p>
+                  <p className="font-bold text-slate-900">{teacherInfo.reviewerName || 'Nguyễn Thị Huệ'}</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Người xây dựng kế hoạch</p>
+                  <div className="h-20 flex items-center justify-center text-xs text-slate-400 italic">
+                    (Ký và ghi rõ họ tên)
                   </div>
+                  <p className="font-bold text-slate-900">{teacherInfo.teacherName || 'Mai Văn Hùng'}</p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
         </div>
       )}
     </div>
