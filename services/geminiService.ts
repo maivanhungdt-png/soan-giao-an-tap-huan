@@ -254,7 +254,7 @@ export const generateNLSLessonPlan = async (
 
       Yêu cầu BẮT BUỘC:
       1. TRONG PHẦN I. MỤC TIÊU:
-         - Dưới mục "c) Năng lực trí tuệ nhân tạo (AI):" (hoặc "Năng lực AI:"), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:".
+         - Dưới mục "d) Năng lực AI (hoặc Năng lực số AI):" (hoặc mục Năng lực AI tương ứng trong phần 2. Năng lực), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:".
          - Ghi trực tiếp mã và nội dung YCCĐ bằng chữ màu đỏ: <span style="color: red;">*[${info.manualAI[0]?.code || 'Mã YCCĐ'}] ${info.manualAI.map(m => `[${m.code}] ${m.description}`).join('; ')}*</span>
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
          - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, BẮT BUỘC định dạng chữ màu đỏ và GHI RÕ MÃ CHỈ BÁO: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể] (Mã chỉ báo: [Mã YCCĐ])*</span>
@@ -271,7 +271,7 @@ export const generateNLSLessonPlan = async (
       2. Tra cứu trong DỮ LIỆU CHUẨN AI bên dưới (lọc theo Cấp học/Lớp).
       3. Chọn 1-2 YCCĐ AI (Yêu cầu cần đạt) PHÙ HỢP NHẤT với nội dung của bài học hiện tại. Ưu tiên các nội dung "Cốt lõi". TUYỆT ĐỐI KHÔNG TỰ BỊA CHỈ BÁO NĂNG LỰC AI.
       4. TRONG PHẦN I. MỤC TIÊU:
-         - Dưới mục "c) Năng lực trí tuệ nhân tạo (AI):" (hoặc "Năng lực AI:"), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi trực tiếp Mã và Yêu cầu cần đạt bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>
+         - Dưới mục "d) Năng lực AI (hoặc Năng lực số AI):" (hoặc mục Năng lực AI tương ứng trong phần 2. Năng lực), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi trực tiếp Mã và Yêu cầu cần đạt bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>
       5. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
          - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, định dạng chữ màu đỏ: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể]*</span>
       
@@ -297,7 +297,7 @@ export const generateNLSLessonPlan = async (
       
       NHIỆM VỤ QUAN TRỌNG:
       1. TRONG PHẦN I. MỤC TIÊU:
-         - Dưới mục "b) Năng lực số (NLS):" (hoặc "b) Năng lực số:"), ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực số:".
+         - Dưới mục "c) Năng lực số (NLS):" (hoặc "c) Năng lực số:"), ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực số:".
          - Ghi trực tiếp nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo: ${info.manualNLS.map(n => n.code).join(', ')})*</span>. TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
          - Tự động PHÂN TÍCH và XÁC ĐỊNH hoạt động phù hợp nhất trong tiến trình dạy học để đưa nhiệm vụ NLS vào.
@@ -426,10 +426,12 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
     - KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) XÂY DỰNG THEO BÀI HỌC HOÀN CHỈNH. TUYỆT ĐỐI KHÔNG GHI NGÀY SOẠN, NGÀY GIẢNG. Thứ tự tiết ghi theo Phụ lục 3, sau hoạt động đầu tiên của mỗi tiết.
     - PHẦN MỤC TIÊU:
       1. Kiến thức: YCCĐ theo chương trình GDPT 2018.
-      2. Năng lực: TUYỆT ĐỐI KHÔNG GHI NĂNG LỰC CHUNG. CHỈ CÓ:
-         - a) Năng lực đặc thù (hoặc Năng lực môn học)
-         ${options.integrateNLS ? '- b) Năng lực số (NLS): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực số:". Ghi TRỰC TIẾP nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo)*</span>.' : ''}
-         ${options.integrateAI ? `- ${options.integrateNLS ? 'c)' : 'b)'} Năng lực trí tuệ nhân tạo (AI): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi TRỰC TIẾP nội dung bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>.` : ''}
+      2. Năng lực:
+         - a) Năng lực đặc thù môn học (Toán, KHTN, Tin học, Ngữ văn...): Nêu các năng lực đặc thù bộ môn gắn liền với bài học.
+         - b) Năng lực chung: Nêu các năng lực chung (Tự chủ và tự học, Giao tiếp và hợp tác, Giải quyết vấn đề và sáng tạo...) hình thành và phát triển qua bài học.
+         ${options.integrateNLS ? '- c) Năng lực số (nếu có / NLS): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực số:". Ghi TRỰC TIẾP nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo)*</span>.' : ''}
+         ${options.integrateAI ? `- ${options.integrateNLS ? 'd)' : 'c)'} Năng lực AI (nếu có): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi TRỰC TIẾP nội dung bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>.` : ''}
+         ${options.integrateSTEM ? `- ${options.integrateNLS && options.integrateAI ? 'e)' : (options.integrateNLS || options.integrateAI ? 'd)' : 'c)')} Giáo dục Stem (Nếu có): Nêu mục tiêu giáo dục STEM gắn với bài học bằng chữ màu đỏ: <span style="color: red;">*Tích hợp STEM: [Nội dung mục tiêu STEM]*</span>.` : ''}
       3. Phẩm chất: Các phẩm chất cốt lõi gắn liền với bài học (Chăm chỉ, Trung thực, Trách nhiệm...).
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.

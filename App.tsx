@@ -513,7 +513,7 @@ const App: React.FC = () => {
                       </div>
                       <ul className="list-disc list-inside space-y-0.5 text-blue-900/80 text-[10.5px]">
                         <li><b>Xây dựng theo bài:</b> Không ghi ngày soạn, ngày giảng; Thứ tự tiết ghi theo Phụ lục 3 sau hoạt động đầu tiên.</li>
-                        <li><b>Mục tiêu:</b> 1. Kiến thức, 2. Năng lực (Không ghi NL chung; Chỉ có NL đặc thù & NLS kèm chỉ báo), 3. Phẩm chất.</li>
+                        <li><b>Mục tiêu:</b> 1. Kiến thức, 2. Năng lực (gồm a. NL đặc thù môn học, b. NL chung, c. NLS nếu có, d. AI nếu có, e. STEM nếu có), 3. Phẩm chất.</li>
                         <li><b>Thiết bị & Học liệu:</b> Chuẩn Thông tư 38/BGDĐT, chỉ thêm Ti vi vào Phụ lục 4.</li>
                         <li><b>Tiến trình:</b> Gồm đủ 4 phần (a, b, c, d); Kẻ bảng 2 cột ở mục d (Hoạt động của giáo viên và học sinh | Kết quả hoạt động).</li>
                         <li><b>Bảo toàn hình vẽ & công thức toán:</b> Nhận diện 100% hình vẽ và công thức toán học giống SGK.</li>
