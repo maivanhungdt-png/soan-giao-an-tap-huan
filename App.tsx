@@ -246,7 +246,6 @@ const App: React.FC = () => {
         onOpenTeacherInfo={() => setIsTeacherInfoOpen(true)}
         onOpenApiKey={() => setIsApiKeyModalOpen(true)}
         onOpenLicense={() => setIsLicenseModalOpen(true)}
-        onOpenKeyGenerator={() => setIsKeyGeneratorOpen(true)}
         schoolName={teacherInfo.schoolName}
         teacherName={teacherInfo.teacherName}
         phoneNumber={teacherInfo.phoneNumber}
