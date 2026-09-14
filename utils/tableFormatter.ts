@@ -119,7 +119,7 @@ export const repairBrokenTableInBlock = (block: string): string => {
       .filter(Boolean)
       .join('<br>')
       .replace(/\r?\n/g, '<br>')
-      .replace(/\|/g, '\\|');
+      .replace(/\|/g, ' - ');
   };
 
   const finalCol1 = formatCell(col1Items) || '**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ cho HS.<br>**Bước 2: Thực hiện nhiệm vụ:** HS làm việc cá nhân/nhóm.<br>**Bước 3: Báo cáo, thảo luận:** HS báo cáo kết quả.<br>**Bước 4: Kết luận, nhận định:** GV chuẩn hóa kiến thức.';
@@ -134,6 +134,11 @@ export const repairBrokenTableInBlock = (block: string): string => {
  * Converts an activity block that is outside the table into a standard 2-column table.
  */
 export const convertActivityBlockToTable = (activityBlock: string): string => {
+  // If block ALREADY contains a valid 2-column table with header and rows, preserve it completely!
+  if (/\|\s*Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)[^|]*\|\s*(?:Kết\s*quả|Sản\s*phẩm)[^|]*\|/i.test(activityBlock)) {
+    return activityBlock;
+  }
+
   // If block contains broken table lines or split tables, repair and merge it
   if (/\|[^\n]*\|/i.test(activityBlock) && /(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(activityBlock)) {
     return repairBrokenTableInBlock(activityBlock);
@@ -287,7 +292,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       .filter(Boolean)
       .join('<br>')
       .replace(/\r?\n/g, '<br>')
-      .replace(/\|/g, '\\|'); // escape pipe inside markdown cells
+      .replace(/\|/g, ' - ');
   };
 
   const toChucCell = formatCellText(toChuc);

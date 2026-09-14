@@ -712,14 +712,12 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
-    // 1. CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN
-    // Thêm khoảng trắng trước và sau dấu $ nếu bị dính vào chữ tiếng Việt/chữ số
-    text = text.replace(/([^\s\$\(\[\{<|])\$([^\$\n\r]+?)\$/g, '$1 $$2$$');
-    text = text.replace(/\$([^\$\n\r]+?)\$([^\s\$\)\],.:;!?%><|])/g, '$$1$ $2');
-    text = text.replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$1$');
+    // 1. CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN (Sử dụng hàm callback để tránh lỗi $1 $2)
+    text = text.replace(/([^\s\$\(\[\{<|])\$([^\$\n\r]+?)\$/g, (_m, p1, p2) => `${p1} $${p2}$`);
+    text = text.replace(/\$([^\$\n\r]+?)\$([^\s\$\)\],.:;!?%><|])/g, (_m, p1, p2) => `$${p1}$ ${p2}`);
+    text = text.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
 
     // 2. CHUẨN HÓA CÁC ĐOẠN TÍCH HỢP: ĐỨNG ĐẦU CÂU, KHÔNG CÓ GẠCH ĐẦU DÒNG
-    // Xóa dấu gạch đầu dòng (- / + / •) trước *Tích hợp và *HS khuyết tật
     text = text.replace(/^[ \t]*[-+•*][ \t]+\*?(Tích\s*hợp)/gmi, '*$1');
     text = text.replace(/^[ \t]*[-+•][ \t]+(HS\s*khuyết\s*tật)/gmi, '*$1');
     text = text.replace(/^[ \t]*(Tích\s*hợp)/gmi, '*$1');
@@ -728,26 +726,9 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Xóa bỏ tất cả thẻ span / font HTML thô rác sinh ra bởi AI
     text = text.replace(/<\/?(?:span|font)[^>]*>/gi, '');
 
-    // 3. BẢO TOÀN 100% HÌNH VẼ VÀ ĐẶT TẠI CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM)
-    // Chuyển tất cả các thẻ hình vẽ [HINHANHGOC_...] nếu lỡ nằm ở Cột 1 sang Cột 2
-    text = text.replace(/(\|(?!\s*:?---+)[^|\n]*?)(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\])([^|\n]*\|)([^|\n]+)(\|)/gi, (m, col1Before, imgTag, col1After, col2, endPipe) => {
-        return `${col1Before}${col1After}|${col2}<br>${imgTag}${endPipe}`;
-    });
-
-    const hasAnyRealImages = Object.keys(imageCache).some(k => {
-      const it = imageCache[k];
-      return it && it.dataUrl && !it.isMathFormula && !it.dataUrl.startsWith('data:image/svg');
-    });
-
-    if (hasAnyRealImages && !/\[(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s0-9*]*\]/i.test(text)) {
-      // Tự động chèn thẻ [HINHANHGOC_1] vào Cột 2 (Kết quả hoạt động / Sản phẩm) của Hoạt động mở đầu / hình thành kiến thức
-      text = text.replace(/(\|\s*(?:Kết\s*quả\s*hoạt\s*động|Sản\s*phẩm)[^|]*\|\s*\n\|\s*:?---+\s*\|\s*:?---+\s*\|\s*\n\|\s*[^|]+\|\s*)([^|\n]+)/i, '$1$2<br>[HINHANHGOC_1]<br>');
-    }
-
-    // 4. Đảm bảo tất cả các hoạt động đều nằm trong bảng 2 cột
+    // 3. Đảm bảo tất cả các hoạt động đều nằm trong bảng 2 cột
     if (options.layoutFormat !== 'no_table') {
       text = ensureAllActivitiesInTwoColumnTable(text);
-      text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
     }
 
     return text.trim();
