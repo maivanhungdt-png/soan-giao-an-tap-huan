@@ -33,7 +33,7 @@ import FileSaver from 'file-saver';
 import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
-import { ensureAllActivitiesInTwoColumnTable } from '../utils/tableFormatter';
+import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine } from '../utils/tableFormatter';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -532,27 +532,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
   };
 
-  // Helper: Kiểm tra chính xác một chuỗi hoặc token có phải là nội dung tích hợp cần bôi đỏ không
-  const isIntegrationToken = (str: string): boolean => {
-      const trimmed = str.trim();
-      if (!trimmed) return false;
-      // Tuyệt đối KHÔNG phải là bước thực hiện
-      if (/^[\*\-\+•\s]*Bước\s*[1-4]/i.test(trimmed)) return false;
-      // Không phải tiêu đề Hướng dẫn về nhà
-      if (/^[\*\-\+•\s]*hướng\s*dẫn\s*(?:về\s*nhà|tự\s*học|học\s*ở\s*nhà)/i.test(trimmed)) return false;
-      // Không phải là tiêu đề đánh số 1. 2. 3. (trừ trường hợp tích hợp)
-      if (/^[\*\-\+•\s]*\d+\.\s+[A-ZÀ-ỹ]/i.test(trimmed) && !/(?:năng\s*lực\s*số|năng\s*lực\s*ai|gdqp|stem|hòa\s*nhập)/i.test(trimmed)) return false;
-
-      // Nhận diện các dòng tích hợp NLS, AI, HSKT, GDQP-AN, STEM hoặc mã chỉ báo
-      return (
-          /^[\*\-\+•\s]*(?:tích\s*hợp|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật|stem|lồng\s*ghép|gdqp|nls|ai|giáo\s*dục\s*hòa\s*nhập)/i.test(trimmed) ||
-          /(?:tích\s*hợp\s*(?:năng\s*lực\s*số|năng\s*lực\s*ai|stem|giáo\s*dục\s*hòa\s*nhập|lồng\s*ghép|gdqp)|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật)/i.test(trimmed) ||
-          /^[\*\-\+•\s]*[a-e]\)\s*(?:Năng\s*lực\s*số|Năng\s*lực\s*AI|Giáo\s*dục\s*STEM)/i.test(trimmed) ||
-          /\(\s*(?:\d+\.\d+\.[A-Z0-9a-z\s]+|\d+\.[A-Z0-9a-z\s]+|NLS_[^)]+|AI_[^)]+|GDQP_[^)]+|\d+\.A\d+\.\d+|TC\s*\d+[a-z]?|NC\s*\d+[a-z]?|Mã\s*chỉ\s*báo[^)]*)\s*\)/i.test(trimmed) ||
-          /Mã\s*chỉ\s*báo\s*:\s*[\w\.\s]+/i.test(trimmed)
-      );
-  };
-
   // Helper: Format raw text segments into Docx TextRuns
   const createTextRuns = (content: string, styles: any): any[] => {
       const segRuns: any[] = [];
@@ -562,12 +541,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               segRuns.push(new TextRun({ text: "", break: 1 }));
           }
           if (seg) {
-              // Tự động kiểm tra bôi đỏ nếu segment là nội dung tích hợp
               const segStyles = { ...styles };
-              if (!segStyles.color && isIntegrationToken(seg)) {
-                  segStyles.color = "FF0000";
-                  segStyles.italics = false;
-              }
 
               // Hỗ trợ bắt tất cả các biến thể gắn thẻ ảnh [HINHANHGOC_1], [HINH_ANH_GOC_1], [IMG1], [Hình 1], ![...](...), v.v.
               const parts = seg.split(/(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve|Hinh|Anh|So\s*do)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$)/gi);
@@ -674,11 +648,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         let innerText = part;
         let isMatched = false;
 
-        // Chỉ bôi đỏ nếu đoạn văn bản THỰC SỰ là nội dung tích hợp
-        if (!matchStyles.color && isIntegrationToken(part)) {
-            matchStyles.color = "FF0000";
-            matchStyles.italics = false;
-        }
 
         // 1. If it is an image tag, render it directly as an image without breaking into italics
         if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
@@ -847,21 +816,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               // Tách theo từng dòng (<br> hoặc \n) thành từng Paragraph riêng biệt
               // Giúp định dạng không bị tràn (leak) giữa các dòng, và bôi đỏ chính xác 100% dòng tích hợp
               const lines = part.split(/<br\s*\/?>|\r?\n/gi);
-              let inIntegration = false;
 
               lines.forEach(line => {
                   const trimmedLine = line.trim();
                   if (!trimmedLine) return;
 
-                  // Kiểm tra trạng thái dòng tích hợp:
-                  // Bắt đầu khi gặp từ khóa tích hợp, chỉ kết thúc khi gặp đầu mục bước/hoạt động mới
-                  if (isIntegrationToken(trimmedLine)) {
-                      inIntegration = true;
-                  } else if (/^(?:\*\*)?(?:Bước\s*[1-4]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Tranh\s*luận|Kết\s*luận|Nhận\s*xét|Quy\s*tắc|Nhiệm\s*vụ|[a-e]\))\b/i.test(trimmedLine) || trimmedLine.startsWith('|')) {
-                      inIntegration = false;
-                  }
-
-                  const isInt = inIntegration || isIntegrationToken(trimmedLine);
+                  const isInt = isIntegrationLine(trimmedLine);
                   const lineStyles = { ...baseStyles };
                   if (isInt) {
                       lineStyles.color = "FF0000";
@@ -1318,7 +1278,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         if (trimmed.startsWith('|')) {
             inTable = true;
             tableBuffer.push(rawLine);
-            docxInIntegration = false;
             continue;
         } else if (inTable) {
             if (tableBuffer.length > 0) {
@@ -1329,7 +1288,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                 tableBuffer = [];
             }
             inTable = false;
-            docxInIntegration = false;
         }
 
         // 2. Empty Line Handling
@@ -1342,16 +1300,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           continue;
         }
 
-        // Kiểm tra chuyển trạng thái tích hợp cho các dòng ngoài bảng
-        if (isIntegrationToken(trimmed)) {
-            docxInIntegration = true;
-        } else if (/^(?:\*\*)?(?:Bước\s*[1-4]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Tranh\s*luận|Kết\s*luận|Nhận\s*xét|Chú\s*ý|[a-e]\))\b/i.test(trimmed) || /^\*\*(?:[I|V|X]+|\d+)\./i.test(trimmed) || /^#{1,4}\s+/i.test(trimmed)) {
-            docxInIntegration = false;
-        }
-
         // Check for "* Hướng dẫn về nhà" (Ảnh 2)
         if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(trimmed)) {
-          docxInIntegration = false;
           children.push(new Paragraph({
             children: [
               new TextRun({
@@ -1370,7 +1320,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
         // Check for sub-items: "1. Ôn tập kiến thức:", "2. Bài tập về nhà:", "3. Chuẩn bị bài mới:"
         if (/^(?:\d+\.|\d+\))\s*(?:Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)/i.test(trimmed)) {
-          docxInIntegration = false;
           children.push(new Paragraph({
             children: parseTextWithFormatting(`**${trimmed.replace(/^\*\*/, '').replace(/\*\*$/, '')}**`),
             spacing: PARAGRAPH_SPACING,
@@ -1382,7 +1331,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
         // 3. Center-aligned Lesson Title & metadata (Ảnh 1)
         if (trimmed.startsWith('# ') || (/^(?:Bài|BÀI)\s*\d+/i.test(trimmed) && trimmed.length < 150)) {
-          docxInIntegration = false;
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed.replace(/^#+\s*/, ''), { bold: true, size: 30 }),
             heading: HeadingLevel.TITLE,
@@ -1391,7 +1339,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         } 
         else if (/^(?:Môn\s*học|Thời\s*gian\s*thực\s*hiện|Số\s*báo\s*giảng)/i.test(trimmed) && trimmed.length < 220) {
-          docxInIntegration = false;
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed),
             spacing: { before: 40, after: 40, line: 240, lineRule: LineRuleType.AUTO },
@@ -1399,7 +1346,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         else if (trimmed.startsWith('<center>') && trimmed.endsWith('</center>')) {
-          docxInIntegration = false;
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed.replace('<center>', '').replace('</center>', '')),
             spacing: PARAGRAPH_SPACING,
@@ -1407,7 +1353,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         else if (trimmed.startsWith('## ')) {
-          docxInIntegration = false;
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed.replace('## ', '')),
             heading: HeadingLevel.HEADING_1,
@@ -1417,7 +1362,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         } 
         else if (trimmed.startsWith('### ')) {
-          docxInIntegration = false;
           children.push(new Paragraph({
              children: parseTextWithFormatting(trimmed.replace('### ', '')),
             heading: HeadingLevel.HEADING_2,
@@ -1427,7 +1371,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         else if (trimmed.startsWith('#### ')) {
-          docxInIntegration = false;
             children.push(new Paragraph({
                children: parseTextWithFormatting(trimmed.replace('#### ', '')),
               heading: HeadingLevel.HEADING_3,
@@ -1437,8 +1380,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             }));
         }
         // 4. List Handling & Integration Lines outside table
-        else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ') || isIntegrationToken(trimmed) || docxInIntegration) {
-            const isInt = isIntegrationToken(trimmed) || docxInIntegration;
+        else if (trimmed.startsWith('- ') || trimmed.startsWith('+ ') || trimmed.startsWith('* ') || isIntegrationLine(trimmed)) {
+            const isInt = isIntegrationLine(trimmed);
             const lineStyles: any = isInt ? { color: "FF0000" } : {};
             let cleanLineText = sanitizeLineBold(trimmed);
             if (isInt) {
@@ -1459,7 +1402,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
         // 5. Regular Text
         else {
-            const isInt = isIntegrationToken(trimmed) || docxInIntegration;
+            const isInt = isIntegrationLine(trimmed);
             const lineStyles: any = isInt ? { color: "FF0000" } : {};
             const cleanRegularText = sanitizeLineBold(trimmed);
             const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
@@ -1679,13 +1622,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         const trimmed = tok.trim();
         if (!trimmed) return tok;
 
-        if (isIntegrationToken(trimmed)) {
-            previewInIntegration = true;
-        } else if (/^(?:\*\*)?(?:Bước\s*[1-4]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Tranh\s*luận|Kết\s*luận|Nhận\s*xét|Chú\s*ý|[a-e]\))\b/i.test(trimmed) || trimmed.startsWith('|') || /^#{1,4}\s+/i.test(trimmed) || /^\*\*(?:[I|V|X]+|\d+)\./i.test(trimmed)) {
-            previewInIntegration = false;
-        }
-
-        if (previewInIntegration || isIntegrationToken(trimmed)) {
+        if (isIntegrationLine(trimmed)) {
             if (tok.includes('color: #dc2626') || tok.includes('color:#dc2626') || tok.includes('color: red')) {
                 return tok;
             }
