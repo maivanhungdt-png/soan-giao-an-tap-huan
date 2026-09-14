@@ -212,14 +212,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       if (!label.endsWith(':') && !/^\d+\./.test(label) && !/^[a-e]\)$/i.test(label) && !/Người\s*(?:kiểm\s*tra|xây\s*dựng)/i.test(label)) {
         label += ':';
       }
-      let rest = (match[2] || '').trim();
+      let rest = (match[2] || '').replace(/^[\*\s:]+/, '').replace(/\*\*$/, '').trim();
       const prefix = bulletPrefix.includes('-') ? '- ' : (bulletPrefix.includes('+') ? '+ ' : (bulletPrefix.includes('*') && isIntegrationLine(s) ? '*' : ''));
+      if (prefix.includes('-') && rest.startsWith('-')) rest = rest.replace(/^-+\s*/, '').trim();
       return rest ? `${prefix}**${label}** ${rest}` : `${prefix}**${label}**`;
     }
 
     // 5. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu
     if (isIntegrationLine(s)) {
-      const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').trim();
+      const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').replace(/\*\*$/, '').trim();
       return `*${cleanInt}`;
     }
 
@@ -263,7 +264,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         let label = labelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^\*+/, '').replace(/\*+$/, '').trim();
         if (!label.endsWith(':') && !/^[a-e]\)$/i.test(label)) label += ':';
         prefixLabel = `**${label}** `;
-        mathBody = (labelMatch[2] || '').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+        mathBody = (labelMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/\*\*$/, '').trim();
       } else {
         mathBody = mathBody.replace(/^\*\*|\*\*$/g, '').trim();
       }

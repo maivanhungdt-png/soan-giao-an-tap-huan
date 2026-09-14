@@ -167,6 +167,11 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
   }
 
+  // Nếu là tiêu đề cha (ví dụ: "2. Hoạt động 2: Hình thành kiến thức mới") không có nội dung riêng, chỉ trả về tiêu đề
+  if (tochucRawLines.length === 0 && mucTieu.length === 0 && noiDung.length === 0 && sanPhamPre.length === 0) {
+    return headerLine;
+  }
+
   // Parse tochucRawLines into Col 1 (Teacher/Student) and Col 2 (Products/Math solutions/Images)
   const col1Items: string[] = [];
   const col2Items: string[] = [];
@@ -211,7 +216,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       if (stepMatch) {
         let label = stepMatch[1].trim();
         if (!label.endsWith(':')) label += ':';
-        let rest = (stepMatch[2] || '').trim();
+        let rest = (stepMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/[\*\s]+$/, '').trim();
         cleanStep = rest ? `**${label}** ${rest}` : `**${label}**`;
       } else {
         cleanStep = `**${cleanStep}**`;
@@ -234,14 +239,14 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
 
     // Check indicators for Col 2 (Exercises, Solutions, Knowledge Boxes, Formulas)
-    if (/^(?:\*\*|\*|_)?(?:\d+\.\s*[A-ZÀ-Ỹ]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*\d*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|\?:|Lời\s*giải|Đáp\s*án|Dự\s*đoán)\b/i.test(line)) {
+    if (/^(?:\*\*|\*|_)?(?:\d+\.\s*[A-ZÀ-Ỹ]|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|\?:|Lời\s*giải|Đáp\s*án|Dự\s*đoán)\b/i.test(line)) {
       currentTargetCol = 2;
       let cleanItem = line.replace(/^[\*\-\+•\s_]+/, '').replace(/[\*\s_]+$/, '').trim();
       const itemMatch = cleanItem.match(/^(\d+\.\s*[^:\n]+|HĐ\s*\d+|Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*\d+|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|\?:|Lời\s*giải|Đáp\s*án|Dự\s*đoán)[:\s]*(.*)$/i);
       if (itemMatch) {
         let label = itemMatch[1].trim();
         if (!label.endsWith(':') && !/^\d+\./.test(label)) label += ':';
-        let rest = (itemMatch[2] || '').trim();
+        let rest = (itemMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/[\*\s]+$/, '').trim();
         cleanItem = rest ? `**${label}** ${rest}` : `**${label}**`;
       }
       col2Items.push(cleanItem);
@@ -324,13 +329,14 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       .replace(/\|/g, ' ');
   };
 
-  // Helper to format section a, b, c with guaranteed bold prefix
+  // Helper to format section a, b, c with guaranteed clean bold prefix
   const formatSectionText = (prefix: string, linesArr: string[], defaultText: string): string => {
     if (linesArr.length === 0) return defaultText;
-    const first = linesArr[0].replace(/^[\*\s#\-•]*[a-e]\s*[\)\.:\-]?\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu)[\s:*]*/i, '').trim();
-    const rest = linesArr.slice(1);
-    const combinedFirst = first ? `**${prefix}** ${first}` : `**${prefix}**`;
-    return [combinedFirst, ...rest].join('\n');
+    let combined = linesArr.join('\n');
+    // Strip all occurrences of prefix, including repeated "a) Mục tiêu: a) Mục tiêu: **", "**a) Mục tiêu:**", etc.
+    combined = combined.replace(/^(?:[\s\*\-#•]*[a-e]\s*[\)\.:\-]?\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức\s*thực\s*hiện)\s*[:\*\-]*\s*)+/gmi, '').trim();
+    combined = combined.replace(/^[:\*\-\s]+/, '').trim();
+    return combined ? `**${prefix}** ${combined}` : `**${prefix}**`;
   };
 
   const mucTieuText = formatSectionText('a) Mục tiêu:', mucTieu, '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.');
