@@ -173,9 +173,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   };
 
   // Helper: Chuẩn hóa và làm đậm chính xác các tiêu đề, đề mục mục tiêu, tiến trình, hoạt động và các bước
+  // Helper: Chuẩn hóa và làm đậm chính xác các tiêu đề, đề mục mục tiêu, tiến trình, hoạt động và các bước
   const sanitizeLineBold = (line: string): string => {
     let s = line.trim();
     if (!s) return "";
+
+    // Dọn sạch các lỗi $DoS hoặc $ DoS
+    s = s.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
+    s = s.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
+    s = s.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // 0. Bảng markdown: giữ nguyên toàn bộ cú pháp ô và hàng
     if (s.startsWith('|') || s.endsWith('|') || /^:?-+:?$/.test(s)) {
@@ -183,7 +189,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
 
     // 1. Tiêu đề mục lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học, IV. Hướng dẫn về nhà...)
-    if (/^(?:#+\s*)?(?:\*\*)?([I|V|X]+\.\s*[^:\n]+|Bài\s*\d+[^:\n]*|Tiết\s*\d+[^:\n]*)(?:\*\*)?$/i.test(s)) {
+    if (/^(?:#+\s*)?(?:\*\*)?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*[^:\n]+|Bài\s*\d+[^:\n]*|Tiết\s*\d+[^:\n]*)(?:\*\*)?$/i.test(s)) {
       const cleanHeading = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
       return `**${cleanHeading}**`;
     }
@@ -196,11 +202,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 3. Tiêu đề "* Hướng dẫn về nhà"
     if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(s)) {
-      return `**\* Hướng dẫn về nhà:**`;
+      return `*** Hướng dẫn về nhà:**`;
     }
 
     // 4. Nhận diện các nhãn đầu mục chuẩn và các bước, đề mục bài học:
-    const sectionLabelRegex = /^[\*\s#\-•\+]*((?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Khái\s*niệm[^\n:]*|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|[a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|Năng\s*lực\s*(?:tư\s*duy|giải\s*quyết|giao\s*tiếp|tự\s*chủ|hợp\s*tác)[^\n:]*|Chăm\s*chỉ|Trung\s*thực|Trách\s*nhiệm|Yêu\s*nước|Nhân\s*ái|HS\s*khuyết\s*tật[^\n:]*|Học\s*sinh\s*khuyết\s*tật[^\n:]*|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|\?:\s*(?:SGK)?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*\d+\s*:?|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Ký\s*duyệt)\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
+    const sectionLabelRegex = /^[\*\s#\-•\+]*((?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Khái\s*niệm[^\n:]*|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|[a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|Năng\s*lực\s*(?:tư\s*duy|giải\s*quyết|giao\s*tiếp|tự\s*chủ|hợp\s*tác)[^\n:]*|Chăm\s*chỉ|Trung\s*thực|Trách\s*nhiệm|Yêu\s*nước|Nhân\s*ái|HS\s*khuyết\s*tật[^\n:]*|Học\s*sinh\s*khuyết\s*tật[^\n:]*|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|\?:\s*(?:SGK)?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*\s*:?|ĐS\s*:?|Đ\/s\s*:?|Đáp\s*số\s*:?|Đáp\s*án\s*:?|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Ký\s*duyệt)\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
 
     const bulletPrefixMatch = s.match(/^([\s\-\+•\*]*)(.*)$/);
     const bulletPrefix = bulletPrefixMatch ? bulletPrefixMatch[1] : '';
@@ -223,6 +229,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').replace(/\*\*$/, '').trim();
       return `*${cleanInt}`;
     }
+
+    // 6. Xóa bỏ các ký tự ** bị thừa ở cuối dòng (ví dụ: "bằng nhau.**" -> "bằng nhau.")
+    s = s.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
+    s = s.replace(/([a-zA-Z0-9À-ỹ\)]+)\.\*\*/g, '$1.');
 
     return s;
   };
@@ -254,7 +264,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
 
       // 2. Tách nhãn tiêu đề (nếu có) để xử lý riêng
-      const labelRegex = /^(?:[\*\s#\-•]*)((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực[^\n:]*)|(?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh)|HĐ\s*\d+|Kết\s*luận|Nhận\s*xét|Tranh\s*luận|Chú\s*ý|Quy\s*tắc|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|\?:(?:\s*SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?|[a-e]\))[:\s\*\-]*)(.*)$/i;
+      const labelRegex = /^(?:[\*\s#\-•]*)((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực[^\n:]*)|(?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh)|HĐ\s*\d+|Kết\s*luận|Nhận\s*xét|Tranh\s*luận|Chú\s*ý|Quy\s*tắc|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|\?:(?:\s*SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?|[a-e]\))[:\s\*\-]*)(.*)$/i;
       const labelMatch = cur.match(labelRegex);
 
       let prefixLabel = "";
@@ -346,6 +356,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // Phục hồi công thức phân số bị lỗi trước khi làm sạch
     let clean = repairRacToFrac(text);
+
+    // Dọn dẹp các ký tự $DoS
+    clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
+    clean = clean.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
+    clean = clean.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // Tách tất cả các đề mục bị dính liền trên 1 dòng
     clean = splitAllMergedHeadings(clean);
@@ -1342,28 +1357,29 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           continue;
         }
 
-        // Check for "* Hướng dẫn về nhà" (Ảnh 2)
+        // Check for "* Hướng dẫn về nhà"
         if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(trimmed)) {
           children.push(new Paragraph({
             children: [
               new TextRun({
-                text: "* Hướng dẫn về nhà",
+                text: "* Hướng dẫn về nhà:",
                 bold: true,
                 size: 28,
                 font: "Times New Roman"
               })
             ],
             spacing: { before: 200, after: 80, line: 240, lineRule: LineRuleType.AUTO },
-            indent: { firstLine: FIRST_LINE_INDENT },
-            alignment: AlignmentType.JUSTIFIED
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
           }));
           continue;
         }
 
-        // Check for sub-items: "1. Ôn tập kiến thức:", "2. Bài tập về nhà:", "3. Chuẩn bị bài mới:"
-        if (/^(?:\d+\.|\d+\))\s*(?:Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)/i.test(trimmed)) {
+        // Check for sub-items: "+ Ôn tập kiến thức:", "+ Bài tập về nhà:", "+ Chuẩn bị bài mới:"
+        if (/^(?:[\+\-\*•]\s*)?(?:Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)/i.test(trimmed)) {
+          const cleanItem = sanitizeLineBold(trimmed);
           children.push(new Paragraph({
-            children: parseTextWithFormatting(`**${trimmed.replace(/^\*\*/, '').replace(/\*\*$/, '')}**`),
+            children: parseTextWithFormatting(cleanItem.startsWith('+') || cleanItem.startsWith('-') ? cleanItem : `+ ${cleanItem}`),
             spacing: PARAGRAPH_SPACING,
             indent: { firstLine: FIRST_LINE_INDENT },
             alignment: AlignmentType.JUSTIFIED
@@ -1371,7 +1387,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           continue;
         }
 
-        // 3. Center-aligned Lesson Title & metadata (Ảnh 1)
+        // 3. Center-aligned Lesson Title & metadata (Bài 2: ĐA THỨC...)
         if (trimmed.startsWith('# ') || (/^(?:Bài|BÀI)\s*\d+/i.test(trimmed) && trimmed.length < 150)) {
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed.replace(/^#+\s*/, ''), { bold: true, size: 30 }),
@@ -1387,6 +1403,38 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             alignment: AlignmentType.CENTER
           }));
         }
+        // 3b. Roman numeral main headings: I. Mục tiêu, II. Thiết bị..., III. Tiến trình...
+        else if (/^(?:\*\*)?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình)/i.test(trimmed)) {
+          const cleanHeading = sanitizeLineBold(trimmed);
+          children.push(new Paragraph({
+            children: parseTextWithFormatting(cleanHeading, { bold: true, size: 28 }),
+            spacing: { before: 180, after: 60, line: 240, lineRule: LineRuleType.AUTO },
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
+          }));
+        }
+        // 3c. Activity headers: 1. Hoạt động 1: Khởi động, 2. Hoạt động 2: Hình thành..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng
+        else if (/^(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
+          const cleanAct = sanitizeLineBold(trimmed);
+          children.push(new Paragraph({
+            children: parseTextWithFormatting(cleanAct, { bold: true, size: 28 }),
+            spacing: { before: 140, after: 60, line: 240, lineRule: LineRuleType.AUTO },
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
+          }));
+        }
+        // 3d. Section numbers: 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất:, 1. Giáo viên:, 2. Học sinh:, a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
+        else if (/^(?:\*\*)?(?:[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực))/i.test(trimmed)) {
+          const isInt = isIntegrationLine(trimmed);
+          const lineStyles: any = isInt ? { color: "FF0000" } : {};
+          const cleanSub = sanitizeLineBold(trimmed);
+          children.push(new Paragraph({
+            children: parseTextWithFormatting(cleanSub, lineStyles),
+            spacing: { before: 80, after: 40, line: 240, lineRule: LineRuleType.AUTO },
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
+          }));
+        }
         else if (trimmed.startsWith('<center>') && trimmed.endsWith('</center>')) {
           children.push(new Paragraph({
             children: parseTextWithFormatting(trimmed.replace('<center>', '').replace('</center>', '')),
@@ -1399,8 +1447,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             children: parseTextWithFormatting(trimmed.replace('## ', '')),
             heading: HeadingLevel.HEADING_1,
             spacing: PARAGRAPH_SPACING,
-            indent: { firstLine: FIRST_LINE_INDENT },
-            alignment: AlignmentType.JUSTIFIED
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
           }));
         }
         else if (trimmed.startsWith('### ')) {
@@ -1408,8 +1456,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             children: parseTextWithFormatting(trimmed.replace('### ', '')),
             heading: HeadingLevel.HEADING_2,
             spacing: PARAGRAPH_SPACING,
-            indent: { firstLine: FIRST_LINE_INDENT },
-            alignment: AlignmentType.JUSTIFIED
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
           }));
         }
         else if (trimmed.startsWith('#### ')) {
@@ -1417,8 +1465,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             children: parseTextWithFormatting(trimmed.replace('#### ', '')),
             heading: HeadingLevel.HEADING_3,
             spacing: PARAGRAPH_SPACING,
-            indent: { firstLine: FIRST_LINE_INDENT },
-            alignment: AlignmentType.JUSTIFIED
+            indent: { firstLine: 0, left: 0 },
+            alignment: AlignmentType.LEFT
           }));
         }
         // 4. List Handling & Integration Lines outside table

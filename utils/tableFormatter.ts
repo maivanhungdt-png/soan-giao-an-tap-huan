@@ -79,39 +79,72 @@ export const splitAllMergedHeadings = (text: string): string => {
   if (!text) return "";
   let s = text;
 
-  // 1. I. Mục tiêu + 1. Kiến thức: / 2. Năng lực: / II. Thiết bị...
-  s = s.replace(/(?:\*\*)?([I|V|X]+\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|THIẾT\s*BỊ|Thiết\s*bị[^\n*]*|TIẾN\s*TRÌNH|Tiến\s*trình[^\n*]*))(?:\*\*)?[ \t]*(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Giáo\s*viên|Học\s*sinh))/gmi, '**$1**\n\n**$2**');
+  // 0. Clean any raw double asterisks artifacts like "** **", "****", "** : **"
+  s = s.replace(/\*\*\s*\*\*/g, '');
+  s = s.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
+  s = s.replace(/([a-zA-Z0-9À-ỹ\)]+:)\s*\*\*(?!\w)/g, '$1');
+  s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
 
-  // 2. III. Tiến trình dạy học + 1. Hoạt động... / Hoạt động...
-  s = s.replace(/(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)[^\n*]*)(?:\*\*)?[ \t\n]*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^\n]+)/gmi, '**$1**\n\n**$2**');
+  // 1. Tách I. Mục tiêu + 1. Kiến thức: / 2. Năng lực: / II. Thiết bị...
+  s = s.replace(/(?:\*\*)?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|THIẾT\s*BỊ\s*DẠY\s*HỌC[^\n*]*|Thiết\s*bị\s*dạy\s*học[^\n*]*|TIẾN\s*TRÌNH\s*DẠY\s*HỌC[^\n*]*|Tiến\s*trình\s*dạy\s*học[^\n*]*))(?:\*\*)?[ \t]*(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Giáo\s*viên|Học\s*sinh))/gmi, '**$1**\n\n**$2**');
 
-  // 3. 2. Năng lực + a) Năng lực đặc thù môn Toán:
+  // 2. Tách III. Tiến trình dạy học + 1. Hoạt động... / Hoạt động...
+  s = s.replace(/(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)[^\n*]*)(?:\*\*)?[ \t\n]*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^\n]+)/gmi, '**$1**\n\n**$2**');
+
+  // 3. Tách 2. Năng lực: + a) Năng lực đặc thù...
   s = s.replace(/(?:\*\*)?(2\.\s*Năng\s*lực:?)(?:\*\*)?[ \t\-]*(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n]*)/gmi, '**$1**\n**$2**');
 
-  // 4. II. Thiết bị dạy học... + 1. Giáo viên:
-  s = s.replace(/(?:\*\*)?(II\.\s*Thiết\s*bị\s*dạy\s*học[^\n*:]*:?)(?:\*\*)?[ \t]*(?:\*\*)?(1\.\s*Giáo\s*viên:?)/gmi, '**$1**\n**$2**');
+  // 3b. Tách a) Năng lực đặc thù... + b) Năng lực chung:
+  s = s.replace(/([a-e]\)\s*Năng\s*lực\s*(?:đặc\s*thù[^\n*:]*|chung[^\n*:]*):?[^\n*]*?)(?:\*\*)?[ \t]+(?:\*\*)?([b-e]\)\s*Năng\s*lực[^\n]*)/gmi, '$1\n**$2**');
 
-  // 5. 1. Giáo viên... + 2. Học sinh:
-  s = s.replace(/(?:\*\*)?(1\.\s*Giáo\s*viên[^\n*]*)(?:\*\*)?[ \t\n]+(?:\*\*)?(2\.\s*Học\s*sinh)/gmi, '$1\n**$2**');
+  // 3c. Tách b) Năng lực chung:... + c) Năng lực số... / d) Năng lực AI...
+  s = s.replace(/([b-e]\)\s*Năng\s*lực\s*chung:?[^\n*]*?)(?:\*\*)?[ \t]+(?:\*\*)?([c-e]\)\s*Năng\s*lực[^\n]*)/gmi, '$1\n**$2**');
+
+  // 3d. Tách c) Năng lực số... + d) Năng lực AI...
+  s = s.replace(/([c-e]\)\s*Năng\s*lực\s*(?:số|NLS)[^\n*:]*:?[^\n*]*?)(?:\*\*)?[ \t]+(?:\*\*)?([d-e]\)\s*Năng\s*lực[^\n]*)/gmi, '$1\n**$2**');
+
+  // 3e. Tách 3. Phẩm chất: + Chăm chỉ / - Chăm chỉ / *Tích hợp giáo dục hòa nhập:
+  s = s.replace(/(?:\*\*)?(3\.\s*Phẩm\s*chất:?)(?:\*\*)?[ \t]*(?:\*\*)?([ \t]*[\-\+•\*]?\s*(?:Chăm\s*chỉ|Yêu\s*nước|Nhân\s*ái|Trung\s*thực|Trách\s*nhiệm|\*Tích\s*hợp))/gmi, '**$1**\n$2');
+
+  // 3f. Tách *Tích hợp giáo dục hòa nhập: + - HS khuyết tật...
+  s = s.replace(/(\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập:?)[ \t]*(?:\*\*)?[ \t]*([ \t]*[\-\+•\*]?\s*HS\s*khuyết\s*tật[^\n]*)/gmi, '$1\n$2');
+
+  // 4. Tách II. Thiết bị dạy học và học liệu + 1. Giáo viên:
+  s = s.replace(/(?:\*\*)?(II\.\s*Thiết\s*bị\s*dạy\s*học[^\n*:]*:?)(?:\*\*)?[ \t]*(?:\*\*)?(1\.\s*Giáo\s*viên:?|1\.\s*Thiết\s*bị:?)/gmi, '**$1**\n**$2**');
+
+  // 5. Tách 1. Giáo viên:... + 2. Học sinh:
+  s = s.replace(/(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)[^\n*]*)(?:\*\*)?[ \t\n]+(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu))/gmi, '$1\n**$2**');
 
   // 6. 2. Học sinh missing colon / bold:
   s = s.replace(/(?:^|\n)\s*(?:\*\*)?(2\.\s*Học\s*sinh)(?:\*\*)?[ \t]*[:\-]?\s*(?=[A-Z0-9À-Ỹ])/gmi, '\n**$1:** ');
 
-  // 7. Hoạt động header + a) Mục tiêu: / b) Nội dung:
-  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*[\d\.]*(?:\s*:[^\n*a-e\)]*)?)(?:\*\*)?[ \t]*(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[^\n]*)/gmi, '**$1**\n**$2**');
+  // 7. Tách Hoạt động 2: Hình thành kiến thức mới + Hoạt động 2.1: ...
+  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới)(?:\*\*)?[ \t]*(?:\*\*)?(Hoạt\s*động\s*2\.\d+[^:\n]*:?[^\n]*)/gmi, '**$1**\n\n**$2**');
 
-  // 8. a) Mục tiêu:... + b) Nội dung: ...
-  s = s.replace(/(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?(b\)\s*Nội\s*dung)/gmi, '$1\n**$2**');
+  // 7b. Tách Hoạt động 2.1... + Hoạt động 2.2...
+  s = s.replace(/((?:Hoạt\s*động\s*2\.\d+[^:\n]*:?[^\n]*?))(?:\*\*)?[ \t]+(?:\*\*)?(Hoạt\s*động\s*2\.\d+[^:\n]*)/gmi, '$1\n\n**$2**');
 
-  // 9. b) Nội dung:... + c) Sản phẩm: ...
-  s = s.replace(/(b\)\s*Nội\s*dung[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?(c\)\s*Sản\s*phẩm)/gmi, '$1\n**$2**');
+  // 8. Tách Hoạt động header + a) Mục tiêu: / b) Nội dung:
+  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)[^:\n*a-e\)]*(?::[^\n*a-e\)]*)?)(?:\*\*)?[ \t]*(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[^\n]*)/gmi, '**$1**\n**$2**');
 
-  // 10. c) Sản phẩm:... + d) Tổ chức thực hiện: ...
-  s = s.replace(/(c\)\s*Sản\s*phẩm[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?(d\)\s*Tổ\s*chức\s*thực\s*hiện)/gmi, '$1\n**$2**');
+  // 9. Tách a) Mục tiêu:... + b) Nội dung: ...
+  s = s.replace(/([a-e]\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?([b-e]\)\s*Nội\s*dung)/gmi, '$1\n**$2**');
 
-  // 11. Remove any trailing ** on headings or lines
+  // 10. Tách b) Nội dung:... + c) Sản phẩm: ...
+  s = s.replace(/([b-e]\)\s*Nội\s*dung[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?([c-e]\)\s*Sản\s*phẩm)/gmi, '$1\n**$2**');
+
+  // 11. Tách c) Sản phẩm:... + d) Tổ chức thực hiện: ...
+  s = s.replace(/([c-e]\)\s*Sản\s*phẩm[^\n*]+)(?:\*\*)?[ \t]+(?:\*\*)?([d-e]\)\s*Tổ\s*chức\s*thực\s*hiện)/gmi, '$1\n**$2**');
+
+  // 12. Tách * Hướng dẫn về nhà + + Ôn tập kiến thức / + Bài tập về nhà / + Chuẩn bị bài mới
+  s = s.replace(/(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học):?)[ \t]*(?:\*\*)?[ \t]*([ \t]*[\+\-\*•]\s*(?:Ôn\s*tập|Bài\s*tập|Chuẩn\s*bị)[^\n]*)/gmi, '$1\n$2');
+  s = s.replace(/([\+\-\*•]\s*Ôn\s*tập\s*kiến\s*thức:?[^\n*]*?)[ \t]+(?:\*\*)?([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà)/gmi, '$1\n$2');
+  s = s.replace(/([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà:?[^\n*]*?)[ \t]+(?:\*\*)?([\+\-\*•]\s*Chuẩn\s*bị\s*bài\s*mới)/gmi, '$1\n$2');
+
+  // 13. Remove any trailing ** on headings or lines
   s = s.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
   s = s.replace(/([a-zA-Z0-9À-ỹ\)]+:)\s*\*\*(?!\w)/g, '$1');
+  s = s.replace(/([a-zA-Z0-9À-ỹ\)]+)\.\*\*/g, '$1.');
 
   return s;
 };

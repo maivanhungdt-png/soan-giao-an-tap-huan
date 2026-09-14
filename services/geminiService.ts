@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { LessonInfo, ProcessingOptions } from "../types";
 import { SYSTEM_INSTRUCTION, NLS_FRAMEWORK_DATA, GDQPAN_DATA, DISABILITY_PEDAGOGICAL_GUIDELINES } from "../constants";
 import { masterDataCsv } from "../masterData";
-import { ensureAllActivitiesInTwoColumnTable } from "../utils/tableFormatter";
+import { ensureAllActivitiesInTwoColumnTable, splitAllMergedHeadings } from "../utils/tableFormatter";
 import { imageCache } from "./imageCache";
 
 /**
@@ -722,6 +722,14 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
+
+    // Dọn sạch các lỗi $DoS hoặc $ DoS
+    text = text.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
+    text = text.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
+    text = text.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
+
+    // Tách tất cả các đề mục bị dính liền trên 1 dòng
+    text = splitAllMergedHeadings(text);
 
     // 1. CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN (Sử dụng hàm callback để tránh lỗi $1 $2)
     text = text.replace(/([^\s\$\(\[\{<|])\$([^\$\n\r]+?)\$/g, (_m, p1, p2) => `${p1} $${p2}$`);
