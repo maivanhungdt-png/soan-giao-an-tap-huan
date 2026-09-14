@@ -109,12 +109,25 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const ensureMathFormulaSpacing = (text: string): string => {
     if (!text) return "";
     let res = text;
-    // Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
+
+    // 1. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
     res = res.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
-    // Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
+
+    // 2. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
     res = res.replace(/(\$[^\$\n\r]+?\$)([a-zA-Z0-9À-ỹ\(])/g, (_m, p1, p2) => `${p1} ${p2}`);
-    // Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
+
+    // 3. Tách từ tiếng Việt dính sát vào biến/lũy thừa/phép tính: "thứcx^2" -> "thức x^2", "thức2x" -> "thức 2x"
+    res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuv]\^[0-9a-zA-Z]+|\d+[a-zA-Z]\^[0-9a-zA-Z]+|\d+[xyzabtuv]\b)/g, '$1 $2');
+
+    // 4. Tách dấu chấm lửng dính chữ: "...là" -> "... là", "...những" -> "... những"
+    res = res.replace(/(\.{2,}|…)([a-zA-ZÀ-ỹ])/g, '$1 $2');
+
+    // 5. Tách dấu chấm phẩy dính công thức/chữ: ";-5" -> "; -5", ";2x" -> "; 2x"
+    res = res.replace(/;([^\s\n\r])/g, '; $1');
+
+    // 6. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
     res = res.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
+
     return res;
   };
 
@@ -535,6 +548,28 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return segRuns;
   };
 
+  // Helper: Kiểm tra chính xác một chuỗi hoặc token có phải là nội dung tích hợp cần bôi đỏ không
+  const isIntegrationToken = (str: string): boolean => {
+      const trimmed = str.trim();
+      if (!trimmed) return false;
+      // Tuyệt đối KHÔNG phải là markdown bold (**...)
+      if (trimmed.startsWith('**')) return false;
+      // Tuyệt đối KHÔNG phải là markdown italic (_...)
+      if (trimmed.startsWith('_') && trimmed.endsWith('_')) return false;
+      // Tuyệt đối KHÔNG phải là bước thực hiện
+      if (/^\*?\s*Bước\s*[1-4]/i.test(trimmed)) return false;
+      // Không phải tiêu đề Hướng dẫn về nhà
+      if (/^\*?\s*hướng\s*dẫn\s*(?:về\s*nhà|tự\s*học|học\s*ở\s*nhà)/i.test(trimmed)) return false;
+      // Không phải là tiêu đề đánh số 1. 2. 3.
+      if (/^\*?\s*\d+\.\s+[A-ZÀ-ỹ]/i.test(trimmed)) return false;
+
+      // Bắt buộc bắt đầu bằng dấu * tích hợp hoặc từ khóa tích hợp
+      return (
+          /^\*(?:tích\s*hợp|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật|stem|lồng\s*ghép|gdqp|nls|ai|\d+\.[a-z0-9]|lựa\s*chọn|biểu\s*hiện|nhiệm\s*vụ|thử\s*thách)/i.test(trimmed) ||
+          /^(?:tích\s*hợp\s*(?:năng\s*lực\s*số|năng\s*lực\s*ai|stem|giáo\s*dục\s*hòa\s*nhập|lồng\s*ghép)|hs\s*khuyết\s*tật|học\s*sinh\s*khuyết\s*tật)/i.test(trimmed)
+      );
+  };
+
   // Helper: Recursive parser to handle inline formatting without overlapping regex issues
   const parseTextWithFormatting = (text: string, inheritedStyles: any = {}): any[] => {
     const runs: any[] = [];
@@ -550,15 +585,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         let innerText = part;
         let isMatched = false;
 
-        // Chỉ bôi đỏ nếu đoạn văn bản THỰC SỰ là nội dung tích hợp bắt đầu bằng dấu * (NLS, AI, STEM, GDQP, Khuyết tật...)
-        const isStrictIntegration = (
-            (lowerPart.startsWith('*') && !lowerPart.startsWith('* hướng dẫn') && !lowerPart.startsWith('*hướng dẫn')) ||
-            lowerPart.startsWith('tích hợp') || 
-            lowerPart.startsWith('hs khuyết tật') ||
-            lowerPart.startsWith('học sinh khuyết tật')
-        );
-
-        if (!matchStyles.color && isStrictIntegration) {
+        // Chỉ bôi đỏ nếu đoạn văn bản THỰC SỰ là nội dung tích hợp (không phải markdown bold **)
+        if (!matchStyles.color && !part.startsWith('**') && isIntegrationToken(part)) {
             matchStyles.color = "FF0000";
             matchStyles.italics = false;
         }
@@ -569,10 +597,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             runs.push(...createTextRuns(part, matchStyles));
             return;
         } else if (part.startsWith('$$') && part.endsWith('$$')) {
-            runs.push(...createTextRuns(part, matchStyles));
+            const mathContent = part.slice(2, -2).trim();
+            runs.push(new TextRun({ text: ` ${mathContent} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true }));
             return;
         } else if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
-            runs.push(...createTextRuns(part, matchStyles));
+            const mathContent = part.slice(1, -1).trim();
+            runs.push(new TextRun({ text: ` ${mathContent} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true }));
             return;
         } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('blue') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00'))) {
             innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
@@ -1485,17 +1515,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`);
 
-    // 3. Tự động bôi đỏ tất cả các dòng tích hợp trên giao diện xem trước (bắt đầu bằng dấu * tích hợp)
+    // 3. Tự động bôi đỏ tất cả các dòng tích hợp trên giao diện xem trước (chỉ bôi đỏ dòng thực sự là nội dung tích hợp)
     const lines = html.split('\n');
     const styledLines = lines.map(line => {
       const trimmed = line.trim();
-      const lower = trimmed.toLowerCase();
-      const isIntegrationLine = (
-        (lower.startsWith('*') && !lower.startsWith('* hướng dẫn') && !lower.startsWith('*hướng dẫn')) ||
-        lower.startsWith('tích hợp') ||
-        lower.startsWith('hs khuyết tật') ||
-        lower.startsWith('học sinh khuyết tật')
-      );
+      const isIntegrationLine = isIntegrationToken(trimmed);
 
       if (isIntegrationLine && !trimmed.startsWith('|') && !trimmed.startsWith('#')) {
         return `<span style="color: red; font-weight: 500;">${line}</span>`;
