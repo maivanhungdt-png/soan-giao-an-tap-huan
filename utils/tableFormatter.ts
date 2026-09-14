@@ -69,12 +69,32 @@ export const repairBrokenTableInBlock = (block: string): string => {
     if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
       const parts = trimmed.slice(1, -1).split('|');
       if (parts.length >= 2) {
-        const c1 = parts[0].trim();
-        const c2 = parts.slice(1).join('|').trim();
-        if (c1 && !c1.startsWith(':---')) col1Items.push(c1);
+        let c1 = parts[0].trim();
+        let c2 = parts.slice(1).join('|').trim();
+        if (c1 && !c1.startsWith(':---')) {
+          // Nếu có thẻ hình ảnh trong Cột 1, chuyển sang Cột 2 (Sản phẩm / Kết quả)
+          const imgRegex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\])/gi;
+          if (imgRegex.test(c1)) {
+            const foundImgs: string[] = [];
+            c1 = c1.replace(imgRegex, (_m, img) => {
+              foundImgs.push(img);
+              return '';
+            }).trim();
+            if (foundImgs.length > 0) {
+              c2 = c2 ? `${c2}<br>${foundImgs.join('<br>')}` : foundImgs.join('<br>');
+            }
+          }
+          if (c1) col1Items.push(c1);
+        }
         if (c2 && !c2.startsWith(':---')) col2Items.push(c2);
         continue;
       }
+    }
+
+    // If it's an image tag loose in block, ALWAYS put it in Column 2 (Sản phẩm / Kết quả)
+    if (/\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]/i.test(trimmed)) {
+      col2Items.push(trimmed);
+      continue;
     }
 
     // If it's loose text that fell out of table due to real newlines
@@ -171,6 +191,12 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     // Explicit exercises / solutions indicators when in tochuc
     if (currentSection === 'tochuc' && /^(?:\*\*|\*|_)?(?:Lời\s*giải|Đáp\s*án|Bài\s*tập\s*\d+|Bài\s*\d+|Câu\s*\d+)\s*:/i.test(trimmed)) {
       currentSection = 'sanpham';
+      sanPham.push(trimmed);
+      continue;
+    }
+
+    // Image tags ALWAYS belong to sanPham (Column 2)
+    if (/\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]/i.test(trimmed)) {
       sanPham.push(trimmed);
       continue;
     }

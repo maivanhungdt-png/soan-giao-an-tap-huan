@@ -105,12 +105,29 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return s;
   };
 
+  // Helper: Đảm bảo công thức toán $...$ luôn có dấu cách với chữ / số xung quanh, không dính sát chữ
+  const ensureMathFormulaSpacing = (text: string): string => {
+    if (!text) return "";
+    let res = text;
+    // Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
+    res = res.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, '$1 $2');
+    // Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
+    res = res.replace(/(\$[^\$\n\r]+?\$)([a-zA-Z0-9À-ỹ\(])/g, '$1 $2');
+    return res;
+  };
+
   // Helper: Clean raw AI result to remove conversational filler and specific artifacts
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
     
     // Phục hồi công thức phân số bị lỗi trước khi làm sạch
     let clean = repairRacToFrac(text);
+
+    // Đảm bảo khoảng cách công thức toán không dính sát chữ
+    clean = ensureMathFormulaSpacing(clean);
+
+    // Xóa sạch toàn bộ thẻ HTML rác / dangling tags (</span>, <span...>, <font...>, </font>) gây lỗi thừa chữ
+    clean = clean.replace(/<\/?(?:span|font|u)[^>]*>/gi, '');
 
     // Đảm bảo tất cả hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
     if (format !== 'no_table') {
@@ -143,41 +160,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     });
     clean = clean.replace(/#{3,6}/g, '');
 
-    // 5. Remove all <u> and </u> tags (user requested NO underline for integrated content)
-    clean = clean.replace(/<\/?u\s*>/gi, '');
-
-    // 6. Convert any old blue color integration tags to red
-    clean = clean.replace(/<span\s+style="color:\s*blue;?">/gi, '<span style="color: red;">');
-    clean = clean.replace(/<font\s+color="blue">/gi, '<font color="red">');
-
-    // 7. Normalize all integration tags to have * prefix
+    // 5. Chuẩn hóa các đề mục tích hợp: dấu * phải đứng ở đầu câu, KHÔNG có gạch đầu dòng, KHÔNG có dấu * bao quanh gây in nghiêng
     clean = clean.replace(/(?:\[Tích hợp GDQP-?AN\]|\[Lồng ghép GDQP-?AN\])\s*:\s*/gi, '*Tích hợp Lồng ghép GDQP-AN: ');
     clean = clean.replace(/(?:\[Dành cho HSKT(?: hòa nhập)?\]|\*\[Dành cho HSKT(?: hòa nhập)?\]\*?)\s*:\s*/gi, '*Tích hợp giáo dục hòa nhập: ');
     clean = clean.replace(/(?:\[Tích hợp NLS\]|\[Tích hợp năng lực số\])\s*:\s*/gi, '*Tích hợp năng lực số: ');
     clean = clean.replace(/(?:\[Tích hợp AI\]|\[Tích hợp năng lực AI\])\s*:\s*/gi, '*Tích hợp năng lực AI: ');
 
-    // 7b. Under Mục tiêu: Completely remove redundant "Tích hợp năng lực số:" or "Tích hợp năng lực AI:" under their respective headings
-    // Handles all line break, bullet point, bold and span variations
-    clean = clean.replace(/((?:[\*#\s]*(?:b\)|b\.|\-|\+|2\.)?\s*Năng\s*lực\s*số[^\n]*\n+)(?:\s*(?:[•\-\*]\s*)?(?:<span[^>]*>)?\*?\s*))(?:Tích\s*hợp\s*năng\s*lực\s*số|Tích\s*hợp\s*NLS)\s*[:：]\s*/gmi, '$1');
-    clean = clean.replace(/((?:[\*#\s]*(?:c\)|c\.|\-|\+|3\.)?\s*Năng\s*lực\s*(?:trí\s*tuệ\s*nhân\s*tạo|AI)[^\n]*\n+)(?:\s*(?:[•\-\*]\s*)?(?:<span[^>]*>)?\*?\s*))(?:Tích\s*hợp\s*năng\s*lực\s*(?:trí\s*tuệ\s*nhân\s*tạo|AI)|Tích\s*hợp\s*AI)\s*[:：]\s*/gmi, '$1');
+    // Loại bỏ dấu gạch đầu dòng trước *Tích hợp và *HS khuyết tật
+    clean = clean.replace(/^[ \t]*[•\-\+\*]+[ \t]*(?=\*?Tích\s*hợp)/gmi, '');
+    clean = clean.replace(/^[ \t]*[•\-\+\*]+[ \t]*(?=\*?HS\s*khuyết\s*tật)/gmi, '');
+    clean = clean.replace(/^[ \t]*(?!\*)(Tích\s*hợp\s*[^:\n]+:)/gmi, '*$1');
+    clean = clean.replace(/^[ \t]*(?!\*)(HS\s*khuyết\s*tật[^:\n]*:)/gmi, '*$1');
+    clean = clean.replace(/^[ \t]*[\-\+•]+\s*\*(Tích\s*hợp|HS\s*khuyết\s*tật)/gmi, '*$1');
+    
+    // Loại bỏ các dấu * ở cuối câu/dòng tích hợp tránh bị in nghiêng
+    clean = clean.replace(/(\*Tích\s*hợp[^\n*]+)\*+/gi, '$1');
+    clean = clean.replace(/(\*HS\s*khuyết\s*tật[^\n*]+)\*+/gi, '$1');
 
-    // Additional safeguard: If anywhere in the text "b) Năng lực số" is immediately followed within the next lines by "Tích hợp năng lực số:"
-    clean = clean.replace(/(b\)\s*Năng\s*lực\s*số\s*\(NLS\):?\s*\n+)(?:[•\-\*]\s*)?(?:<span[^>]*>)?\*?\s*Tích\s*hợp\s*năng\s*lực\s*số\s*[:：]\s*/gmi, '$1• <span style="color: red;">*');
+    // 6. Under Mục tiêu: Completely remove redundant "Tích hợp năng lực số:" or "Tích hợp năng lực AI:" under their respective headings
+    clean = clean.replace(/((?:[\*#\s]*(?:b\)|b\.|\-|\+|2\.)?\s*Năng\s*lực\s*số[^\n]*\n+)(?:\s*(?:[•\-\*]\s*)?\*?\s*))(?:Tích\s*hợp\s*năng\s*lực\s*số|Tích\s*hợp\s*NLS)\s*[:：]\s*/gmi, '$1');
+    clean = clean.replace(/((?:[\*#\s]*(?:c\)|c\.|\-|\+|3\.)?\s*Năng\s*lực\s*(?:trí\s*tuệ\s*nhân\s*tạo|AI)[^\n]*\n+)(?:\s*(?:[•\-\*]\s*)?\*?\s*))(?:Tích\s*hợp\s*năng\s*lực\s*(?:trí\s*tuệ\s*nhân\s*tạo|AI)|Tích\s*hợp\s*AI)\s*[:：]\s*/gmi, '$1');
 
-    // 7c. Consolidate repeated "Tích hợp giáo dục hòa nhập" lines into 1 unified block with every line styled red
-    clean = clean.replace(/(?:(?:<span[^>]*>)?\s*(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)\*?(?:<\/span>)?\s*\n?)+/gmi, (match) => {
-        const itemRegex = /(?:<span[^>]*>)?\s*(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)\*?(?:<\/span>)?/gmi;
+    // 7. Consolidate repeated "Tích hợp giáo dục hòa nhập" lines into 1 unified block cleanly with * prefix (NO bullet dashes, NO italics asterisks)
+    clean = clean.replace(/(?:(?:\s*(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)\*?\s*\n?))+/gmi, (match) => {
+        const itemRegex = /(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*(?:\((?:HS\s*)?khuyết\s*tật\s*([^)]+)\)|\s*:\s*(?:HS\s*|Học\s*sinh\s*)?khuyết\s*tật\s*([^:\n]+))\s*:?\s*([^<\n*]+)/gmi;
         const items: string[] = [];
         let m;
         while ((m = itemRegex.exec(match)) !== null) {
             const rawType = (m[1] || m[2] || '').trim();
-            const content = (m[3] || '').trim();
+            const content = (m[3] || '').trim().replace(/\*+$/, '').trim();
             const cleanType = rawType.replace(/^(?:học\s*sinh\s*|hs\s*)/i, '').replace(/^khuyết\s*tật\s*/i, '').trim();
             const prefix = cleanType.toLowerCase() === 'chung' ? 'HS khuyết tật chung' : (cleanType.toLowerCase() === 'nghe' ? 'HS khuyết tật nghe' : (cleanType.toLowerCase() === 'vận động' || cleanType.toLowerCase() === 'van dong' ? 'HS khuyết tật vận động' : `HS khuyết tật ${cleanType}`));
-            items.push(`  - ${prefix}: ${content}`);
+            items.push(`*${prefix}: ${content}`);
         }
         if (items.length > 0) {
-            return `<span style="color: red;">*Tích hợp giáo dục hòa nhập:</span>\n${items.map(it => `<span style="color: red;">*${it}*</span>`).join('\n')}\n`;
+            return `*Tích hợp giáo dục hòa nhập:\n${items.join('\n')}\n`;
         }
         return match;
     });
@@ -185,60 +202,54 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 7d. REPOSITIONING GUARANTEE: Move any "Tích hợp giáo dục hòa nhập" in Section I (Mục tiêu) to the END of "3. Phẩm chất:"
     const phamChatRegex = /(\*\*(?:3\.\s*)?Phẩm\s*chất:?\*\*|(?:^|\n)\s*(?:3\.\s*)?Phẩm\s*chất:?)/i;
     const thietBiRegex = /(\*\*(?:II|2)\.\s*Thiết\s*bị\s*dạy\s*học[^\n]*\*\*|(?:^|\n)\s*(?:#{1,3}\s*)?(?:II|2)\.?\s*Thiết\s*bị\s*dạy\s*học)/i;
-    const disBlockRegex = /(?:<span[^>]*>)?\s*(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập[:\s][\s\S]*?(?:<\/span>|\*(?=\n\s*(?:\*\*|#|[1-3]\.)))/i;
+    const disBlockRegex = /(?:\s*(?:[•\-\*]\s*)?\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập[:\s][\s\S]*?(?=\n\s*(?:\*\*|#|[1-3]\.|$)))/i;
 
     const pcMatch = clean.match(phamChatRegex);
     const tbMatch = clean.match(thietBiRegex);
     const disMatch = clean.match(disBlockRegex);
 
     if (pcMatch && disMatch && pcMatch.index !== undefined && disMatch.index !== undefined) {
-        // If the disability block appears BEFORE "3. Phẩm chất:" (e.g. under Năng lực)
         if (disMatch.index < pcMatch.index) {
             const rawDisBlock = disMatch[0];
-            // Remove the block from its current location
             clean = clean.replace(rawDisBlock, '');
 
-            // Format block cleanly with each sub-item red
-            const rawLines = rawDisBlock.replace(/<\/?span[^>]*>/gi, '').split('\n').map(l => l.trim()).filter(Boolean);
+            const rawLines = rawDisBlock.split('\n').map(l => l.trim()).filter(Boolean);
             const subItems: string[] = [];
             for (const line of rawLines) {
                 if (/Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập/i.test(line)) continue;
-                let cleanLine = line.replace(/^\s*[\*\-\+•]\s*/, '').replace(/\*+$/, '').trim();
+                let cleanLine = line.replace(/^\s*[\*\-\+•]+\s*/, '').replace(/\*+$/, '').trim();
                 if (cleanLine) {
                     if (!/^HS\s*khuyết\s*tật|^Học\s*sinh\s*khuyết\s*tật/i.test(cleanLine)) {
                         cleanLine = `HS khuyết tật: ${cleanLine}`;
                     }
-                    subItems.push(`  - ${cleanLine}`);
+                    subItems.push(`*${cleanLine}`);
                 }
             }
 
             const cleanFormattedDisBlock = subItems.length > 0
-                ? `\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:</span>\n${subItems.map(it => `<span style="color: red;">*${it}*</span>`).join('\n')}\n`
-                : `\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:*</span>\n`;
+                ? `\n*Tích hợp giáo dục hòa nhập:\n${subItems.join('\n')}\n`
+                : `\n*Tích hợp giáo dục hòa nhập:\n`;
 
-            // Insert after 3. Phẩm chất (right before Section II. Thiết bị dạy học)
             const updatedTbMatch = clean.match(thietBiRegex);
             if (updatedTbMatch && updatedTbMatch.index !== undefined) {
                 clean = clean.slice(0, updatedTbMatch.index) + cleanFormattedDisBlock + '\n' + clean.slice(updatedTbMatch.index);
             } else {
-                // If Section II not found, insert after 3. Phẩm chất section content
                 clean = clean.replace(phamChatRegex, `$1\n${cleanFormattedDisBlock}`);
             }
         }
     }
 
-    // 8. Auto wrap uncolored integration lines with red span
-    clean = clean.replace(/(?<!<span[^>]*>)(^\s*[\-\*•]?\s*\*Tích hợp[^\n<]+)/gm, '<span style="color: red;">$1</span>');
+    // 8. Đảm bảo toàn bộ dòng tích hợp bắt đầu bằng dấu * đứng đầu câu và không có gạch đầu dòng
+    clean = clean.replace(/^[ \t]*[•\-\+\*]*[ \t]*(Tích\s*hợp\s*(?:năng\s*lực\s*số|năng\s*lực\s*AI|giáo\s*dục\s*hòa\s*nhập|Lồng\s*ghép\s*GDQP-AN|STEM|trí\s*tuệ\s*nhân\s*tạo)[^:\n]*:)/gmi, '*$1');
+    clean = clean.replace(/^[ \t]*[•\-\+\*]*[ \t]*(HS\s*khuyết\s*tật[^:\n]*:)/gmi, '*$1');
 
     // 9. Normalize 2-column markdown table header lines to standard "Hoạt động của giáo viên và học sinh" & "Kết quả hoạt động"
     clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm|Kết\s*quả\s*hoạt\s*động|Kết\s*quả)\s*\|/gi, '| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |');
     // 9b. Đảm bảo 100% TRƯỚC BẢNG 2 CỘT HOẠT ĐỘNG LUÔN CÓ DÒNG **d) Tổ chức thực hiện:**
-    // Nếu trước bảng chưa có mục d) Tổ chức thực hiện, tự động chèn **d) Tổ chức thực hiện:** ngay trước bảng
     clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?c\)\s*Sản\s*phẩm:?[^\n]*\n+)(?![ \t]*(?:\*\*)?d\)\s*Tổ\s*chức\s*thực\s*hiện)([ \t]*\|[ \t]*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/gi, '$1\n**d) Tổ chức thực hiện:**\n\n$2');
     
     // Trường hợp sau mục b hoặc bất kỳ nội dung nào nhảy thẳng vào bảng mà không có d) Tổ chức thực hiện
     clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?b\)\s*Nội\s*dung:?[^\n]*\n+)(?![ \t]*(?:\*\*)?[cd]\)\s*)([ \t]*\|[ \t]*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^\n]*\|)/gi, '$1\n**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.\n\n**d) Tổ chức thực hiện:**\n\n$2');
-
 
     // 10. Replace "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" and variants with "* Hướng dẫn về nhà"
     clean = clean.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:(?:IV|4|IV\.|4\.)\s*)?(?:HƯỚNG\s*DẪN\s*TỰ\s*HỌC\s*VÀ\s*DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*TỰ\s*HỌC|HƯỚNG\s*DẪN\s*VỀ\s*NHÀ|DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*HỌC\s*Ở\s*NHÀ|Hướng\s*dẫn\s*tự\s*học\s*và\s*dặn\s*dò\s*về\s*nhà|Hướng\s*dẫn\s*tự\s*học)[^\n]*/gi, '\n\n* Hướng dẫn về nhà');
@@ -254,12 +265,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/(?:\n|^)\s*(?:(?:Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Tổ\s*trưởng\s*chuyên\s*môn|Ký\s*duyệt\s*của\s*BGH)[\s\S]*)$/gi, '');
 
     // 13. Standardize Roman Numerals Sections to Bold and Sentence Case:
-    // **I. Mục tiêu**, **II. Thiết bị dạy học và học liệu**, **III. Tiến trình dạy học**
     clean = clean.replace(/^(?:#+\s*)?(?:\*\*)?(?:I|1)\.?\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|Mục\s*Tiêu)(?:\*\*)?\s*$/gmi, '**I. Mục tiêu**');
     clean = clean.replace(/^(?:#+\s*)?(?:\*\*)?(?:II|2)\.?\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|Thiết\s*bị\s*dạy\s*học)(?:\*\*)?\s*$/gmi, '**II. Thiết bị dạy học và học liệu**');
     clean = clean.replace(/^(?:#+\s*)?(?:\*\*)?(?:III|3)\.?\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|Tiến\s*trình\s*bài\s*dạy)(?:\*\*)?\s*$/gmi, '**III. Tiến trình dạy học**');
 
-    // 14. Auto bold main subheadings (1. Kiến thức, 2. Năng lực, 3. Phẩm chất, 1. Thiết bị dạy học, 2. Học liệu, 1. Giáo viên, 2. Học sinh)
+    // 14. Auto bold main subheadings
     clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Kiến\s*thức:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Năng\s*lực:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([1-3]\.\s*Phẩm\s*chất:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
@@ -268,7 +278,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Giáo\s*viên:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([1-2]\.\s*Học\s*sinh:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
 
-    // 15. Auto bold activities (1. Hoạt động 1: Khởi động..., Hoạt động 1: Khởi động..., 2. Hoạt động 2:...)
+    // 15. Auto bold activities
     clean = clean.replace(/^(?:\*\*)?((?:\d+\.\s*)?Hoạt\s*động\s*\d+\s*:[^\n]*?)(?:\*\*)?$/gmi, (m, p1) => {
         const t = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
         return `**${t}**`;
@@ -277,7 +287,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 16. Auto bold sub-steps (a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:)
     clean = clean.replace(/^(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([a-c]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
-
 
     // 17. Auto bold Bước 1, Bước 2, Bước 3, Bước 4 inside or outside tables
     clean = clean.replace(/^(?:\*\*)?(Bước\s*[1-4]\s*:[^\n]*?)(?:\*\*)?$/gmi, '**$1**');
@@ -289,16 +298,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Remove slash-escaped asterisks often generated by AI
     clean = clean.replace(/\\\*/g, '*');
     
-    // Fallback: Convert common HTML tags to Markdown just in case AI ignores instructions
-    clean = clean.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
-    clean = clean.replace(/<b>(.*?)<\/b>/gi, '**$1**');
-    clean = clean.replace(/<em>(.*?)<\/em>/gi, '*$1*');
-    clean = clean.replace(/<i>(.*?)<\/i>/gi, '*$1*');
-    clean = clean.replace(/<li>(.*?)<\/li>/gi, '- $1');
-    clean = clean.replace(/<ul>|<\/ul>|<ol>|<\/ol>/gi, '');
-    clean = clean.replace(/<p>(.*?)<\/p>/gi, '$1\n');
+    // 18. Xóa các định dạng in nghiêng tùy tiện
+    // Convert <em>, <i> to normal text
+    clean = clean.replace(/<\/?(?:em|i)>/gi, '');
     
-    // 8. Remove common AI intros
+    // 19. Remove common AI intros
     const lines = clean.split('\n');
     if (lines.length > 0) {
         const firstLine = lines[0].trim().toLowerCase();
@@ -316,6 +320,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     const joinedClean = lines.join('\n').trim();
     return autoConvertPlainTextToLatex(joinedClean);
   };
+
 
   // Helper: Tự động phát hiện và chuyển đổi các biểu thức toán học / phân số / bất đẳng thức dạng text thô sang chuẩn LaTeX $...$
   const autoConvertPlainTextToLatex = (text: string): string => {
@@ -530,7 +535,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const parseTextWithFormatting = (text: string, inheritedStyles: any = {}): any[] => {
     const runs: any[] = [];
     // Prioritize Image tags and HTML tags OVER markdown to prevent `_` or `*` from breaking image tags or tag pairs.
-    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<span\s+[^>]*style="[^"]*color:\s*blue;?"[^>]*>[\s\S]*?<\/span>|<font\s+[^>]*color="blue"[^>]*>[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_)/gi;
+    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[^\*\n\r]+\*\*|_[\s\S]*?_)/gi;
     const parts = text.split(regex);
 
     parts.forEach(part => {
@@ -541,15 +546,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         let innerText = part;
         let isMatched = false;
 
-        // Auto color red if contains integration indicator
+        // Auto color red if contains integration indicator and guarantee upright non-italic
         if (!matchStyles.color && (
-            lowerPart.includes('*tích hợp') || 
+            lowerPart.startsWith('*tích hợp') || 
+            lowerPart.startsWith('tích hợp') ||
+            lowerPart.startsWith('*hs khuyết tật') ||
+            lowerPart.startsWith('hs khuyết tật') ||
             lowerPart.includes('tích hợp năng lực') || 
             lowerPart.includes('tích hợp giáo dục hòa nhập') || 
             lowerPart.includes('tích hợp lồng ghép gdqp') ||
-            lowerPart.includes('tích hợp stem')
+            lowerPart.includes('tích hợp stem') ||
+            lowerPart.includes('khuyết tật')
         )) {
             matchStyles.color = "FF0000";
+            matchStyles.italics = false;
         }
 
         // 1. If it is an image tag, render it directly as an image without breaking into italics
@@ -566,10 +576,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('blue') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00'))) {
             innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
             matchStyles.color = "FF0000";
+            matchStyles.italics = false;
             isMatched = true;
         } else if (lowerPart.startsWith('<font') && (lowerPart.includes('red') || lowerPart.includes('blue') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00'))) {
             innerText = part.replace(/^<font[^>]*>|<\/font>$/gi, '');
             matchStyles.color = "FF0000";
+            matchStyles.italics = false;
             isMatched = true;
         } else if (lowerPart.startsWith('<sub') && lowerPart.endsWith('</sub>')) {
             innerText = part.replace(/^<sub\s*>|<\/sub\s*>$/gi, '');
@@ -583,10 +595,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             innerText = part.slice(2, -2);
             matchStyles.bold = true;
             isMatched = true;
-        } else if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
-             innerText = part.slice(1, -1);
-             matchStyles.italics = true;
-             isMatched = true;
         } else if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
              innerText = part.slice(1, -1);
              matchStyles.italics = true;
@@ -819,7 +827,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         if (isActivityTable) {
             // Chuẩn hóa bảng 2 cột Phụ lục 4:
             // HÀNG 1: Tiêu đề "Hoạt động của giáo viên và học sinh" | "Kết quả hoạt động"
-            // HÀNG 2: Gộp toàn bộ các bước 1, 2, 3, 4 vào 1 ô duy nhất ở Cột 1; Toàn bộ kết quả ở Cột 2
+            // HÀNG 2: Gộp toàn bộ các bước 1, 2, 3, 4 vào 1 ô duy nhất ở Cột 1; Toàn bộ kết quả và hình ảnh ở Cột 2
             
             const headerRow = new TableRow({
                 children: [
@@ -867,6 +875,14 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
             col0Text = col0Text.replace(/^\*\s*/, "").replace(/^\\s+/, "");
             col1Text = col1Text.replace(/^\*\s*/, "").replace(/^\\s+/, "");
+
+            // ĐẢM BẢO 100% HÌNH ẢNH / HÌNH VẼ ĐƯỢC CHUYỂN VỀ CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM)
+            const imgTagRegex = /\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)/gi;
+            const col0Imgs = col0Text.match(imgTagRegex);
+            if (col0Imgs && col0Imgs.length > 0) {
+                col0Text = col0Text.replace(imgTagRegex, '').replace(/(?:<br>\s*)+/g, '<br>').trim();
+                col1Text = `${col1Text}<br>${col0Imgs.join('<br>')}`.trim();
+            }
 
             const contentRow = new TableRow({
                 children: [
@@ -976,9 +992,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         .replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
 
       preProcessedResult = repairRacToFrac(preProcessedResult);
+      preProcessedResult = ensureMathFormulaSpacing(preProcessedResult);
       preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
 
-      // Tự động kiểm tra và bảo tồn tất cả hình vẽ gốc từ imageCache vào bảng giáo án nếu chưa được gắn thẻ
+      // Tự động kiểm tra và bảo tồn tất cả hình vẽ gốc từ imageCache vào CỘT 2 (Kết quả hoạt động) của bảng giáo án
       const cachedKeys = Object.keys(imageCache);
       const educationalImages: string[] = [];
       const seenUrls = new Set<string>();
@@ -994,20 +1011,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       });
 
       if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_') && !preProcessedResult.includes('[HÌNH_VẼ_GỐC_') && !preProcessedResult.includes('[HÌNH VẼ GỐC')) {
-        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào ô Bước 1 của Bảng 2 cột:", educationalImages);
+        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào Cột 2 (Sản phẩm / Kết quả hoạt động):", educationalImages);
         const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
         
-        // 1. Ưu tiên chèn vào ngay sau Bước 1 trong bảng
-        if (/(\*\*Bước\s*1:[^|\n]+)/i.test(preProcessedResult)) {
-          preProcessedResult = preProcessedResult.replace(/(\*\*Bước\s*1:[^|\n]+)/i, `$1 ${imgTagsInCell}`);
-        } else if (/(Bước\s*1:[^|\n]+)/i.test(preProcessedResult)) {
-          preProcessedResult = preProcessedResult.replace(/(Bước\s*1:[^|\n]+)/i, `$1 ${imgTagsInCell}`);
-        } else {
-          // 2. Hoặc chèn vào ô đầu tiên của bảng 2 cột đầu tiên
-          const generalRowMatch = preProcessedResult.match(/\|\s*:---[\s\S]*?\|[ \t]*\r?\n\|([^|\n]+)\|/i);
-          if (generalRowMatch && generalRowMatch[1]) {
-            preProcessedResult = preProcessedResult.replace(generalRowMatch[0], generalRowMatch[0].replace(generalRowMatch[1], `${generalRowMatch[1]} ${imgTagsInCell}`));
-          }
+        // Chèn vào Cột 2 của bảng 2 cột
+        const tableRowMatch = preProcessedResult.match(/(\|\s*[^|\n]+\|)([^|\n]+)(\|)/);
+        if (tableRowMatch) {
+            preProcessedResult = preProcessedResult.replace(tableRowMatch[0], `${tableRowMatch[1]}${tableRowMatch[2]} ${imgTagsInCell}${tableRowMatch[3]}`);
         }
       }
       const lines = preProcessedResult.split('\n');
@@ -1415,33 +1425,24 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     FileSaver.saveAs(blob, 'Giao_an_NLS.txt');
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white p-12 sm:p-16 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center min-h-[360px]">
-        <div className="relative">
-             <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-900 border-t-transparent"></div>
-             </div>
-        </div>
-        <h3 className="text-lg font-bold text-slate-800 mt-6">Đang phân tích và xử lý Kế hoạch bài dạy</h3>
-        <p className="text-slate-500 text-xs sm:text-sm mt-1.5 text-center max-w-sm">
-          Hệ thống đang tích hợp chuẩn hóa mục tiêu, tiến trình dạy học và bảo toàn cấu trúc tài liệu...
-        </p>
-      </div>
-    );
-  }
 
   const getPreviewHtml = (text: string) => {
     if (!text) return "";
 
     // 0. Remove any erroneous image tags created from math fractions like [1/2], [S = 1/2...], [Phân số 1/2]
-    text = text.replace(/\[\s*(?:phân\s*số\s*)?\d+\/\d+\s*\]/gi, '');
-    text = text.replace(/\[\s*(?:HÌNH|HINH|IMG|IMAGE|ẢNH|ANH)?[\s_]*\d+\/\d+[\s_]*\]/gi, '');
+    let html = text.replace(/\[\s*(?:phân\s*số\s*)?\d+\/\d+\s*\]/gi, '');
+    html = html.replace(/\[\s*(?:HÌNH|HINH|IMG|IMAGE|ẢNH|ANH)?[\s_]*\d+\/\d+[\s_]*\]/gi, '');
+
+    // 1. Xóa bỏ hoàn toàn các thẻ HTML rác / dangling tags (</span>, <span...>, <font...>, </font>)
+    html = html.replace(/<\/?(?:span|font|u)[^>]*>/gi, '');
+
+    // 2. Đảm bảo khoảng cách công thức toán không dính chữ
+    html = ensureMathFormulaSpacing(html);
 
     // Regex matching legitimate image placeholders (e.g., [HINHANHGOC_1], [IMG1], [Hình 1: ...])
     const imgRegex = /(?:!\[([^\]]*)\]\(([^)]+)\)|\*{0,2}\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]\*{0,2})/gi;
 
-    let html = text.replace(imgRegex, (match, p1, p2, offset) => {
+    html = html.replace(imgRegex, (match, p1, p2, offset) => {
        const cleanMatch = match.replace(/^\*+|\*+$/g, '').trim();
        const rawId = cleanMatch.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
        const numMatch = cleanMatch.match(/\d+/);
@@ -1464,10 +1465,35 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // Normalize LaTeX math formulas
     html = repairRacToFrac(html);
+    html = ensureMathFormulaSpacing(html);
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`);
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`);
+
+    // 3. Tự động bôi đỏ tất cả các dòng tích hợp trên giao diện xem trước (mỗi dòng độc lập, không vắt dòng)
+    const lines = html.split('\n');
+    const styledLines = lines.map(line => {
+      const trimmed = line.trim();
+      const lower = trimmed.toLowerCase();
+      const isIntegrationLine = (
+        lower.startsWith('*tích hợp') ||
+        lower.startsWith('tích hợp') ||
+        lower.startsWith('*hs khuyết tật') ||
+        lower.startsWith('hs khuyết tật') ||
+        lower.includes('tích hợp năng lực số') ||
+        lower.includes('tích hợp giáo dục hòa nhập') ||
+        lower.includes('tích hợp lồng ghép gdqp') ||
+        lower.includes('tích hợp stem') ||
+        lower.includes('tích hợp năng lực ai')
+      );
+
+      if (isIntegrationLine && !trimmed.startsWith('|') && !trimmed.startsWith('#')) {
+        return `<span style="color: red; font-weight: 500;">${line}</span>`;
+      }
+      return line;
+    });
+    html = styledLines.join('\n');
 
     // Render KaTeX block math $$...$$ directly into HTML for 100% crisp formulas
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, expr) => {
