@@ -427,15 +427,29 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ, KHÔNG ĐƯỢC THAY ĐỔI MÃ, KHÔNG ĐƯỢC ĐẶT Ở CỘT 1 "Hoạt động của giáo viên và học sinh".
       * 🚨 VỊ TRÍ ĐẶT HÌNH ẢNH BẮT BUỘC: ĐẶT TẠI CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM). Cú pháp: <br>[HINHANHGOC_1]<br>.
     - KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) XÂY DỰNG THEO BÀI HỌC HOÀN CHỈNH. TUYỆT ĐỐI KHÔNG GHI NGÀY SOẠN, NGÀY GIẢNG. Thứ tự tiết ghi theo Phụ lục 3, sau hoạt động đầu tiên của mỗi tiết.
-    - PHẦN MỤC TIÊU:
-      1. Kiến thức: YCCĐ theo chương trình GDPT 2018.
-      2. Năng lực:
-         - a) Năng lực đặc thù môn học (Toán, KHTN, Tin học, Ngữ văn...): Nêu các năng lực đặc thù bộ môn gắn liền với bài học.
-         - b) Năng lực chung: Nêu các năng lực chung (Tự chủ và tự học, Giao tiếp và hợp tác, Giải quyết vấn đề và sáng tạo...) hình thành và phát triển qua bài học.
-         ${options.integrateNLS ? '- c) Năng lực số (nếu có / NLS): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực số:". Ghi TRỰC TIẾP nội dung chỉ báo: *[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo).' : ''}
-         ${options.integrateAI ? `- ${options.integrateNLS ? 'd)' : 'c)'} Năng lực AI (nếu có): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi TRỰC TIẾP nội dung: *[Mã YCCĐ] [Nội dung YCCĐ cụ thể].` : ''}
-         ${options.integrateSTEM ? `- ${options.integrateNLS && options.integrateAI ? 'e)' : (options.integrateNLS || options.integrateAI ? 'd)' : 'c)')} Giáo dục Stem (Nếu có): Nêu mục tiêu giáo dục STEM gắn với bài học: *Tích hợp STEM: [Nội dung mục tiêu STEM].` : ''}
-      3. Phẩm chất: Các phẩm chất cốt lõi gắn liền với bài học (Chăm chỉ, Trung thực, Trách nhiệm...).
+    - PHẦN MỤC TIÊU (CHUẨN CÔNG VĂN 5512 - GDPT 2018):
+      **I. Mục tiêu**
+      **1. Kiến thức:**
+      - [Nêu cụ thể các yêu cầu cần đạt về kiến thức của bài học]
+      **2. Năng lực:**
+      **a) Năng lực đặc thù:**
+      (Đối với môn Toán, nêu rõ các năng lực đặc thù Toán học hình thành qua bài học):
+      - Năng lực tư duy và lập luận toán học: [Mô tả cụ thể gắn với nội dung bài học]
+      - Năng lực giải quyết vấn đề toán học: [Mô tả cụ thể gắn với nội dung bài học]
+      - Năng lực giao tiếp toán học: [Mô tả cụ thể gắn với nội dung bài học]
+      - Năng lực mô hình hóa toán học (nếu có): [Mô tả cụ thể gắn với bài học]
+      - Năng lực sử dụng công cụ, phương tiện học toán: [Sử dụng thước, máy tính cầm tay, phần mềm GeoGebra/Excel...]
+      **b) Năng lực chung:**
+      - Năng lực tự chủ và tự học: [Mô tả cụ thể phát triển qua bài học]
+      - Năng lực giao tiếp và hợp tác: [Mô tả cụ thể khi thảo luận nhóm, cặp đôi]
+      - Năng lực giải quyết vấn đề và sáng tạo: [Mô tả cụ thể khi giải bài tập, tình huống]
+      ${options.integrateNLS ? '**c) Năng lực số:**\n      *[Nội dung chỉ báo & yêu cầu cần đạt NLS] (Mã chỉ báo: ...)' : ''}
+      ${options.integrateAI ? `**${options.integrateNLS ? 'd)' : 'c)'} Năng lực AI:**\n      *[Mã YCCĐ] [Nội dung YCCĐ AI cụ thể]` : ''}
+      ${options.integrateSTEM ? `**${options.integrateNLS && options.integrateAI ? 'e)' : (options.integrateNLS || options.integrateAI ? 'd)' : 'c)')} Giáo dục Stem:**\n      *Tích hợp STEM: [Nội dung mục tiêu STEM]` : ''}
+      **3. Phẩm chất:**
+      - Chăm chỉ: [Mô tả cụ thể]
+      - Trung thực: [Mô tả cụ thể]
+      - Trách nhiệm: [Mô tả cụ thể]
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '*HS khuyết tật: [Mục tiêu điều chỉnh]'}` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
     - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG (CHUẨN PHỤ LỤC IV THEO CV 5512):

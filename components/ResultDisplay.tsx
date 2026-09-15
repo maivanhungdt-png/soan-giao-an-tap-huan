@@ -206,39 +206,67 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return `* Hướng dẫn về nhà:`;
     }
 
-    // 4. Nhận diện các nhãn đầu mục chuẩn và các bước, đề mục bài học, bài tập Cột 2:
-    const sectionLabelRegex = /^[\*\s#\-•\+]*((?:\*?\s*\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Khái\s*niệm[^\n:]*|Phương\s*pháp[^\n:]*|Đa\s*thức[^\n:]*|Tổng\s*hai[^\n:]*|Hiệu\s*hai[^\n:]*|Bậc\s*của[^\n:]*|Đơn\s*thức[^\n:]*|Quy\s*tắc[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|[a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Đa\s*thức[^\n:]*|Tổng\s*hai[^\n:]*|Hiệu\s*hai[^\n:]*|Khái\s*niệm[^\n:]*|Đơn\s*thức[^\n:]*|Bậc\s*của[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|Năng\s*lực\s*(?:tư\s*duy|giải\s*quyết|giao\s*tiếp|tự\s*chủ|hợp\s*tác)[^\n:]*|Chăm\s*chỉ|Trung\s*thực|Trách\s*nhiệm|Yêu\s*nước|Nhân\s*ái|HS\s*khuyết\s*tật[^\n:]*|Học\s*sinh\s*khuyết\s*tật[^\n:]*|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+(?:\s*(?:\(SGK\)|SGK))?\s*:?|Kết\s*luận(?:\s*(?:\(SGK\)|SGK))?\s*:?|Nhận\s*xét(?:\s*(?:\(SGK\)|SGK))?\s*:?|Tranh\s*luận(?:\s*(?:\(SGK\)|SGK))?\s*:?|Chú\s*ý(?:\s*(?:\(SGK\)|SGK))?\s*:?|Quy\s*tắc(?:\s*(?:\(SGK\)|SGK))?\s*:?|Hộp\s*kiến\s*thức(?:\s*(?:\(SGK\)|SGK))?\s*:?|Khung\s*kiến\s*thức(?:\s*(?:\(SGK\)|SGK))?\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?(?:\s*(?:\(SGK\)|SGK))?\s*:?|\?:\s*(?:SGK)?|\?\d+(?:\s*(?:\(SGK\)|SGK))?\s*:?|Luyện\s*tập\s*[\d\*]*(?:\s*(?:\(SGK\)|SGK))?\s*:?|Vận\s*dụng\s*\d*(?:\s*(?:\(SGK\)|SGK))?\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?(?:\s*(?:\(SGK\)|SGK))?\s*:?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*\s*:?|ĐS\s*:?|Đ\/s\s*:?|Đáp\s*số\s*:?|Đáp\s*án\s*:?|Lời\s*giải\s*:?|Dự\s*đoán\s*:?|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Ký\s*duyệt)\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
-
-    const bulletPrefixMatch = s.match(/^([\s\-\+•\*]*)(.*)$/);
-    const bulletPrefix = bulletPrefixMatch ? bulletPrefixMatch[1] : '';
-    const cleanContent = bulletPrefixMatch ? bulletPrefixMatch[2] : s;
-
-    const match = cleanContent.match(sectionLabelRegex);
-    if (match) {
-      let label = match[1].replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
-      if (!label.endsWith(':') && !/^\d+\./.test(label) && !/^[a-e]\)$/i.test(label) && !/Người\s*(?:kiểm\s*tra|xây\s*dựng)/i.test(label)) {
-        label += ':';
-      }
-      let rest = (match[2] || '').replace(/^[\*\s:]+/, '').replace(/\*\*$/, '').trim();
-      
-      const isHomeworkSubItem = /^(?:Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)/i.test(label);
-      const prefix = isHomeworkSubItem 
-        ? '- ' 
-        : (bulletPrefix.includes('-') ? '- ' : (bulletPrefix.includes('+') ? '+ ' : (bulletPrefix.includes('*') && isIntegrationLine(s) ? '*' : '')));
-      
-      if (prefix.includes('-') && rest.startsWith('-')) rest = rest.replace(/^-+\s*/, '').trim();
-      return rest ? `${prefix}**${label}** ${rest}` : `${prefix}**${label}**`;
-    }
-
-    // 5. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu
+    // 4. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu
     if (isIntegrationLine(s)) {
       const cleanInt = s.replace(/^[\*\-\+•\s]+/, '').replace(/\*\*$/, '').trim();
       return `*${cleanInt}`;
     }
 
-    // 6. Xóa bỏ các ký tự ** bị thừa ở cuối dòng (ví dụ: "bằng nhau.**" -> "bằng nhau.", "kiến thức.**" -> "kiến thức.")
-    s = s.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
-    s = s.replace(/([a-zA-Z0-9À-ỹ\)]+)\.\*\*/g, '$1.');
+    // 5. Đề mục số chính: 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất:, 1. Giáo viên:, 2. Học sinh:
+    const numHeadingMatch = s.match(/^(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất)|[1-2]\.\s*(?:Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu))(?::|\*\*)?[ \t]*(.*)$/i);
+    if (numHeadingMatch) {
+      const label = numHeadingMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') ? label : `${label}:`;
+      const rest = (numHeadingMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
+    }
+
+    // 6. Đề mục chữ: a) Năng lực đặc thù:, b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:, a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
+    const subLabelMatch = s.match(/^(?:\*\*)?([a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu))(?::|\*\*)?[ \t]*(.*)$/i);
+    if (subLabelMatch) {
+      const label = subLabelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') ? label : `${label}:`;
+      const rest = (subLabelMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
+    }
+
+    // 7. Các bước thực hiện: Bước 1: Chuyển giao nhiệm vụ:, Bước 2: ..., Bước 3: ..., Bước 4: ...
+    const stepMatch = s.match(/^(?:\*\*)?(Bước\s*[1-4]\s*:\s*[^:\n]+|Bước\s*[1-4])(?::|\*\*)?[ \t]*(.*)$/i);
+    if (stepMatch) {
+      const label = stepMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') ? label : `${label}:`;
+      const rest = (stepMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
+    }
+
+    // 8. Các đề mục bài tập, ví dụ, câu hỏi Cột 2 (Ví dụ 1:, Luyện tập 1:, Vận dụng 1:, Bài 1.1:, ĐS:, Lời giải:)
+    const col2LabelMatch = s.match(/^([\s\-\+•\*]*)(?:\*\*)?(Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|\?\d+|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)(?::|\*\*)?[ \t]*(.*)$/i);
+    if (col2LabelMatch) {
+      const bullet = col2LabelMatch[1].includes('-') ? '- ' : (col2LabelMatch[1].includes('+') ? '+ ' : '');
+      const label = col2LabelMatch[2].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') || /^\d+\./.test(label) || /Người\s*(?:kiểm|xây)/.test(label) ? label : `${label}:`;
+      let rest = (col2LabelMatch[3] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      if (bullet && rest.startsWith('-')) rest = rest.replace(/^-+\s*/, '').trim();
+      return rest ? `${bullet}**${cleanLabel}** ${rest}` : `${bullet}**${cleanLabel}**`;
+    }
+
+    // 9. Dòng gạch đầu dòng có chứa nhãn in đậm ở đầu (ví dụ: "- Năng lực tư duy và lập luận toán học: HS hiểu..." hoặc "- Chăm chỉ: Có ý thức...")
+    const inlineBulletMatch = s.match(/^([\s\-\+•]*)(?:\*\*)?([^:\n]{2,50}:)(?:\*\*)?[ \t]*(.*)$/);
+    if (inlineBulletMatch && inlineBulletMatch[1]) {
+      const bullet = inlineBulletMatch[1].includes('+') ? '+ ' : '- ';
+      const label = inlineBulletMatch[2].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const rest = (inlineBulletMatch[3] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      return rest ? `${bullet}**${label}** ${rest}` : `${bullet}**${label}**`;
+    }
+
+    // 10. Dòng gạch đầu dòng thông thường (ví dụ: "- Thu gọn đa thức.", "- Tính giá trị của đa thức...") -> GIỮ NGUYÊN NỘI DUNG, KHÔNG BÔI ĐEN TÙY TIỆN
+    if (/^[\s\-\+•]/.test(s)) {
+      const bullet = s.startsWith('+') ? '+ ' : '- ';
+      const cleanContent = s.replace(/^[\s\-\+•]+/, '').replace(/\*\*+$/, '').trim();
+      return `${bullet}${cleanContent}`;
+    }
+
+    // 11. Dọn sạch dấu ** thừa ở cuối câu
     s = s.replace(/\.\*\*+$/g, '.');
     s = s.replace(/([^\*\n\r]+?)\*\*+$/g, '$1');
     s = s.replace(/\*\*+$/g, '');
@@ -555,11 +583,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     });
     clean = clean.replace(/(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
 
-    // Clean up any double-asterisk artifacts: "** : **", ":**", "** **"
-    clean = clean.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
-    clean = clean.replace(/([a-zA-Z0-9À-ỹ\)]+:)\s*\*\*(?!\w)/g, '$1');
-    clean = clean.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
-    clean = clean.replace(/\*\*\s*\*\*/g, '');
+    // Clean up any double-asterisk artifacts: "** : **", ":**", "** **" ONLY WITHIN A SINGLE LINE (không xóa \n làm dính dòng)
+    clean = clean.replace(/(\*\*[^\*\n\r]+:\*\*)[^\S\r\n]*\*\*/g, '$1');
+    clean = clean.replace(/([a-zA-Z0-9À-ỹ\)]+:)[^\S\r\n]*\*\*(?!\w)/g, '$1');
+    clean = clean.replace(/\*\*[^\S\r\n]*[:\-]?[^\S\r\n]*\*\*/g, '');
+    clean = clean.replace(/\*\*[^\S\r\n]*\*\*/g, '');
 
     // Clean NLS brackets: e.g. [1.1.TC1a] -> 1.1.TC1a (excluding image tags)
     clean = clean.replace(/\[(?!(?:HINHANHGOC|HINH|IMG|IMAGE|HÌNH))([\d\.]+[\.A-Z0-9a-z]+)\]/gi, '$1');
