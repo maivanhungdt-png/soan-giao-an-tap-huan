@@ -184,7 +184,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     s = s.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
     s = s.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
-    // 0. Bảng markdown: giữ nguyên toàn bộ cú pháp ô và hàng
+    // 0. Dọn sạch dòng rác chỉ chứa dấu +, -, *, •, $*$, $* $
+    if (/^[\s\+\-\*•_]+$/.test(s) || s === '*' || s === '$*$' || s === '$* $' || s === '**') {
+      return "";
+    }
+
+    // 0b. Bảng markdown: giữ nguyên toàn bộ cú pháp ô và hàng
     if (s.startsWith('|') || s.endsWith('|') || /^:?-+:?$/.test(s)) {
       return s;
     }
@@ -204,6 +209,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 3. Tiêu đề "* Hướng dẫn về nhà"
     if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(s)) {
       return `* Hướng dẫn về nhà:`;
+    }
+
+    // 3b. Các mục con của Hướng dẫn về nhà (- Ôn tập kiến thức:, - Bài tập về nhà:, - Chuẩn bị bài mới:)
+    const hwMatch = s.match(/^[\s\-\+•\*]*(?:\*\*)?(Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)(?::|\*\*)?[ \t]*(.*)$/i);
+    if (hwMatch) {
+      const label = hwMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const cleanLabel = label.endsWith(':') ? label : `${label}:`;
+      let rest = (hwMatch[2] || '').replace(/^\*\*+/, '').replace(/^[:\s\*\-]+/, '').replace(/\*\*+$/, '').trim();
+      return rest ? `- **${cleanLabel}** ${rest}` : `- **${cleanLabel}**`;
     }
 
     // 4. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu
@@ -240,7 +254,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
 
     // 8. Các đề mục bài tập, ví dụ, câu hỏi Cột 2 (Ví dụ 1:, Luyện tập 1:, Vận dụng 1:, Bài 1.1:, ĐS:, Lời giải:)
-    const col2LabelMatch = s.match(/^([\s\-\+•\*]*)(?:\*\*)?(Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|\?\d+|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)(?::|\*\*)?[ \t]*(.*)$/i);
+    const col2LabelMatch = s.match(/^([\s\-\+•\*]*)(?:\*\*)?(Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|\?\d+|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)(?::|\*\*)?[ \t]*(.*)$/i);
     if (col2LabelMatch) {
       const bullet = col2LabelMatch[1].includes('-') ? '- ' : (col2LabelMatch[1].includes('+') ? '+ ' : '');
       const label = col2LabelMatch[2].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
@@ -391,10 +405,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
 
-    // Xóa sạch tất cả các ký tự rác $*$, $* $, * |, | *, \* |, v.v.
+    // Xóa sạch tất cả các ký tự rác $*$, $* $, * |, | *, \* |, dòng rác +, -, *, •
     let clean = text.replace(/\$\s*\*\s*\$/g, '');
     clean = clean.replace(/\$\s*\*\s+/g, '');
     clean = clean.replace(/\\?\$\s*\\\*\s*\\?\$/g, '');
+    clean = clean.replace(/^[ \t]*[\+\-\*•][ \t]*$/gm, '');
     clean = clean.replace(/^\s*\*\s*\|\s*$/gm, '');
     clean = clean.replace(/^\s*\|\s*\*\s*$/gm, '');
     clean = clean.replace(/^\s*\*\s*$/gm, '');
@@ -1446,8 +1461,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           inTable = false;
         }
 
-        // 2. Empty Line Handling
-        if (!trimmed) {
+        // 2. Empty Line Handling & Garbage line handling (+, -, *, •)
+        if (!trimmed || trimmed === '+' || trimmed === '-' || trimmed === '*' || trimmed === '•' || trimmed === '$*$' || trimmed === '$* $') {
           continue;
         }
 

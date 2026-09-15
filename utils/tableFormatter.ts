@@ -470,36 +470,90 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   const isLuyenTap = /Luyện\s*tập/i.test(headerLine);
   const isVanDung = /Vận\s*dụng/i.test(headerLine);
 
+  // Chuẩn hóa và bổ sung nội dung nếu các bước bị rỗng tiêu đề
+  const enrichedCol1Items: string[] = [];
+  for (let idx = 0; idx < col1Items.length; idx++) {
+    let item = col1Items[idx].trim();
+    if (!item) continue;
+
+    // Bước 1
+    if (/^\*\*(?:-\s*)?Bước\s*1\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*1\b/i.test(item) && item.length < 38)) {
+      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
+      if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*[2-4]\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
+        item = isLuyenTap
+          ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi."
+          : (isVanDung
+            ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống cho HS thực hiện."
+            : "**Bước 1: Chuyển giao nhiệm vụ:** GV phổ biến nhiệm vụ học tập rõ ràng, cụ thể cho học sinh; yêu cầu HS quan sát, suy nghĩ cá nhân.");
+      }
+    }
+
+    // Bước 2
+    if (/^\*\*(?:-\s*)?Bước\s*2\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*2\b/i.test(item) && item.length < 38)) {
+      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
+      if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*[3-4]\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
+        item = isLuyenTap
+          ? "**Bước 2: Thực hiện nhiệm vụ:** HS làm bài tập vào vở ghi; GV quan sát, bao quát lớp, kịp thời hỗ trợ HS khó khăn."
+          : (isVanDung
+            ? "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức bài học để nghiên cứu, trao đổi nhóm hoặc hoàn thiện nhiệm vụ."
+            : "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm việc cá nhân / nhóm dưới sự hướng dẫn, quan sát của GV.");
+      }
+    }
+
+    // Bước 3
+    if (/^\*\*(?:-\s*)?Bước\s*3\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*3\b/i.test(item) && item.length < 38)) {
+      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
+      if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*4\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
+        item = isLuyenTap
+          ? "**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu và bổ sung."
+          : (isVanDung
+            ? "**Bước 3: Báo cáo, thảo luận:** HS nộp sản phẩm / đại diện trình bày phương án giải quyết; cả lớp cùng nhận xét, phản biện."
+            : "**Bước 3: Báo cáo, thảo luận:** Đại diện HS trình bày kết quả, các nhóm thảo luận, nhận xét và phản hồi ý kiến.");
+      }
+    }
+
+    // Bước 4
+    if (/^\*\*(?:-\s*)?Bước\s*4\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*4\b/i.test(item) && item.length < 38)) {
+      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
+      if (!next || /^\*Tích\s*hợp/i.test(next)) {
+        item = isLuyenTap
+          ? "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả, chuẩn hóa lời giải chi tiết và chốt phương pháp giải."
+          : (isVanDung
+            ? "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá tinh thần tự học, khả năng vận dụng sáng tạo của học sinh."
+            : "**Bước 4: Kết luận, nhận định:** GV tổng kết, đánh giá quá trình học tập, chính xác hóa câu trả lời và chốt kiến thức.");
+      }
+    }
+
+    enrichedCol1Items.push(item);
+  }
+
   // If col1 is missing 4 steps, generate standard pedagogical 4 steps
-  const hasStep1 = col1Items.some(l => /Bước\s*1/i.test(l));
-  const hasStep2 = col1Items.some(l => /Bước\s*2/i.test(l));
-  const hasStep3 = col1Items.some(l => /Bước\s*3/i.test(l));
-  const hasStep4 = col1Items.some(l => /Bước\s*4/i.test(l));
+  const hasStep1 = enrichedCol1Items.some(l => /Bước\s*1/i.test(l));
+  const hasStep2 = enrichedCol1Items.some(l => /Bước\s*2/i.test(l));
+  const hasStep3 = enrichedCol1Items.some(l => /Bước\s*3/i.test(l));
+  const hasStep4 = enrichedCol1Items.some(l => /Bước\s*4/i.test(l));
 
   if (!hasStep1 || !hasStep2 || !hasStep3 || !hasStep4) {
     if (isLuyenTap) {
-      col1Items.unshift(
-        "**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi.",
-        "**Bước 2: Thực hiện nhiệm vụ:** HS làm bài tập vào vở ghi; GV quan sát, bao quát lớp, kịp thời hỗ trợ HS khó khăn.",
-        "**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu.",
-        "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả, chuẩn hóa lời giải chi tiết và chốt phương pháp giải."
-      );
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS làm bài tập vào vở ghi; GV quan sát, bao quát lớp, kịp thời hỗ trợ HS khó khăn.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả, chuẩn hóa lời giải chi tiết và chốt phương pháp giải.");
     } else if (isVanDung) {
-      col1Items.unshift(
-        "**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống cho HS thực hiện.",
-        "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức bài học để nghiên cứu, trao đổi nhóm hoặc hoàn thiện nhiệm vụ.",
-        "**Bước 3: Báo cáo, thảo luận:** HS nộp sản phẩm / đại diện trình bày phương án giải quyết; cả lớp cùng nhận xét, phản biện.",
-        "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá tinh thần tự học, khả năng vận dụng sáng tạo của học sinh."
-      );
-    } else if (col1Items.length === 0) {
-      col1Items.push(
-        "**Bước 1: Chuyển giao nhiệm vụ:** GV phổ biến nhiệm vụ học tập rõ ràng, cụ thể cho học sinh.",
-        "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm việc cá nhân / nhóm dưới sự hướng dẫn, quan sát của GV.",
-        "**Bước 3: Báo cáo, thảo luận:** Đại diện HS trình bày kết quả, các nhóm thảo luận, nhận xét và phản hồi.",
-        "**Bước 4: Kết luận, nhận định:** GV tổng kết, đánh giá quá trình học tập và chính xác hóa kiến thức."
-      );
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống cho HS thực hiện.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức bài học để nghiên cứu, trao đổi nhóm hoặc hoàn thiện nhiệm vụ.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** HS nộp sản phẩm / đại diện trình bày phương án giải quyết; cả lớp cùng nhận xét, phản biện.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá tinh thần tự học, khả năng vận dụng sáng tạo của học sinh.");
+    } else {
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV phổ biến nhiệm vụ học tập rõ ràng, cụ thể cho học sinh.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm việc cá nhân / nhóm dưới sự hướng dẫn, quan sát của GV.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện HS trình bày kết quả, các nhóm thảo luận, nhận xét và phản hồi.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV tổng kết, đánh giá quá trình học tập và chính xác hóa kiến thức.");
     }
   }
+
+  col1Items.length = 0;
+  col1Items.push(...enrichedCol1Items);
 
   // If col2 is empty, generate standard result placeholder
   if (col2Items.length === 0) {

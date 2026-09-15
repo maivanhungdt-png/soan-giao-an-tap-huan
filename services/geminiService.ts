@@ -595,7 +595,7 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       **d) Tổ chức thực hiện:**
       | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
       | :--- | :--- |
-      | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
+      | Gồm đầy đủ 4 bước (BẮT BUỘC MỖI BƯỚC ĐỀU PHẢI CÓ LỜI DẪN NỘI DUNG CỤ THỂ, TUYỆT ĐỐI KHÔNG ĐỂ TRỐNG BƯỚC 3 HOẶC BƯỚC 4):<br>**Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, yêu cầu cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS tích cực thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [Đại diện HS báo cáo kết quả, các HS khác theo dõi nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV nhận xét, chính xác hóa kết quả và chốt kiến thức trọng tâm] | Toàn bộ sản phẩm, khung kiến thức, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
     `}
     - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động, BẮT BUỘC bắt đầu bằng dấu * ở đầu câu (ví dụ: *Tích hợp năng lực số: ..., *Tích hợp năng lực AI: ..., *HS khuyết tật: ...).
     - KHÔNG chia thời lượng từng hoạt động.
