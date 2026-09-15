@@ -236,9 +236,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return `*${cleanInt}`;
     }
 
-    // 6. Xóa bỏ các ký tự ** bị thừa ở cuối dòng (ví dụ: "bằng nhau.**" -> "bằng nhau.")
+    // 6. Xóa bỏ các ký tự ** bị thừa ở cuối dòng (ví dụ: "bằng nhau.**" -> "bằng nhau.", "kiến thức.**" -> "kiến thức.")
     s = s.replace(/(\*\*[^\*\n\r]+:\*\*)\s*\*\*/g, '$1');
     s = s.replace(/([a-zA-Z0-9À-ỹ\)]+)\.\*\*/g, '$1.');
+    s = s.replace(/\.\*\*+$/g, '.');
+    s = s.replace(/([^\*\n\r]+?)\*\*+$/g, '$1');
+    s = s.replace(/\*\*+$/g, '');
 
     return s;
   };

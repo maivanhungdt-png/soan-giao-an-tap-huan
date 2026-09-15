@@ -190,12 +190,17 @@ export const generateNLSLessonPlan = async (
   const cleanContent = optimizeTextForTokenSaving(info.content);
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
-  // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
+  // Cấu hình danh sách Model Google Gemini đa dạng với cơ chế tự động fallback thông minh
   const models = [
     "gemini-2.5-flash",
-    "gemini-2.5-pro",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-pro",
     "gemini-1.5-pro",
     "gemini-2.0-flash-lite"
   ];
