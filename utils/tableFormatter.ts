@@ -9,7 +9,7 @@
 export const isActivityHeader = (line: string): boolean => {
   const trimmed = line.trim();
   if (!trimmed) return false;
-  if (trimmed.startsWith('|') || trimmed.endsWith('|')) return false;
+  if (trimmed.startsWith('|') && trimmed.endsWith('|')) return false;
   if (trimmed === '*' || trimmed === '$*$' || trimmed === '$* $' || trimmed === '**') return false;
   const clean = trimmed
     .replace(/^[\*#\s\-\+•_]+/, '')
@@ -18,7 +18,14 @@ export const isActivityHeader = (line: string): boolean => {
   if (/^Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)/i.test(clean)) return false;
   if (/^Kết\s*quả\s*hoạt\s*động/i.test(clean)) return false;
   if (/^Tổ\s*chức\s*thực\s*hiện/i.test(clean)) return false;
-  return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|:[^:\n]*|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean);
+  if (/^[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức|Yêu\s*cầu)/i.test(clean)) return false;
+  if (/^(?:Bước\s*[1-4]|\*?Tích\s*hợp|HS\s*khuyết\s*tật)/i.test(clean)) return false;
+
+  return (
+    /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|:[^:\n]*|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean) ||
+    /^(?:\d+[\.\)]\s*)?(?:Khởi\s*động|Luyện\s*tập|Vận\s*dụng)\s*[:\-\.]/i.test(clean) ||
+    /^[1-4]\.\s*(?:Khởi\s*động|Hình\s*thành\s*kiến\s*thức|Luyện\s*tập|Vận\s*dụng)\b/i.test(clean)
+  );
 };
 
 // Helper: Check if a line is a Parent Container Header (e.g., "2. Hoạt động 2: Hình thành kiến thức mới")
@@ -117,7 +124,6 @@ export const splitAllMergedHeadings = (text: string): string => {
     s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, ':\n\n');
 
     // 1. Tách các tiêu đề lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học)
-    // Tách cả khi bị dính chữ phía trước hoặc phía sau: "học1. Hoạt động 1" -> "học\n\n1. Hoạt động 1"
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
@@ -126,7 +132,6 @@ export const splitAllMergedHeadings = (text: string): string => {
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
 
     // 3. Tách các Hoạt động (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., Hoạt động 2.2: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng)
-    // Tách trọn vẹn tiêu đề hoạt động bao gồm cả dấu hai chấm và tên hoạt động, dừng lại trước a) Mục tiêu:
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[\s\S]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)/gmi, (_m, p1) => {
       let c = p1.replace(/\*/g, '').replace(/^#+\s*/, '').trim();
       if (c.startsWith('**') && c.endsWith('**')) c = c.slice(2, -2).trim();
@@ -151,7 +156,6 @@ export const splitAllMergedHeadings = (text: string): string => {
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)(?:\*\*)?/gmi, '\n**2. Học sinh:**\n');
 
     // 7. Tách a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-    // Tách riêng biệt ra 1 dòng hoàn toàn mới, không để dính liền vào tiêu đề hoạt động
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**a) Mục tiêu:** ');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**b) Nội dung:** ');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**c) Sản phẩm:** ');
@@ -183,6 +187,39 @@ export const splitAllMergedHeadings = (text: string): string => {
   let result = processedLines.join('\n');
   result = result.replace(/\n{3,}/g, '\n\n');
   return result;
+};
+
+// Helper: Chuyển đổi một nhóm các dòng bảng dữ liệu nhiều cột thành HTML Table an toàn
+const convertMarkdownSubTableToHtml = (tableLines: string[]): string => {
+  if (tableLines.length === 0) return '';
+  const parsedRows: string[][] = [];
+
+  for (const line of tableLines) {
+    if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(line.trim()) || /^:?-+:?$/.test(line.trim())) {
+      continue;
+    }
+    const parts = line.split('|').map(p => p.trim());
+    if (line.trim().startsWith('|') && parts.length > 0 && parts[0] === '') parts.shift();
+    if (line.trim().endsWith('|') && parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+    if (parts.length > 0) {
+      parsedRows.push(parts);
+    }
+  }
+
+  if (parsedRows.length === 0) return '';
+
+  let html = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
+  parsedRows.forEach((row, rIdx) => {
+    html += `<tr>`;
+    row.forEach(cell => {
+      const tag = rIdx === 0 ? 'th' : 'td';
+      const bg = rIdx === 0 ? 'background-color: #f1f5f9; font-weight: bold;' : '';
+      html += `<${tag} style="border: 1px solid black; padding: 4px 6px; text-align: center; ${bg}">${cell}</${tag}>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</table>`;
+  return html;
 };
 
 /**
@@ -244,7 +281,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       break;
     }
 
-    // Ignore standalone markdown table header / separator lines in outer parse
+    // Ignore standalone markdown 2-column table header / separator lines in outer parse
     if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(trimmed)) {
       state = 'tochuc';
       continue;
@@ -319,26 +356,41 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   // Parse tochucRawLines into Col 1 (Teacher/Student) and Col 2 (Products/Math solutions/Images)
   const col1Items: string[] = [];
   const col2Items: string[] = [];
-
   let currentTargetCol: 1 | 2 = 1;
 
   for (let i = 0; i < tochucRawLines.length; i++) {
     let line = tochucRawLines[i].trim();
     if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '* |' || line === '| *') continue;
 
-    // Check if line contains a markdown table pipe separator
-    if (line.includes('|')) {
-      const parts = line.split('|').map(p => p.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        // Left is col1, right is col2
-        const left = parts[0].replace(/^[:\-\s]+$/, '').trim();
-        const right = parts.slice(1).join(' ').replace(/^[:\-\s]+$/, '').trim();
-        if (left && !left.startsWith(':---') && left !== '*' && left !== '$*$') col1Items.push(left);
-        if (right && !right.startsWith(':---') && right !== '*' && right !== '$*$') col2Items.push(right);
-        continue;
-      } else if (parts.length === 1) {
-        line = parts[0];
+    // Kiểm tra nếu là nhóm các dòng bảng con nhiều cột (Inner Multi-column Markdown Table)
+    if (line.startsWith('|') && line.endsWith('|') && !line.includes('Hoạt động của giáo viên')) {
+      const subTableLines: string[] = [line];
+      while (i + 1 < tochucRawLines.length && tochucRawLines[i + 1].trim().startsWith('|') && tochucRawLines[i + 1].trim().endsWith('|')) {
+        i++;
+        subTableLines.push(tochucRawLines[i].trim());
       }
+
+      // Kiểm tra số cột của bảng con
+      const firstRowCells = subTableLines[0].split('|').map(p => p.trim()).filter(Boolean);
+      if (firstRowCells.length === 2 && (/Bước\s*[1-4]/i.test(firstRowCells[0]) || /GV|HS|Giáo\s*viên/i.test(firstRowCells[0]))) {
+        // Đây là 1 bảng 2 cột chuẩn: Cột 0 là Col1, Cột 1 là Col2
+        subTableLines.forEach(stLine => {
+          const cells = stLine.split('|').map(p => p.trim()).filter(Boolean);
+          if (cells.length >= 2) {
+            const left = cells[0].replace(/^[:\-\s]+$/, '').trim();
+            const right = cells.slice(1).join(' ').replace(/^[:\-\s]+$/, '').trim();
+            if (left && !left.startsWith(':---')) col1Items.push(left);
+            if (right && !right.startsWith(':---')) col2Items.push(right);
+          }
+        });
+      } else {
+        // Đây là bảng dữ liệu toán học / bảng nhiều cột -> chuyển đổi thành HTML Table và đẩy vào Cột 2
+        const htmlTable = convertMarkdownSubTableToHtml(subTableLines);
+        if (htmlTable) {
+          col2Items.push(htmlTable);
+        }
+      }
+      continue;
     }
 
     // Clean stray leading/trailing pipes
@@ -475,7 +527,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       .filter(l => Boolean(l) && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *')
       .join('<br>')
       .replace(/\r?\n/g, '<br>')
-      .replace(/\|/g, ' ');
+      .replace(/(?<!<[^>]*)\|(?![^<]*>)/g, ' '); // Thay | thành space nếu không nằm trong thẻ HTML
   };
 
   // Helper to format section a, b, c with guaranteed clean bold prefix

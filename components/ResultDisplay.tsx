@@ -416,18 +416,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Xóa sạch toàn bộ thẻ HTML rác / dangling tags (</span>, <span...>, <font...>, </font>) gây lỗi thừa chữ
     clean = clean.replace(/<\/?(?:span|font|u)[^>]*>/gi, '');
 
-    // Đảm bảo tất cả hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
-    if (format !== 'no_table') {
-      clean = ensureAllActivitiesInTwoColumnTable(clean);
-    }
-
-    // Xóa lần nữa các dòng rác sau khi qua table formatter
-    clean = clean.replace(/\$\s*\*\s*\$/g, '');
-    clean = clean.replace(/\$\s*\*\s+/g, '');
-    clean = clean.replace(/^\s*\*\s*\|\s*$/gm, '');
-    clean = clean.replace(/^\s*\|\s*\*\s*$/gm, '');
-    clean = clean.replace(/^\s*\*\s*$/gm, '');
-
     // 0. Pre-clean and normalize image tags
     clean = clean.replace(/\[\s*H(?:ÌNH|INH)[\s_*<i></i>\/\\]*(?:ẢNH|ANH|VẼ|VE)?[\s_*<i></i>\/\\]*(?:GỐC|GOC)?[\s_*<i></i>\/\\]*[:_#\-]?\s*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
     clean = clean.replace(/\[\s*IMG[\s_*#\-]*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
@@ -628,7 +616,23 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       }
     }
     const joinedClean = lines.join('\n').trim();
-    return autoConvertPlainTextToLatex(joinedClean);
+
+    // 21. Tự động chuyển đổi công thức toán học thô sang LaTeX
+    let convertedText = autoConvertPlainTextToLatex(joinedClean);
+
+    // 22. BƯỚC QUAN TRỌNG NHẤT: Đóng gói 100% tất cả hoạt động vào bảng 2 cột sau khi đã chuẩn hóa toàn bộ
+    if (format !== 'no_table') {
+      convertedText = ensureAllActivitiesInTwoColumnTable(convertedText);
+    }
+
+    // Dọn sạch dòng rác sau cùng
+    convertedText = convertedText.replace(/\$\s*\*\s*\$/g, '');
+    convertedText = convertedText.replace(/\$\s*\*\s+/g, '');
+    convertedText = convertedText.replace(/^\s*\*\s*\|\s*$/gm, '');
+    convertedText = convertedText.replace(/^\s*\|\s*\*\s*$/gm, '');
+    convertedText = convertedText.replace(/^\s*\*\s*$/gm, '');
+
+    return convertedText;
   };
 
   // Kế hoạch bài dạy an toàn đã được chuẩn hóa
