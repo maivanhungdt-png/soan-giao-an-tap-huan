@@ -189,6 +189,38 @@ export const splitAllMergedHeadings = (text: string): string => {
   return result;
 };
 
+// Helper: Smart split for markdown tables that ignores pipes inside math formulas ($...$)
+export const smartSplitTableLine = (line: string): string[] => {
+  const cells: string[] = [];
+  let currentCell = '';
+  let inMath = false;
+  let inDoubleMath = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '\\' && nextChar === '|') {
+      currentCell += '|';
+      i++; // skip next |
+    } else if (char === '$' && nextChar === '$') {
+      inDoubleMath = !inDoubleMath;
+      currentCell += '$$';
+      i++; // skip next $
+    } else if (char === '$' && !inDoubleMath) {
+      inMath = !inMath;
+      currentCell += '$';
+    } else if (char === '|' && !inMath && !inDoubleMath) {
+      cells.push(currentCell);
+      currentCell = '';
+    } else {
+      currentCell += char;
+    }
+  }
+  cells.push(currentCell);
+  return cells;
+};
+
 // Helper: Chuyển đổi một nhóm các dòng bảng dữ liệu nhiều cột thành HTML Table an toàn
 const convertMarkdownSubTableToHtml = (tableLines: string[]): string => {
   if (tableLines.length === 0) return '';
@@ -198,7 +230,7 @@ const convertMarkdownSubTableToHtml = (tableLines: string[]): string => {
     if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(line.trim()) || /^:?-+:?$/.test(line.trim())) {
       continue;
     }
-    const parts = line.split('|').map(p => p.trim());
+    const parts = smartSplitTableLine(line).map(p => p.trim());
     if (line.trim().startsWith('|') && parts.length > 0 && parts[0] === '') parts.shift();
     if (line.trim().endsWith('|') && parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
     if (parts.length > 0) {
@@ -208,13 +240,16 @@ const convertMarkdownSubTableToHtml = (tableLines: string[]): string => {
 
   if (parsedRows.length === 0) return '';
 
-  let html = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
+  const maxCols = Math.max(...parsedRows.map(r => r.length), 1);
+  const colPercent = Math.max(Math.floor(100 / maxCols), 15);
+
+  let html = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 11pt; margin: 8px 0;">`;
   parsedRows.forEach((row, rIdx) => {
     html += `<tr>`;
     row.forEach(cell => {
       const tag = rIdx === 0 ? 'th' : 'td';
       const bg = rIdx === 0 ? 'background-color: #f1f5f9; font-weight: bold;' : '';
-      html += `<${tag} style="border: 1px solid black; padding: 4px 6px; text-align: center; ${bg}">${cell}</${tag}>`;
+      html += `<${tag} style="border: 1px solid black; padding: 6px 8px; text-align: center; width: ${colPercent}%; ${bg}">${cell}</${tag}>`;
     });
     html += `</tr>`;
   });
@@ -362,7 +397,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     let line = tochucRawLines[i].trim();
     if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '* |' || line === '| *') continue;
 
-    // Kiểm tra nếu là nhóm các dòng bảng con nhiều cột (Inner Multi-column Markdown Table)
+    // Kiểm tra nếu là nhóm các dòng bảng markdown (| ... |)
     if (line.startsWith('|') && line.endsWith('|') && !line.includes('Hoạt động của giáo viên')) {
       const subTableLines: string[] = [line];
       while (i + 1 < tochucRawLines.length && tochucRawLines[i + 1].trim().startsWith('|') && tochucRawLines[i + 1].trim().endsWith('|')) {
@@ -370,21 +405,48 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
         subTableLines.push(tochucRawLines[i].trim());
       }
 
-      // Kiểm tra số cột của bảng con
-      const firstRowCells = subTableLines[0].split('|').map(p => p.trim()).filter(Boolean);
-      if (firstRowCells.length === 2 && (/Bước\s*[1-4]/i.test(firstRowCells[0]) || /GV|HS|Giáo\s*viên/i.test(firstRowCells[0]))) {
-        // Đây là 1 bảng 2 cột chuẩn: Cột 0 là Col1, Cột 1 là Col2
+      // Kiểm tra xem bảng này có chứa các bước sư phạm (Bước 1-4, GV, HS, Nhiệm vụ, Tích hợp) hay không
+      const hasPedagogicalContent = subTableLines.some(st => /Bước\s*[1-4]|(?:GV|HS|Giáo\s*viên|Học\s*sinh)\b|\*?Tích\s*hợp/i.test(st));
+
+      if (hasPedagogicalContent) {
+        // Đây là bảng hoạt động dạy học của GV và HS -> tách các bước sang Cột 1 và bài tập/lời giải sang Cột 2
         subTableLines.forEach(stLine => {
-          const cells = stLine.split('|').map(p => p.trim()).filter(Boolean);
-          if (cells.length >= 2) {
+          if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(stLine) || /^:?-+:?$/.test(stLine)) return;
+          const cells = smartSplitTableLine(stLine).map(p => p.trim());
+          if (stLine.trim().startsWith('|') && cells.length > 0 && cells[0] === '') cells.shift();
+          if (stLine.trim().endsWith('|') && cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+          if (cells.length === 0) return;
+
+          if (cells.length === 2) {
             const left = cells[0].replace(/^[:\-\s]+$/, '').trim();
-            const right = cells.slice(1).join(' ').replace(/^[:\-\s]+$/, '').trim();
+            const right = cells[1].replace(/^[:\-\s]+$/, '').trim();
             if (left && !left.startsWith(':---')) col1Items.push(left);
             if (right && !right.startsWith(':---')) col2Items.push(right);
+          } else if (cells.length > 2) {
+            const leftParts: string[] = [];
+            const rightParts: string[] = [];
+            cells.forEach(c => {
+              const trimmedC = c.replace(/^[:\-\s]+$/, '').trim();
+              if (!trimmedC || trimmedC.startsWith(':---')) return;
+              if (/^(?:\*\*|\*|_)?(?:Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh|Nhiệm\s*vụ|\*?Tích\s*hợp)/i.test(trimmedC)) {
+                leftParts.push(trimmedC);
+              } else {
+                rightParts.push(trimmedC);
+              }
+            });
+            if (leftParts.length > 0) col1Items.push(leftParts.join('<br>'));
+            if (rightParts.length > 0) col2Items.push(rightParts.join('<br>'));
+          } else if (cells.length === 1) {
+            const single = cells[0].trim();
+            if (/^(?:\*\*|\*|_)?(?:Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh|Nhiệm\s*vụ|\*?Tích\s*hợp)/i.test(single)) {
+              col1Items.push(single);
+            } else {
+              col2Items.push(single);
+            }
           }
         });
       } else {
-        // Đây là bảng dữ liệu toán học / bảng nhiều cột -> chuyển đổi thành HTML Table và đẩy vào Cột 2
+        // Đây là bảng số liệu toán học thực tế (ví dụ: bảng giá trị x, y, bảng tần số)
         const htmlTable = convertMarkdownSubTableToHtml(subTableLines);
         if (htmlTable) {
           col2Items.push(htmlTable);

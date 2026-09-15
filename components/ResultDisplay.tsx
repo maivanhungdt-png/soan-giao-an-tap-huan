@@ -27,13 +27,20 @@ import {
   ImportedXmlComponent,
   Footer,
   ExternalHyperlink,
-  ImageRun
+  ImageRun,
+  Math as DocxMath,
+  MathRun,
+  MathFraction,
+  MathSuperScript,
+  MathSubScript,
+  MathRadical
 } from 'docx';
 import FileSaver from 'file-saver';
 import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
-import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings } from '../utils/tableFormatter';
+import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings, smartSplitTableLine } from '../utils/tableFormatter';
+import { parseLatexToDocxMath, cleanLatexSymbols } from '../utils/mathDocxParser';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -690,13 +697,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         parts.forEach(part => {
           if (!part) return;
 
-          // Giữ nguyên $...$ cho công thức toán học để tương thích 100% OMML và MathType
-          if (part.startsWith('$$') && part.endsWith('$$')) {
-            segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
-            return;
-          }
-          if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
-            segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
+          // Render công thức toán học thành phần tử docx.Math chuẩn (OMML Word Equation)
+          if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
+            try {
+              const mathElem = parseLatexToDocxMath(part);
+              if (mathElem) {
+                segRuns.push(mathElem);
+                return;
+              }
+            } catch (mathErr) {
+              console.warn("Lỗi parse công thức toán sang docx Math:", mathErr);
+            }
+            segRuns.push(new TextRun({ text: ` ${cleanLatexSymbols(part)} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
             return;
           }
 
@@ -750,6 +762,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
             unescapedSeg = unescapedSeg.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, '');
             unescapedSeg = repairRacToFrac(unescapedSeg);
+            unescapedSeg = cleanLatexSymbols(unescapedSeg);
 
             // Use inherited color if available
             const runOptions: any = {
@@ -790,19 +803,22 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       let innerText = part;
       let isMatched = false;
 
-
       // 1. If it is an image tag, render it directly as an image without breaking into italics
       if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
         (part.startsWith('![') && part.includes(')'))) {
         runs.push(...createTextRuns(part, matchStyles));
         return;
-      } else if (part.startsWith('$$') && part.endsWith('$$')) {
-        // Giữ nguyên $...$ cho công thức MathType / OMML
-        runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
-        return;
-      } else if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
-        // Giữ nguyên $...$ cho công thức MathType / OMML
-        runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
+      } else if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
+        try {
+          const mathElem = parseLatexToDocxMath(part);
+          if (mathElem) {
+            runs.push(mathElem);
+            return;
+          }
+        } catch (mathErr) {
+          console.warn("Lỗi parse công thức toán sang docx Math:", mathErr);
+        }
+        runs.push(new TextRun({ text: ` ${cleanLatexSymbols(part)} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
         return;
       } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00') || lowerPart.includes('#dc2626'))) {
         innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
@@ -842,38 +858,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return runs;
   };
 
-  // Helper: Smart split for markdown tables that ignores pipes inside math formulas ($...$)
-  const smartSplitTableLine = (line: string): string[] => {
-    const cells: string[] = [];
-    let currentCell = '';
-    let inMath = false;
-    let inDoubleMath = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-
-      if (char === '\\' && nextChar === '|') {
-        currentCell += '|';
-        i++; // skip next |
-      } else if (char === '$' && nextChar === '$') {
-        inDoubleMath = !inDoubleMath;
-        currentCell += '$$';
-        i++; // skip next $
-      } else if (char === '$' && !inDoubleMath) {
-        inMath = !inMath;
-        currentCell += '$';
-      } else if (char === '|' && !inMath && !inDoubleMath) {
-        cells.push(currentCell);
-        currentCell = '';
-      } else {
-        currentCell += char;
-      }
-    }
-    cells.push(currentCell);
-    return cells;
-  };
-
   const parseHtmlTableToDocx = (htmlTable: string, baseStyles: any): Table => {
     let docxRows: TableRow[] = [];
     try {
@@ -899,6 +883,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         if (cells.length === 0) return null;
 
         const isHeaderRow = cells.some(c => c.tagName === 'TH') || rowIndex === 0;
+        const numCols = Math.max(cells.length, 1);
+        const colPercent = Math.max(Math.floor(100 / numCols), 15);
 
         return new TableRow({
           children: cells.map(td => {
@@ -915,17 +901,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             const text = td.innerHTML || "";
             return new TableCell({
               children: parseDocxCellContent(text.trim(), cellStyles, isHeaderRow) as any,
+              width: { size: colPercent, type: WidthType.PERCENTAGE },
               borders: {
                 top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
               },
-              ...(td.getAttribute("width") || htmlTd.style.width ? {
-                width: (td.getAttribute("width") || htmlTd.style.width).includes("%")
-                  ? { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0"), type: WidthType.PERCENTAGE }
-                  : { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0") * 15, type: WidthType.DXA }
-              } : {})
             });
           })
         });
@@ -1002,6 +984,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (rawCells.length === 0) return '';
     if (rawCells.length === 1) return rawCells[0] || '';
 
+    // If cells contain pedagogical content (Bước 1-4, GV, HS), just join with <br>
+    const hasPedagogical = rawCells.some(c => /Bước\s*[1-4]|(?:GV|HS|Giáo\s*viên|Học\s*sinh)\b|\*?Tích\s*hợp/i.test(c));
+    if (hasPedagogical) {
+      return rawCells.filter(Boolean).join('<br>');
+    }
+
     // Check if there are markdown table separator/alignment tokens (:---, ---, :---:)
     const sepIndices: number[] = [];
     rawCells.forEach((c, idx) => {
@@ -1038,10 +1026,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
         const afterText = rawCells.slice(dataIdx).join(' ').trim();
 
-        let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
-        htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 4px; text-align: center; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
+        const maxCols = Math.max(subHeaders.length, 1);
+        const colPercent = Math.max(Math.floor(100 / maxCols), 15);
+
+        let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 11pt; margin: 6px 0;">`;
+        htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 6px 8px; text-align: center; width: ${colPercent}%; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
         subRows.forEach(r => {
-          htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 4px; text-align: center;">${d.trim()}</td>`).join('')}</tr>`;
+          htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 6px 8px; text-align: center; width: ${colPercent}%;">${d.trim()}</td>`).join('')}</tr>`;
         });
         htmlSubTable += `</table>`;
 
@@ -1220,6 +1211,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         if (cells.length > maxCols) maxCols = cells.length;
       });
 
+      const numCols = Math.max(maxCols, 1);
+      const colPercent = Math.max(Math.floor(100 / numCols), 15);
+
       const rows = parsedRows.map((cells, rowIndex) => {
         while (cells.length < maxCols) {
           cells.push('');
@@ -1238,6 +1232,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
             return new TableCell({
               children: parseDocxCellContent(cellText, baseStyles, isHeaderRow) as any,
+              width: { size: colPercent, type: WidthType.PERCENTAGE },
               borders: {
                 top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
