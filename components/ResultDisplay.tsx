@@ -139,27 +139,38 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
              .replace(/\\left\s*\\\{/g, '{')
              .replace(/\\right\s*\\\}/g, '}');
 
-    // 1. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
+    // 1. Tách nhãn chữ cái đầu dòng dính công thức / phân số: "a)\frac..." -> "a) \frac...", "b)(-15..." -> "b) (-15..."
+    res = res.replace(/(^|[\s\n\r<|])([a-e]\))([^\s\n\r|])/gi, '$1$2 $3');
+
+    // 2. Tách từ tiếng Việt dính biến số đứng một mình hoặc có số mũ / dấu bằng / phép toán
+    // Ví dụ: thứcM -> thức M, thứcNthỏa mãn -> thức N thỏa mãn, Thayx -> Thay x, 2vào -> 2 vào, thứcP -> thức P, vớix -> với x
+    res = res.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc|Thay|thay|Tính|tính|Tìm|tìm|chia|bằng|nhân|cộng|trừ|vào)\s*([xyzabtuvcmnXYZABTUVCMSNPQ])(?=\b|[^\w\sà-ỹÀ-Ỹ]|$)/g, '$1 $2');
+    
+    // Tách biến số dính từ tiếng Việt phía sau: Nthỏa -> N thỏa, Pta -> P ta, Ax -> A x, Blà -> B là, xcó -> x có
+    res = res.replace(/\b([xyzabtuvcmnXYZABTUVCMSNPQ])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]*)\b/g, '$1 $2');
+
+    // Tách từ tiếng Việt dính trước biến số: thứcM -> thức M, thứcN -> thức N, thứcP -> thức P, Thayx -> Thay x, vớix -> với x, chiaB -> chia B, trongA -> trong A, củaB -> của B
+    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(?<!SGK|VBT|SBT|THCS|GDPT|BGDĐT|NLS|GDQP|STEM|AI|DOCX|HTML|PDF|URL|IMG|DSMT4)([XYZABTUVCMSNPQ])\b/g, '$1 $2');
+
+    // Tách số/lũy thừa/phép tính dính từ tiếng Việt: y^2không -> y^2 không, 3x^2yvì -> 3x^2y vì, 9xy^4là -> 9xy^4 là, -3x^2ylà -> -3x^2y là, 2vào -> 2 vào, 1là -> 1 là
+    res = res.replace(/(\^[0-9a-zA-Z{}]+|[0-9a-zA-Z\)])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
+
+    // Tách từ tiếng Việt dính trước số/phép tính/dấu ngoặc: chia-3x -> chia -3x, là(9x -> là (9x, được:P -> được: P
+    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]{2,})([0-9\(\[\-])/g, '$1 $2');
+
+    // Tách dấu đóng ngoặc dính chữ tiếng Việt: 3x^2y)thì -> 3x^2y) thì, 2)vào -> 2) vào
+    res = res.replace(/(\))([a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
+
+    // Tách dấu phẩy / dấu hai chấm / chấm phẩy dính chữ/số/biến: ,y -> , y, :M -> : M, ;y -> ; y, ,y= -> , y =
+    res = res.replace(/([,;:])([^\s\n\r0-9,;:|])/g, '$1 $2');
+
+    // 3. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
     res = res.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
 
-    // 2. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
+    // 4. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
     res = res.replace(/(\$[^\$\n\r]+?\$)([a-zA-Z0-9À-ỹ\(])/g, (_m, p1, p2) => `${p1} ${p2}`);
 
-    // 3. Tách từ tiếng Việt dính sát vào biến/lũy thừa/phép tính: "thứcx^2" -> "thức x^2", "thức2x" -> "thức 2x"
-    res = res.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc)\s*([xyzabtuvcmnXYZABTUVCMSNPQ]\b|[xyzabtuvcmnXYZABTUVCMSNPQ]\^)/gi, '$1 $2');
-    res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuvcmnXYZABTUVCMSNPQ]\^[0-9a-zA-Z{}]+|\d+[a-zA-Z]\^[0-9a-zA-Z]+|\d+[xyzabtuv]\b)/g, '$1 $2');
-    res = res.replace(/\b(đa thức|đơn thức|biểu thức|phân thức|tập hợp|cho|tại|với)\s*([A-Z]\b)/gi, '$1 $2');
-    res = res.replace(/([0-9a-zA-Z])\s+([xyzabtuv])\^/g, '$1$2^');
-    res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuv]\^|\d+[a-zA-Z])/g, '$1 $2');
-    res = res.replace(/([a-zA-ZÀ-ỹ])(\d+[a-zA-Z^])/g, '$1 $2');
-
-    // 4. Tách dấu chấm lửng dính chữ: "...là" -> "... là", "...những" -> "... những"
-    res = res.replace(/(\.{2,}|…)([a-zA-ZÀ-ỹ])/g, '$1 $2');
-
-    // 5. Tách dấu chấm phẩy dính công thức/chữ: ";-5" -> "; -5", ";2x" -> "; 2x"
-    res = res.replace(/;([^\s\n\r])/g, '; $1');
-
-    // 6. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
+    // 5. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
     res = res.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
     res = res.replace(/\$\s+([^$\n\r]+?)\$/g, (_m, p1) => `$${p1.trim()}$`);
     res = res.replace(/\$([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
@@ -179,9 +190,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Bắt buộc phải có các dấu hiệu toán học: lệnh LaTeX, dấu =, +, -, /, ^ hoặc biến số toán học
     const hasMathFeatures = (
       /\\(?:frac|sqrt|left|right|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|gamma|pi|Delta|begin|end|widehat|vec|overrightarrow)/.test(trimmed) ||
-      /[=+\-\/\^]/.test(trimmed) ||
+      /[=+\-\/\^:]/.test(trimmed) ||
       /\b[xyzabtuvcmnXYZABTUVCMSNPQ]\^[0-9a-zA-Z{}]+\b/.test(trimmed) ||
-      /\b\d+[xyzabtuvcmnXYZABTUVCMSNPQ]+\b/.test(trimmed)
+      /\b\d+[xyzabtuvcmnXYZABTUVCMSNPQ]+\b/.test(trimmed) ||
+      /^[A-Za-z]\s*=/.test(trimmed) ||
+      /^\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\)/.test(trimmed)
     );
 
     if (!hasMathFeatures) return false;
@@ -198,8 +211,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (!s) return "";
 
     // Dọn sạch các lỗi $DoS hoặc $ DoS
-    s = s.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
-    s = s.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
+    s = s.replace(/\$DoS\s*([^$]+?)\$\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
+    s = s.replace(/\$DoS\s*([^$]+?)\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
     s = s.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // 0. Dọn sạch dòng rác chỉ chứa dấu +, -, *, •, $*$, $* $
@@ -338,21 +351,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (_match, p1, p2) => `\\frac{${p1.trim()}}{${p2.trim()}}`);
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
 
-      // Tách biến số / công thức dính liền chữ tiếng Việt
-      cur = cur.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc)\s*([xyzabtuvcmnXYZABTUVCMSNPQ]\b|[xyzabtuvcmnXYZABTUVCMSNPQ]\^)/gi, '$1 $2');
-      cur = cur.replace(/([a-zA-ZÀ-ỹ])([xyzabtuvcmnXYZABTUVCMSNPQ]\^[0-9a-zA-Z{}]+|\d+[a-zA-Z]\^[0-9a-zA-Z]+|\d+[xyzabtuv]\b)/g, '$1 $2');
-      cur = cur.replace(/\b(đa thức|đơn thức|biểu thức|phân thức|tập hợp|cho|tại|với)\s*([A-Z]\b)/gi, '$1 $2');
-
-      // Tự động sửa công thức bị thiếu dấu $ ở đầu: ví dụ "Do 4(x-2)=4x-8$" -> "Do $4(x-2)=4x-8$"
-      cur = cur.replace(/(?:^|(?<=[\s:;.,]))(?!(?:Do|Vì|Ta|có|Suy|ra|Thay|Tại|Khi|Nếu|Với|Cho|Đa|thức|Biểu|Hạng|tử|Đơn|và|là|trong|ở|được|gọi|không|phải|một)\b)([0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,\\]+)\$/g, (match, body) => {
-        const trimmedBody = body.trim();
-        if (!trimmedBody) return match;
-        if (/[à-ỹÀ-Ỹ]/.test(trimmedBody)) return match;
-        if (/[=+\-\/\^\\]|\b[0-9]+\b|\([^\)]+\)/.test(trimmedBody)) {
-          return `$${trimmedBody}$`;
-        }
-        return match;
-      });
+      // Tách khoảng cách chống dính chữ
+      cur = ensureMathFormulaSpacing(cur);
 
       // 2. Tách nhãn tiêu đề (nếu có) để xử lý riêng
       const labelRegex = /^(?:[\*\s#\-•]*)((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực[^\n:]*)|(?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh)|HĐ\s*\d+|Kết\s*luận|Nhận\s*xét|Tranh\s*luận|Chú\s*ý|Quy\s*tắc|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|\?:(?:\s*SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?|[a-e]\))[:\s\*\-]*)(.*)$/i;
@@ -392,7 +392,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       // A. Biểu thức có chứa lệnh LaTeX (\frac, \sqrt, \cdot, \times, \le, \ge, \neq...)
       processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)([=+\-]?\s*(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta)(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*)(?=$|[\s),.:;!?])/g, (_m, p1) => {
+        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)([=+\-]?\s*(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,:]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta)(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,:]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*)(?=$|[\s),.:;!?])/g, (_m, p1) => {
           let m = p1.trim();
           while (/[,.:;!?]$/.test(m) && !/[\)\]\}]$/.test(m)) m = m.slice(0, -1).trim();
           if (/[à-ỹÀ-Ỹ]/.test(m)) return p1;
@@ -401,9 +401,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         });
       });
 
-      // B. Đa thức & phương trình đầy đủ (ví dụ: x^2 + 2x + 1, 4(x - 2) = 4x - 8, 3x^2 - 5x + 7)
+      // B. Đa thức & phương trình đầy đủ (ví dụ: x^2 + 2x + 1, 4(x - 2) = 4x - 8, 3x^2 - 5x + 7, x = -3, y = 2, A = 9x^2y^4 - 12x^3y^3)
       processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)([+-]?\s*(?:(?:\d+(?:,\d+)?\s*)?[xyzabtuvcmnXYZABTUVCMSNPQ](?:\^[0-9a-zA-Z{}]+)?|\d+|\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\))(?:\s*[+\-\*\/=]\s*[+-]?\s*(?:(?:\d+(?:,\d+)?\s*)?[xyzabtuvcmnXYZABTUVCMSNPQ](?:\^[0-9a-zA-Z{}]+)?|\d+|\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\)))+)(?=$|[\s),.:;!?])/g, (match) => {
+        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)([+-]?\s*(?:(?:\d+(?:,\d+)?\s*)?[xyzabtuvcmnXYZABTUVCMSNPQ](?:\^[0-9a-zA-Z{}]+)?|\d+|\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\))(?:\s*[+\-\*\/=:]\s*[+-]?\s*(?:(?:\d+(?:,\d+)?\s*)?[xyzabtuvcmnXYZABTUVCMSNPQ](?:\^[0-9a-zA-Z{}]+)?|\d+|\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\)))+)(?=$|[\s),.:;!?])/g, (match) => {
           let m = match.trim();
           while (/[,.:;!?]$/.test(m) && !/[\)\]\}]$/.test(m)) m = m.slice(0, -1).trim();
           if (/[à-ỹÀ-Ỹ]/.test(m)) return match;
@@ -412,7 +412,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         });
       });
 
-      // C. Đơn thức có số mũ (ví dụ: x^2, -5x^3y, 2x^2y^3)
+      // C. Đơn thức có số mũ (ví dụ: x^2, -5x^3y, 2x^2y^3, 9x^2y^4, -3x^2y)
       processedBody = transformNonLatex(processedBody, (t) => {
         return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)(-?\s*\d*(?:,\d+)?\s*[xyzabtuvcmnXYZABTUVCMSNPQ](?:\s*[xyzabtuvcmnXYZABTUVCMSNPQ])*(?:\^[0-9a-zA-Z{}]+)+(?:\s*[xyzabtuvcmnXYZABTUVCMSNPQ0-9]*(?:\^[0-9a-zA-Z{}]+)*)*)(?=$|[\s),.:;!?])/g, (match) => {
           let m = match.trim();
@@ -423,7 +423,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         });
       });
 
-      // D. Phân số đơn lẻ dạng text: 1/2, -5/9
+      // D. Phân số đơn lẻ dạng text: 1/2, -5/9, 7/3
       processedBody = transformNonLatex(processedBody, (t) => {
         return t.replace(/(?:^|(?<=[\s(]))(-?\s*\d+)\/(\d+)(?=$|[\s),.:;!?\n])/g, (_match, num, den) => {
           const cleanNum = num.replace(/\s+/g, '');
@@ -441,15 +441,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           .replace(/±/g, '$\\pm$');
       });
 
-      // F. Biến số đứng một mình sau các từ khóa toán học: "đa thức x", "biến y", "cho A và B"
+      // F. Biến số đứng một mình sau các từ khóa toán học: "đa thức x", "biến y", "cho A và B", "đơn thức M", "đa thức N"
       processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/\b(thức|biến|ẩn|hạng tử|nghiệm|cho|tại|với|tập hợp|đa thức|đơn thức)\s+([xyzabtuvcmnXYZABTUVCMSNPQ])\b(?!\s*[\^=+\-\*\/\)\]])/gi, '$1 $$$2$$');
+        return t.replace(/\b(thức|biến|ẩn|hạng tử|nghiệm|cho|tại|với|tập hợp|đa thức|đơn thức|trong|của|chia|bằng|nhân|cộng|trừ)\s+([xyzabtuvcmnXYZABTUVCMSNPQ])\b(?!\s*[\^=+\-\*\/\)\]])/gi, (_m, p1, p2) => `${p1} $${p2}$`);
       });
 
       // Dọn sạch khoảng trắng trong dấu $
       processedBody = processedBody.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
       processedBody = processedBody.replace(/\$\s+([^$\n\r]+?)\$/g, (_m, p1) => `$${p1.trim()}$`);
       processedBody = processedBody.replace(/\$([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
+
+      // Dọn sạch $$ mồ côi ở cuối công thức hoặc bên trong chuỗi
+      processedBody = processedBody.replace(/([^\$])\$\$([^\$]|$)/g, '$1$$$2');
 
       // Đảm bảo khoảng cách giữa chữ và $
       processedBody = processedBody.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
@@ -478,8 +481,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = repairRacToFrac(clean);
 
     // Dọn dẹp các ký tự $DoS
-    clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
-    clean = clean.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
+    clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
+    clean = clean.replace(/\$DoS\s*([^$]+?)\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
     clean = clean.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // Tách tất cả các đề mục bị dính liền trên 1 dòng

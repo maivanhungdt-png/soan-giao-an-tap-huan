@@ -540,8 +540,9 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     let line = rawLine.trim().replace(/^[\\|:\s]+/, '').replace(/[\\|:\s]+$/, '').trim();
     if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '|' || line === '- |' || line === '+ |') return;
 
-    // Bắt các câu mô tả hành động GV / HS
-    const isPedagogicalAction = /^(?:\*\*|\*|_)?(?:[\-\+•\s]*)(?:Bước\s*[1-4]|GV\b|Giáo\s*viên\b|HS\s*tích\s*cực|HS\s*báo\s*cáo|HS\s*ghi\s*nhớ|HS\s*làm\s*việc|HS\s*thực\s*hiện|HS\s*chú\s*ý|HS\s*quan\s*sát|HS\s*thảo\s*luận|HS\s*lắng\s*nghe|HS\s*trả\s*lời|HS\s*nhận\s*xét|\*?Tích\s*hợp)/i.test(line);
+    // Bắt toàn diện các câu mô tả hành động GV / HS / Tiến trình học tập
+    const isPedagogicalAction = /^(?:\*\*|\*|_)?(?:[\-\+•\s]*)(?:Bước\s*[1-4]|GV\b|Giáo\s*viên\b|HS\b|Học\s*sinh\b|Đại\s*diện\b|Các\s*nhóm\b|Cả\s*lớp\b|\*?Tích\s*hợp|\*?HS\s*khuyết\s*tật)/i.test(line) &&
+      !/^(?:\*\*|\*|_)?(?:Bài\s*(?:tập\s*)?\d+|Ví\s*dụ|Luyện\s*tập|Vận\s*dụng|HĐ\s*\d+|Khám\s*phá|Câu\s*hỏi|Quy\s*tắc|Kết\s*luận|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|Lời\s*giải|Đa\s*thức|Đơn\s*thức|Biểu\s*thức|Tính\s*giá\s*trị|Tìm\s*đơn\s*thức|Tìm\s*đa\s*thức)/i.test(line);
 
     if (isPedagogicalAction) {
       leakedToCol1.push(line);
@@ -554,64 +555,73 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   col2Items.push(...cleanedCol2);
 
   // Nếu Col 1 bị thiếu nội dung, chuyển các dòng hành động tìm thấy từ Col 2 sang Col 1
-  if (col1Items.length < 3 && leakedToCol1.length > 0) {
+  if (leakedToCol1.length > 0) {
     col1Items.push(...leakedToCol1);
   }
 
   const isLuyenTap = /Luyện\s*tập/i.test(headerLine);
   const isVanDung = /Vận\s*dụng/i.test(headerLine);
+  const isKhoiDong = /Khởi\s*động|Mở\s*đầu/i.test(headerLine);
 
-  // Chuẩn hóa và bổ sung nội dung nếu các bước bị rỗng tiêu đề
+  // Chuẩn hóa và làm giàu chi tiết 4 bước sư phạm chuyên nghiệp cho Cột 1
   const enrichedCol1Items: string[] = [];
   for (let idx = 0; idx < col1Items.length; idx++) {
     let item = col1Items[idx].trim();
     if (!item) continue;
 
-    // Bước 1
-    if (/^\*\*(?:-\s*)?Bước\s*1\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*1\b/i.test(item) && item.length < 38)) {
+    // Bước 1: Chuyển giao nhiệm vụ
+    if (/^\*\*(?:-\s*)?Bước\s*1\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*1\b/i.test(item) && item.length < 50)) {
       const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
       if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*[2-4]\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
         item = isLuyenTap
-          ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi."
+          ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi để trao đổi, kiểm tra chéo đáp án."
           : (isVanDung
-            ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống cho HS thực hiện."
-            : "**Bước 1: Chuyển giao nhiệm vụ:** GV phổ biến nhiệm vụ học tập rõ ràng, cụ thể cho học sinh; yêu cầu HS quan sát, suy nghĩ cá nhân.");
+            ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống gắn với thực tế đời sống; yêu cầu HS nghiên cứu, giải quyết bài toán theo nhóm hoặc cá nhân."
+            : (isKhoiDong
+              ? "**Bước 1: Chuyển giao nhiệm vụ:** GV trình chiếu tình huống mở đầu / câu hỏi khởi động; yêu cầu HS quan sát, suy nghĩ độc lập và sẵn sàng chia sẻ dự đoán."
+              : "**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ học tập khám phá kiến thức mới cho HS; hướng dẫn HS đọc SGK, quan sát ví dụ mẫu và hoạt động nhóm để thực hiện nhiệm vụ."));
       }
     }
 
-    // Bước 2
-    if (/^\*\*(?:-\s*)?Bước\s*2\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*2\b/i.test(item) && item.length < 38)) {
+    // Bước 2: Thực hiện nhiệm vụ
+    if (/^\*\*(?:-\s*)?Bước\s*2\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*2\b/i.test(item) && item.length < 50)) {
       const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
       if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*[3-4]\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
         item = isLuyenTap
-          ? "**Bước 2: Thực hiện nhiệm vụ:** HS làm bài tập vào vở ghi; GV quan sát, bao quát lớp, kịp thời hỗ trợ HS khó khăn."
+          ? "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm bài tập vào vở ghi, trao đổi cặp đôi về phương pháp giải; GV quan sát, bao quát lớp, kịp thời hỗ trợ và hướng dẫn các HS còn gặp khó khăn."
           : (isVanDung
-            ? "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức bài học để nghiên cứu, trao đổi nhóm hoặc hoàn thiện nhiệm vụ."
-            : "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm việc cá nhân / nhóm dưới sự hướng dẫn, quan sát của GV.");
+            ? "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức đã học để giải quyết vấn đề, thảo luận thống nhất phương án; GV theo dõi tiến độ, gợi mở các hướng tư duy cho các nhóm."
+            : (isKhoiDong
+              ? "**Bước 2: Thực hiện nhiệm vụ:** HS quan sát hình ảnh/video/tình huống, suy nghĩ cá nhân và trao đổi nhanh với bạn cùng bàn; GV theo dõi và khuyến khích tinh thần học tập."
+              : "**Bước 2: Thực hiện nhiệm vụ:** HS chủ động nghiên cứu SGK, thảo luận nhóm thực hiện các yêu cầu của hoạt động; GV quan sát, trợ giúp và định hướng khi cần thiết."));
       }
     }
 
-    // Bước 3
-    if (/^\*\*(?:-\s*)?Bước\s*3\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*3\b/i.test(item) && item.length < 38)) {
+    // Bước 3: Báo cáo, thảo luận
+    if (/^\*\*(?:-\s*)?Bước\s*3\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*3\b/i.test(item) && item.length < 50)) {
       const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
       if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*4\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
         item = isLuyenTap
-          ? "**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu và bổ sung."
+          ? "**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu bài làm, phân tích và bổ sung các cách giải khác."
           : (isVanDung
-            ? "**Bước 3: Báo cáo, thảo luận:** HS nộp sản phẩm / đại diện trình bày phương án giải quyết; cả lớp cùng nhận xét, phản biện."
-            : "**Bước 3: Báo cáo, thảo luận:** Đại diện HS trình bày kết quả, các nhóm thảo luận, nhận xét và phản hồi ý kiến.");
+            ? "**Bước 3: Báo cáo, thảo luận:** Đại diện nhóm/HS trình bày sản phẩm, giải pháp trước lớp; các nhóm khác chú ý lắng nghe, nhận xét, đặt câu hỏi phản biện."
+            : (isKhoiDong
+              ? "**Bước 3: Báo cáo, thảo luận:** Đại diện một số HS xung phong phát biểu ý kiến hoặc trả lời câu hỏi mở đầu; các HS khác lắng nghe và bổ sung ý kiến."
+              : "**Bước 3: Báo cáo, thảo luận:** Đại diện các nhóm báo cáo kết quả thảo luận; các nhóm khác theo dõi, nhận xét chéo và tranh luận làm rõ nội dung kiến thức."));
       }
     }
 
-    // Bước 4
-    if (/^\*\*(?:-\s*)?Bước\s*4\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*4\b/i.test(item) && item.length < 38)) {
+    // Bước 4: Kết luận, nhận định
+    if (/^\*\*(?:-\s*)?Bước\s*4\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*4\b/i.test(item) && item.length < 50)) {
       const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
       if (!next || /^\*Tích\s*hợp/i.test(next)) {
         item = isLuyenTap
-          ? "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả, chuẩn hóa lời giải chi tiết và chốt phương pháp giải."
+          ? "**Bước 4: Kết luận, nhận định:** GV nhận xét thái độ làm bài, đánh giá bài làm trên bảng; chuẩn hóa lời giải chi tiết, chốt phương pháp giải và lưu ý các sai sót thường gặp cho HS."
           : (isVanDung
-            ? "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá tinh thần tự học, khả năng vận dụng sáng tạo của học sinh."
-            : "**Bước 4: Kết luận, nhận định:** GV tổng kết, đánh giá quá trình học tập, chính xác hóa câu trả lời và chốt kiến thức.");
+            ? "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả và tinh thần vận dụng sáng tạo của học sinh; chính xác hóa câu trả lời và tuyên dương các nhóm hoàn thành tốt."
+            : (isKhoiDong
+              ? "**Bước 4: Kết luận, nhận định:** GV ghi nhận câu trả lời của HS, chưa chốt đúng sai mà dẫn dắt, kết nối trực tiếp vào nội dung bài học mới."
+              : "**Bước 4: Kết luận, nhận định:** GV đánh giá quá trình làm việc của các nhóm, chính xác hóa câu trả lời, rút ra kết luận và chốt kiến thức trọng tâm của bài học."));
       }
     }
 
@@ -626,20 +636,25 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 
   if (!hasStep1 || !hasStep2 || !hasStep3 || !hasStep4) {
     if (isLuyenTap) {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS làm bài tập vào vở ghi; GV quan sát, bao quát lớp, kịp thời hỗ trợ HS khó khăn.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả, chuẩn hóa lời giải chi tiết và chốt phương pháp giải.");
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi để trao đổi, kiểm tra chéo đáp án.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm bài tập vào vở ghi, trao đổi cặp đôi về phương pháp giải; GV quan sát, bao quát lớp, kịp thời hỗ trợ và hướng dẫn các HS còn gặp khó khăn.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu bài làm, phân tích và bổ sung các cách giải khác.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét thái độ làm bài, đánh giá bài làm trên bảng; chuẩn hóa lời giải chi tiết, chốt phương pháp giải và lưu ý các sai sót thường gặp cho HS.");
     } else if (isVanDung) {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống cho HS thực hiện.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức bài học để nghiên cứu, trao đổi nhóm hoặc hoàn thiện nhiệm vụ.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** HS nộp sản phẩm / đại diện trình bày phương án giải quyết; cả lớp cùng nhận xét, phản biện.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá tinh thần tự học, khả năng vận dụng sáng tạo của học sinh.");
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống gắn với thực tế đời sống; yêu cầu HS nghiên cứu, giải quyết bài toán theo nhóm hoặc cá nhân.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức đã học để giải quyết vấn đề, thảo luận thống nhất phương án; GV theo dõi tiến độ, gợi mở các hướng tư duy cho các nhóm.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện nhóm/HS trình bày sản phẩm, giải pháp trước lớp; các nhóm khác chú ý lắng nghe, nhận xét, đặt câu hỏi phản biện.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả và tinh thần vận dụng sáng tạo của học sinh; chính xác hóa câu trả lời và tuyên dương các nhóm hoàn thành tốt.");
+    } else if (isKhoiDong) {
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV trình chiếu tình huống mở đầu / câu hỏi khởi động; yêu cầu HS quan sát, suy nghĩ độc lập và sẵn sàng chia sẻ dự đoán.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS quan sát hình ảnh/video/tình huống, suy nghĩ cá nhân và trao đổi nhanh với bạn cùng bàn; GV theo dõi và khuyến khích tinh thần học tập.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện một số HS xung phong phát biểu ý kiến hoặc trả lời câu hỏi mở đầu; các HS khác lắng nghe và bổ sung ý kiến.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV ghi nhận câu trả lời của HS, chưa chốt đúng sai mà dẫn dắt, kết nối trực tiếp vào nội dung bài học mới.");
     } else {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV phổ biến nhiệm vụ học tập rõ ràng, cụ thể cho học sinh.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm việc cá nhân / nhóm dưới sự hướng dẫn, quan sát của GV.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện HS trình bày kết quả, các nhóm thảo luận, nhận xét và phản hồi.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV tổng kết, đánh giá quá trình học tập và chính xác hóa kiến thức.");
+      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ học tập khám phá kiến thức mới cho HS; hướng dẫn HS đọc SGK, quan sát ví dụ mẫu và hoạt động nhóm để thực hiện nhiệm vụ.");
+      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS chủ động nghiên cứu SGK, thảo luận nhóm thực hiện các yêu cầu của hoạt động; GV quan sát, trợ giúp và định hướng khi cần thiết.");
+      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện các nhóm báo cáo kết quả thảo luận; các nhóm khác theo dõi, nhận xét chéo và tranh luận làm rõ nội dung kiến thức.");
+      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV đánh giá quá trình làm việc của các nhóm, chính xác hóa câu trả lời, rút ra kết luận và chốt kiến thức trọng tâm của bài học.");
     }
   }
 

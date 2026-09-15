@@ -595,9 +595,9 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       **d) Tổ chức thực hiện:**
       | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
       | :--- | :--- |
-      | Gồm đầy đủ 4 bước (BẮT BUỘC MỖI BƯỚC ĐỀU PHẢI CÓ LỜI DẪN NỘI DUNG CỤ THỂ, TUYỆT ĐỐI KHÔNG ĐỂ TRỐNG BƯỚC 3 HOẶC BƯỚC 4):<br>**Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, yêu cầu cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS tích cực thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [Đại diện HS báo cáo kết quả, các HS khác theo dõi nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV nhận xét, chính xác hóa kết quả và chốt kiến thức trọng tâm] | Toàn bộ sản phẩm, khung kiến thức, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS (TUYỆT ĐỐI CẤM ghi các câu mô tả hành động như "- HS tích cực thực hiện...", "- HS báo cáo..." vào Cột 2) |
+      | Gồm đầy đủ 4 bước chi tiết, chuẩn mực sư phạm (BẮT BUỘC MỖI BƯỚC ĐỀU PHẢI VIẾT ĐẦY ĐỦ CẢ HOẠT ĐỘNG CỦA GV VÀ HS, TUYỆT ĐỐI KHÔNG VIẾT QUA LOA 1 CÂU VÀ KHÔNG ĐỂ TRỐNG BẤT KỲ BƯỚC NÀO):<br>**Bước 1: Chuyển giao nhiệm vụ:** [GV giao nhiệm vụ cụ thể, yêu cầu HS làm việc cá nhân/cặp đôi/nhóm, thời gian thực hiện, nêu rõ các bài tập hoặc thử thách]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS chủ động suy nghĩ, thảo luận nhóm/cặp đôi hoàn thành nhiệm vụ vào vở; GV quan sát, bao quát lớp, kịp thời gợi mở và hỗ trợ HS gặp khó khăn, HS hòa nhập]<br>**Bước 3: Báo cáo, thảo luận:** [GV chỉ định đại diện HS/nhóm lên bảng trình bày kết quả/lời giải; các HS khác theo dõi, nhận xét, đối chiếu bài làm, phản biện và bổ sung]<br>**Bước 4: Kết luận, nhận định:** [GV nhận xét thái độ làm việc, đánh giá kết quả trên bảng, chuẩn hóa lời giải chi tiết, chốt phương pháp giải và lưu ý lỗi sai thường gặp; HS lắng nghe và ghi chép vào vở] | Toàn bộ sản phẩm học tập, khung kiến thức trọng tâm, đề bài và LỜI GIẢI CHI TIẾT TỪNG BƯỚC cho tất cả các bài tập/ví dụ, câu trả lời đầy đủ của HS, hình vẽ SGK [HINHANHGOC_...].<br>🚨 TUYỆT ĐỐI CẤM ghi bất kỳ câu mô tả hành động tiến trình nào (như "- HS làm bài tập...", "- Đại diện HS lên bảng...", "- HS ghi chép sửa chữa...", "- GV quan sát...") vào Cột 2! Cột 2 CHỈ CHỨA LỜI GIẢI, KIẾN THỨC VÀ HÌNH ẢNH. |
     `}
-    - QUY TẮC CỘT 2 (KẾT QUẢ HOẠT ĐỘNG): Cột 2 CHỈ CHỨA: Sản phẩm, nội dung khung kiến thức, bài tập SGK, lời giải chi tiết, câu trả lời của HS, công thức toán và hình ảnh minh họa. TUYỆT ĐỐI CẤM đưa các câu hành động của học sinh ("- HS tích cực thực hiện nhiệm vụ", "- HS báo cáo...", "- HS ghi nhớ kiến thức") vào Cột 2!
+    - QUY TẮC CỘT 2 (KẾT QUẢ HOẠT ĐỘNG): Cột 2 CHỈ CHỨA: Sản phẩm, nội dung khung kiến thức, bài tập SGK, lời giải chi tiết, câu trả lời của HS, công thức toán và hình ảnh minh họa. TUYỆT ĐỐI CẤM đưa các câu hành động của học sinh / giáo viên ("- HS làm bài tập vào vở...", "- Đại diện HS lên bảng...", "- HS ghi chép...", "- HS tích cực thực hiện nhiệm vụ", "- GV quan sát...") vào Cột 2!
     - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động, BẮT BUỘC bắt đầu bằng dấu * ở đầu câu (ví dụ: *Tích hợp năng lực số: ..., *Tích hợp năng lực AI: ..., *HS khuyết tật: ...).
     - KHÔNG chia thời lượng từng hoạt động.
     - 🚨 CHỐNG IN ĐẬM TÙY TIỆN: Chỉ in đậm đúng tên tiêu đề/nhãn, TUYỆT ĐỐI KHÔNG in đậm nội dung sau nhãn hoặc các câu diễn giải của GV/HS:
@@ -789,8 +789,8 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
     // Dọn sạch các lỗi $DoS hoặc $ DoS
-    text = text.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
-    text = text.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
+    text = text.replace(/\$DoS\s*([^$]+?)\$\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
+    text = text.replace(/\$DoS\s*([^$]+?)\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
     text = text.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // Tách tất cả các đề mục bị dính liền trên 1 dòng
@@ -800,6 +800,12 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     text = text.replace(/([^\s\$\(\[\{<|])\$([^\$\n\r]+?)\$/g, (_m, p1, p2) => `${p1} $${p2}$`);
     text = text.replace(/\$([^\$\n\r]+?)\$([^\s\$\)\],.:;!?%><|])/g, (_m, p1, p2) => `$${p1}$ ${p2}`);
     text = text.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
+
+    // Tách từ tiếng Việt dính biến số hoặc phân số
+    text = text.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc|Thay|thay|Tính|tính|Tìm|tìm|chia|bằng|nhân|cộng|trừ|vào)\s*([xyzabtuvcmnXYZABTUVCMSNPQ])(?=\b|[^\w\sà-ỹÀ-Ỹ]|$)/g, '$1 $2');
+    text = text.replace(/\b([xyzabtuvcmnXYZABTUVCMSNPQ])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]*)\b/g, '$1 $2');
+    text = text.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(?<!SGK|VBT|SBT|THCS|GDPT|BGDĐT|NLS|GDQP|STEM|AI|DOCX|HTML|PDF|URL|IMG|DSMT4)([XYZABTUVCMSNPQ])\b/g, '$1 $2');
+    text = text.replace(/(\^[0-9a-zA-Z{}]+|[0-9a-zA-Z\)])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
 
     // 2. CHUẨN HÓA CÁC ĐOẠN TÍCH HỢP: ĐỨNG ĐẦU CÂU, KHÔNG CÓ GẠCH ĐẦU DÒNG
     text = text.replace(/^[ \t]*[-+•*][ \t]+\*?(Tích\s*hợp)/gmi, '*$1');
