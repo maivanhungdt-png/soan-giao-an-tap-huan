@@ -432,7 +432,7 @@ Bạn là chuyên gia Sư phạm cấp cao của Bộ GD&ĐT Việt Nam, chuyên
      + Các hoạt động: **1. Hoạt động 1: Khởi động (Tiết PPCT: Tiết ...)**, **2. Hoạt động 2: Hình thành kiến thức mới**, **Hoạt động 2.1: ...**, **Hoạt động 2.2: ...**, **3. Hoạt động 3: Luyện tập**, **4. Hoạt động 4: Vận dụng**.
      + Tiểu mục trong hoạt động: **a) Mục tiêu:**, **b) Nội dung:**, **c) Sản phẩm:**, **d) Tổ chức thực hiện:**
      + Các bước trong Bảng 2 cột (Cột 1): **Bước 1: Chuyển giao nhiệm vụ**, **Bước 2: Thực hiện nhiệm vụ**, **Bước 3: Báo cáo, thảo luận**, **Bước 4: Kết luận, nhận định**.
-     + Các đề mục trong Cột 2: **HĐ1:**, **HĐ2:**, **Ví dụ 1:**, **Luyện tập 1:**, **Vận dụng:**, **Hộp kiến thức:**, **Nhận xét:**, **Chú ý:**, **Tranh luận:**, **Bài 1.8:**, **Bài 1.9:**, **ĐS:**, **?:**
+     + Các đề mục kiến thức và bài tập trong Cột 2 (BẮT BUỘC IN ĐẬM TIÊU ĐỀ): **1. Khái niệm đa thức**, **a) Đa thức và các hạng tử của đa thức**, **2. Đa thức thu gọn**, **1. Tổng hai lập phương:**, **2. Hiệu hai lập phương:**, **HĐ1: SGK**, **HĐ2: SGK**, **Ví dụ 1: (SGK)**, **Luyện tập 1: SGK**, **Vận dụng: SGK**, **Hộp kiến thức: SGK**, **Nhận xét: SGK**, **Chú ý: SGK**, **Tranh luận: SGK**, **Bài 1.8: SGK**, **Bài 1.9: SGK**, **Bài 1.10: SGK**, **ĐS:**, **?: SGK**
      + Phần hướng dẫn ở cuối: *** Hướng dẫn về nhà:**, **+ Ôn tập kiến thức:**, **+ Bài tập về nhà:**, **+ Chuẩn bị bài mới:**.
 
 3. CHI TIẾT PHẦN I. MỤC TIÊU (CHUẨN GDPT 2018):

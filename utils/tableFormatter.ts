@@ -86,23 +86,24 @@ export const splitAllMergedHeadings = (text: string): string => {
   s = s.replace(/([a-zA-Z0-9À-ỹ\)]+:)\s*\*\*(?!\w)/g, '$1');
   s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
 
-  // 1. Tách I. Mục tiêu + 1. Kiến thức: / 2. Năng lực: / II. Thiết bị...
-  s = s.replace(/(?:\*\*)?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|THIẾT\s*BỊ\s*DẠY\s*HỌC[^\n*]*|Thiết\s*bị\s*dạy\s*học[^\n*]*|TIẾN\s*TRÌNH\s*DẠY\s*HỌC[^\n*]*|Tiến\s*trình\s*dạy\s*học[^\n*]*):?)(?:\*\*)?[ \t\*\:]*([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Giáo\s*viên|Học\s*sinh):?)/gmi, (_m, p1, p2) => {
+  // 1. Tách I. Mục tiêu + 1. Kiến thức: / 2. Năng lực: / II. Thiết bị... (kể cả dính không có dấu cách)
+  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu|THIẾT\s*BỊ\s*DẠY\s*HỌC[^\n*:]*|Thiết\s*bị\s*dạy\s*học[^\n*:]*|TIẾN\s*TRÌNH\s*DẠY\s*HỌC[^\n*:]*|Tiến\s*trình\s*dạy\s*học[^\n*:]*):?)(?:\*\*)?[ \t\*\:]*([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Thiết\s*bị|Giáo\s*viên|Học\s*sinh):?)/gmi, (_m, p1, p2) => {
     const clean1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
     const clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
-    return `**${clean1}**\n\n**${clean2.endsWith(':') ? clean2 : clean2 + ':'}**`;
+    return `\n\n**${clean1}**\n\n**${clean2.endsWith(':') ? clean2 : clean2 + ':'}**`;
   });
 
-  // 2. Tách III. Tiến trình dạy học + 1. Hoạt động 1: Khởi động / Hoạt động 1...
-  s = s.replace(/(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)[^\n*]*?:?)(?:\*\*)?[ \t\*\:]*(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*1\b[^\n*]*?:?)/gmi, (_m, p1, p2) => {
+  // 2. Tách III. Tiến trình dạy học + 1. Hoạt động 1: Khởi động / Hoạt động 1... (kể cả dính sát số 1.)
+  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)[^\n*:]*?:?)(?:\*\*)?[ \t\*\:]*(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*1\b[^\n*]*)/gmi, (_m, p1, p2) => {
     const clean1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
     const clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
-    return `**${clean1}**\n\n**${clean2}**`;
+    return `\n\n**${clean1}**\n\n**${clean2}**`;
   });
 
-  // 3. Tách 2. Năng lực: + a) Năng lực đặc thù... (e.g. "2. Năng lực a) Năng lực đặc thù môn Toán:")
-  s = s.replace(/(?:\*\*)?(2\.\s*Năng\s*lực:?)(?:\*\*)?[ \t\*\:\-]*(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n*]*?:?)/gmi, (_m, p1, p2) => {
-    const clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
+  // 3. Tách 2. Năng lực: + a) Năng lực đặc thù... (e.g. "2. Năng lực a) Năng lực: đặc thù môn Toán:" hoặc "2. Năng lực a) Năng lực đặc thù...")
+  s = s.replace(/(?:\*\*)?(2\.\s*Năng\s*lực:?)(?:\*\*)?[ \t\*\:\-]*(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*]*?:?)/gmi, (_m, p1, p2) => {
+    let clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
+    clean2 = clean2.replace(/^Năng\s*lực:\s*/i, 'Năng lực ');
     return `**2. Năng lực:**\n**${clean2.endsWith(':') ? clean2 : clean2 + ':'}**`;
   });
 
@@ -131,10 +132,10 @@ export const splitAllMergedHeadings = (text: string): string => {
   s = s.replace(/(\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập:?)[ \t\*\:]*([ \t]*[\-\+•\*]?\s*HS\s*khuyết\s*tật[^\n]*)/gmi, '$1\n$2');
 
   // 4. Tách II. Thiết bị dạy học và học liệu + 1. Giáo viên:
-  s = s.replace(/(?:\*\*)?(II\.\s*Thiết\s*bị\s*dạy\s*học[^\n*:]*:?)(?:\*\*)?[ \t\*\:]*(1\.\s*Giáo\s*viên:?|1\.\s*Thiết\s*bị:?)/gmi, (_m, p1, p2) => {
+  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?(II\.\s*Thiết\s*bị\s*dạy\s*học[^\n*:]*:?)(?:\*\*)?[ \t\*\:]*(1\.\s*(?:Giáo\s*viên|Thiết\s*bị):?)/gmi, (_m, p1, p2) => {
     const clean1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
     const clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-    return `**${clean1}**\n**${clean2.endsWith(':') ? clean2 : clean2 + ':'}**`;
+    return `\n\n**${clean1}**\n**${clean2.endsWith(':') ? clean2 : clean2 + ':'}**`;
   });
 
   // 5. Tách 1. Giáo viên:... + 2. Học sinh:
@@ -146,11 +147,11 @@ export const splitAllMergedHeadings = (text: string): string => {
   // 6. 2. Học sinh missing colon / bold:
   s = s.replace(/(?:^|\n)\s*(?:\*\*)?(2\.\s*Học\s*sinh)(?:\*\*)?[ \t]*[:\-]?\s*(?=[A-Z0-9À-Ỹ])/gmi, '\n**$1:** ');
 
-  // 7. Tách Hoạt động 2: Hình thành kiến thức mới + Hoạt động 2.1: ...
-  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới:?)(?:\*\*)?[ \t\*\:]*(Hoạt\s*động\s*2\.\d+[^\n*]*?:?)/gmi, (_m, p1, p2) => {
+  // 7. Tách Hoạt động 2: Hình thành kiến thức mới + Hoạt động 2.1: ... (kể cả dính chữ "mớiHoạt động 2.1")
+  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới:?)(?:\*\*)?[ \t\*\:]*(Hoạt\s*động\s*2\.\d+\b[^\n*]*)/gmi, (_m, p1, p2) => {
     const clean1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
     const clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-    return `**${clean1}**\n\n**${clean2}**`;
+    return `\n\n**${clean1}**\n\n**${clean2}**`;
   });
 
   // 7b. Tách Hoạt động 2.1... + Hoạt động 2.2... + Hoạt động 2.3...
@@ -159,12 +160,11 @@ export const splitAllMergedHeadings = (text: string): string => {
     return `${p1.trim()}\n\n**${clean2}**`;
   });
 
-  // 8. Tách Hoạt động header + a) Mục tiêu: / b) Nội dung:
-  // Khớp chính xác tiêu đề hoạt động với bất kỳ từ ngữ tiếng Việt nào (ví dụ: "1. Hoạt động 1: Khởi độnga) Mục tiêu:", "Hoạt động 2.1: Phân tích đa thức...a) Mục tiêu:")
-  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)[^\n*]*?)(?:\*\*)?[ \t\*\:]*([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[^\n]*)/gmi, (_m, p1, p2) => {
+  // 8. Tách Hoạt động header + a) Mục tiêu: / b) Nội dung: (kể cả dính "(Tiết PPCT: Tiết 18)a) Mục tiêu:")
+  s = s.replace(/(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)[^\n*a-e]*?(?:\([^)]*\))?)(?:\*\*)?[ \t\*\:]*([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[^\n]*)/gmi, (_m, p1, p2) => {
     const clean1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[:\*\-\s]+/, '').replace(/[:\*\-\s]+$/, '').trim();
     const clean2 = p2.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-    return `**${clean1}**\n**${clean2}**`;
+    return `\n\n**${clean1}**\n**${clean2}**`;
   });
 
   // 9. Tách a) Mục tiêu:... + b) Nội dung: ...
@@ -187,7 +187,7 @@ export const splitAllMergedHeadings = (text: string): string => {
 
   // 12. Tách * Hướng dẫn về nhà + - Ôn tập kiến thức / - Bài tập về nhà / - Chuẩn bị bài mới
   s = s.replace(/(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học):?)[ \t\*\:]*([ \t]*[\+\-\*•]\s*(?:Ôn\s*tập|Bài\s*tập|Chuẩn\s*bị)[^\n]*)/gmi, (_m, p1, p2) => {
-    return `* Hướng dẫn về nhà:\n${p2.trim()}`;
+    return `\n\n* Hướng dẫn về nhà:\n${p2.trim()}`;
   });
   s = s.replace(/([\+\-\*•]\s*Ôn\s*tập\s*kiến\s*thức:?[^\n*]*?)[ \t\*\:]+([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà[^\n]*)/gmi, '$1\n$2');
   s = s.replace(/([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà:?[^\n*]*?)[ \t\*\:]+([\+\-\*•]\s*Chuẩn\s*bị\s*bài\s*mới[^\n]*)/gmi, '$1\n$2');
@@ -382,16 +382,18 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       continue;
     }
 
-    // Check indicators for Col 2 (Exercises, Solutions, Knowledge Boxes, Formulas)
-    if (/^(?:\*\*|\*|_)?(?:\d+\.\s*[A-ZÀ-Ỹ]|HĐ\s*\d+|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán)\b/i.test(line)) {
+    // Check indicators for Col 2 (Exercises, Solutions, Knowledge Boxes, Formulas, Lesson Content Headings)
+    if (/^(?:\*\*|\*|_)?(?:\*?\s*\d+\.\s*[A-ZÀ-Ỹ]|HĐ\s*\d+|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|[a-e]\)\s*[A-ZÀ-Ỹ]|Đa\s*thức|Khái\s*niệm|Tổng\s*hai|Hiệu\s*hai)\b/i.test(line)) {
       currentTargetCol = 2;
       let cleanItem = line.replace(/^[\*\-\+•\s_]+/, '').replace(/[\*\s_]+$/, '').trim();
-      const itemMatch = cleanItem.match(/^(\d+\.\s*[^:\n]+|HĐ\s*\d+|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán)[:\s]*(.*)$/i);
+      const itemMatch = cleanItem.match(/^(\*?\s*\d+\.\s*[^:\n]+|HĐ\s*\d+|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|[a-e]\)\s*[^:\n]+)[:\s]*(.*)$/i);
       if (itemMatch) {
-        let label = itemMatch[1].trim();
-        if (!label.endsWith(':') && !/^\d+\./.test(label)) label += ':';
+        let label = itemMatch[1].trim().replace(/^\*+/, '').trim();
+        if (!label.endsWith(':') && !/^\d+\./.test(label) && !/^[a-e]\)/.test(label)) label += ':';
         let rest = (itemMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/[\*\s]+$/, '').trim();
         cleanItem = rest ? `**${label}** ${rest}` : `**${label}**`;
+      } else {
+        cleanItem = `**${cleanItem}**`;
       }
       col2Items.push(cleanItem);
       continue;

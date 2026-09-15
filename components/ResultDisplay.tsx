@@ -204,8 +204,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return `* Hướng dẫn về nhà:`;
     }
 
-    // 4. Nhận diện các nhãn đầu mục chuẩn và các bước, đề mục bài học:
-    const sectionLabelRegex = /^[\*\s#\-•\+]*((?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Khái\s*niệm[^\n:]*|Phương\s*pháp[^\n:]*|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|[a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Đa\s*thức[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|Năng\s*lực\s*(?:tư\s*duy|giải\s*quyết|giao\s*tiếp|tự\s*chủ|hợp\s*tác)[^\n:]*|Chăm\s*chỉ|Trung\s*thực|Trách\s*nhiệm|Yêu\s*nước|Nhân\s*ái|HS\s*khuyết\s*tật[^\n:]*|Học\s*sinh\s*khuyết\s*tật[^\n:]*|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|\?:\s*(?:SGK)?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*\s*:?|ĐS\s*:?|Đ\/s\s*:?|Đáp\s*số\s*:?|Đáp\s*án\s*:?|Lời\s*giải\s*:?|Dự\s*đoán\s*:?|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Ký\s*duyệt)\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
+    // 4. Nhận diện các nhãn đầu mục chuẩn và các bước, đề mục bài học, bài tập Cột 2:
+    const sectionLabelRegex = /^[\*\s#\-•\+]*((?:\*?\s*\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Mục\s*tiêu|Tiến\s*trình|Thiết\s*bị|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Khái\s*niệm[^\n:]*|Phương\s*pháp[^\n:]*|Đa\s*thức[^\n:]*|Tổng\s*hai[^\n:]*|Hiệu\s*hai[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|[a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Đa\s*thức[^\n:]*|Tổng\s*hai[^\n:]*|Hiệu\s*hai[^\n:]*|[A-ZÀ-Ỹ][\w\s]{2,40})|Năng\s*lực\s*(?:tư\s*duy|giải\s*quyết|giao\s*tiếp|tự\s*chủ|hợp\s*tác)[^\n:]*|Chăm\s*chỉ|Trung\s*thực|Trách\s*nhiệm|Yêu\s*nước|Nhân\s*ái|HS\s*khuyết\s*tật[^\n:]*|Học\s*sinh\s*khuyết\s*tật[^\n:]*|Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:|HĐ\s*\d+\s*:?|Kết\s*luận\s*:?|Nhận\s*xét\s*:?|Tranh\s*luận\s*:?|Chú\s*ý\s*:?|Quy\s*tắc\s*:?|Hộp\s*kiến\s*thức\s*:?|Khung\s*kiến\s*thức\s*:?|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?\s*:?|\?:\s*(?:SGK)?|Luyện\s*tập\s*[\d\*]*\s*:?|Vận\s*dụng\s*\d*\s*:?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?\s*:?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*\s*:?|ĐS\s*:?|Đ\/s\s*:?|Đáp\s*số\s*:?|Đáp\s*án\s*:?|Lời\s*giải\s*:?|Dự\s*đoán\s*:?|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng\s*kế\s*hoạch|Ký\s*duyệt)\s*(?:\*\*)?\s*[:\-]?\s*(.*)$/i;
 
     const bulletPrefixMatch = s.match(/^([\s\-\+•\*]*)(.*)$/);
     const bulletPrefix = bulletPrefixMatch ? bulletPrefixMatch[1] : '';
@@ -1373,7 +1373,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               })
             ],
             spacing: { before: 200, after: 80, line: 240, lineRule: LineRuleType.AUTO },
-            indent: { firstLine: 0, left: 0 },
+            indent: { firstLine: FIRST_LINE_INDENT },
             alignment: AlignmentType.LEFT
           }));
           continue;
@@ -1424,7 +1424,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanAct, { bold: true, size: 28 }),
             spacing: { before: 140, after: 60, line: 240, lineRule: LineRuleType.AUTO },
-            indent: { firstLine: 0, left: 0 },
+            indent: { firstLine: FIRST_LINE_INDENT },
             alignment: AlignmentType.LEFT
           }));
         }
@@ -1436,7 +1436,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanSub, lineStyles),
             spacing: { before: 80, after: 40, line: 240, lineRule: LineRuleType.AUTO },
-            indent: { firstLine: 0, left: 0 },
+            indent: { firstLine: FIRST_LINE_INDENT },
             alignment: AlignmentType.LEFT
           }));
         }
