@@ -39,7 +39,7 @@ import FileSaver from 'file-saver';
 import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
-import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings, smartSplitTableLine } from '../utils/tableFormatter';
+import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings, smartSplitTableLine, isActivityHeader, isParentActivityHeader } from '../utils/tableFormatter';
 import { parseLatexToDocxMath, cleanLatexSymbols } from '../utils/mathDocxParser';
 
 interface ResultDisplayProps {
@@ -1307,10 +1307,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào Cột 2 (Sản phẩm / Kết quả hoạt động):", educationalImages);
         const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
 
-        // Chèn vào Cột 2 của bảng 2 cột
-        const tableRowMatch = preProcessedResult.match(/(\|\s*[^|\n]+\|)([^|\n]+)(\|)/);
-        if (tableRowMatch) {
-          preProcessedResult = preProcessedResult.replace(tableRowMatch[0], `${tableRowMatch[1]}${tableRowMatch[2]} ${imgTagsInCell}${tableRowMatch[3]}`);
+        // Chèn vào Cột 2 của hàng dữ liệu bảng 2 cột
+        const tableDataRowMatch = preProcessedResult.match(/(\|\s*:?---+\s*\|\s*:?---+\s*\|\s*\r?\n\s*\|\s*[^|\n]+\|)([^|\n]+)(\|)/);
+        if (tableDataRowMatch) {
+          preProcessedResult = preProcessedResult.replace(tableDataRowMatch[0], `${tableDataRowMatch[1]}${tableDataRowMatch[2]} ${imgTagsInCell}${tableDataRowMatch[3]}`);
         }
       }
       const lines = preProcessedResult.split('\n');
@@ -1537,7 +1537,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         // 3c. Activity headers: 1. Hoạt động 1: Khởi động, 2. Hoạt động 2: Hình thành..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng
-        else if (/^(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
+        else if (isActivityHeader(trimmed) || isParentActivityHeader(trimmed) || /^(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
           const cleanAct = sanitizeLineBold(trimmed);
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanAct, { bold: true, size: 28 }),

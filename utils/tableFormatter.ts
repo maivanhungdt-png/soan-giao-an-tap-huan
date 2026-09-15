@@ -23,6 +23,7 @@ export const isActivityHeader = (line: string): boolean => {
 
   return (
     /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|:[^:\n]*|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean) ||
+    /^(?:HĐ|HD)\s*(?:\d+(?:\.\d+)?|[1-4])\s*[:\-\.]/i.test(clean) ||
     /^(?:\d+[\.\)]\s*)?(?:Khởi\s*động|Luyện\s*tập|Vận\s*dụng)\s*[:\-\.]/i.test(clean) ||
     /^[1-4]\.\s*(?:Khởi\s*động|Hình\s*thành\s*kiến\s*thức|Luyện\s*tập|Vận\s*dụng)\b/i.test(clean)
   );
@@ -31,7 +32,7 @@ export const isActivityHeader = (line: string): boolean => {
 // Helper: Check if a line is a Parent Container Header (e.g., "2. Hoạt động 2: Hình thành kiến thức mới")
 export const isParentActivityHeader = (line: string): boolean => {
   const clean = line.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
-  return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?$/i.test(clean) ||
+  return /^(?:\d+[\.\)]\s*)?(?:Hoạt\s*động\s*2\s*:?\s*)?Hình\s*thành\s*kiến\s*thức(?:\s*mới)?\s*:?$/i.test(clean) ||
          /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:?\s*$/i.test(clean);
 };
 
@@ -45,7 +46,7 @@ export const isSectionEnd = (line: string): boolean => {
     .trim();
   return (
     /^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(clean) ||
-    /^(?:IV|V|VI|4|5|6)\s*[\.\)]\s*(?:HƯỚNG|Hướng|DẶN|Dặn|PHỤ|Phụ|ĐÁNH|Đánh)/i.test(clean) ||
+    /^(?:IV|V|VI)\s*[\.\)]\s*(?:HƯỚNG|Hướng|DẶN|Dặn|PHỤ|Phụ|ĐÁNH|Đánh)/i.test(clean) ||
     /^(?:Dặn\s*dò|Giao\s*bài\s*về\s*nhà)/i.test(clean) ||
     /^(?:Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)/i.test(clean) ||
     /^(?:Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)/i.test(clean)
@@ -765,7 +766,7 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
     }
 
     // Check if homework / conclusion or next Roman numeral starts
-    if (isSectionEnd(trimmed) || (/^(?:#+\s*)?(?:\*\*)?(?:IV|V|VI|4|5|6)\s*[\.\)]/i.test(trimmed) && inSectionIII)) {
+    if (isSectionEnd(trimmed) || (/^(?:#+\s*)?(?:\*\*)?(?:IV|V|VI)\s*[\.\)]/i.test(trimmed) && inSectionIII)) {
       flushActivity();
       inSectionIII = false;
       isCollectingActivity = false;
