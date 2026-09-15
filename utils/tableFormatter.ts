@@ -74,114 +74,132 @@ export const isIntegrationLine = (text: string): boolean => {
 
 /**
  * Tách triệt để tất cả các tiêu đề, đề mục, phân mục và bước bị dính liền trên cùng 1 dòng
+ * ĐẶC BIỆT: Bảo vệ tuyệt đối 100% các dòng bảng markdown (| ... |), không chèn \n vào dòng bảng.
  */
 export const splitAllMergedHeadings = (text: string): string => {
   if (!text) return "";
-  let s = text;
 
-  // 0. Dọn sạch ký tự hoa thị rác
-  s = s.replace(/\*\*\s*\*\*/g, '');
-  s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
+  // Tách văn bản thành từng dòng để bảo vệ tuyệt đối các dòng bảng
+  const rawLines = text.split(/\r?\n/);
+  const processedLines: string[] = [];
 
-  // 1. Tách các tiêu đề lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học)
-  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
-  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
-  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
+  for (let idx = 0; idx < rawLines.length; idx++) {
+    const rawLine = rawLines[idx];
+    const trimmed = rawLine.trim();
 
-  // 2. Tách Hoạt động 2: Hình thành kiến thức mới
-  s = s.replace(/(?:^|\n|[ \t]*)(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
+    // Nếu là dòng bảng Markdown (| ... |) hoặc đường phân cách bảng (:--- | :---), BẢO TỒN NGUYÊN VẸN 100%
+    if (trimmed.startsWith('|') || trimmed.endsWith('|') || /^:?-+:?$/.test(trimmed) || /^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(trimmed)) {
+      processedLines.push(rawLine);
+      continue;
+    }
 
-  // 3. Tách các Hoạt động (1. Hoạt động 1, Hoạt động 2.1, 3. Hoạt động 3, 4. Hoạt động 4) nếu bị dính dòng
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n*:]*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').trim();
-    return `\n\n**${c}**\n`;
-  });
+    let s = rawLine;
 
-  // 4. Tách 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất: nếu không đứng đầu dòng
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(1\.\s*(?:Kiến\s*thức|KIẾN\s*THỨC)\s*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n\n**${c}**\n`;
-  });
+    // Dọn sạch ký tự hoa thị rác
+    s = s.replace(/\*\*\s*\*\*/g, '');
+    s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
 
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(2\.\s*(?:Năng\s*lực|NĂNG\s*LỰC)\s*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n\n**${c}**\n`;
-  });
+    // 1. Tách các tiêu đề lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học)
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
 
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(3\.\s*(?:Phẩm\s*chất|PHẨM\s*CHẤT)\s*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n\n**${c}**\n`;
-  });
+    // 2. Tách Hoạt động 2: Hình thành kiến thức mới
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
 
-  // 5. Tách các tiểu mục Năng lực: a) Năng lực đặc thù môn..., b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*:]*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    c = c.replace(/^Năng\s*lực:\s*/i, 'Năng lực ');
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}**\n`;
-  });
+    // 3. Tách các Hoạt động (1. Hoạt động 1, Hoạt động 2.1, 3. Hoạt động 3, 4. Hoạt động 4)
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n*:]*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').trim();
+      return `\n\n**${c}**\n`;
+    });
 
-  // 6. Tách 1. Giáo viên:, 2. Học sinh: nếu không đứng đầu dòng
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)\b\s*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    // 4. Tách 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất: nếu dính liền
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(1\.\s*(?:Kiến\s*thức|KIẾN\s*THỨC)\s*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n\n**${c}**\n`;
+    });
 
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(2\.\s*(?:Năng\s*lực|NĂNG\s*LỰC)\s*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n\n**${c}**\n`;
+    });
 
-  // 7. Tách a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện: nếu không đứng đầu dòng
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(3\.\s*(?:Phẩm\s*chất|PHẨM\s*CHẤT)\s*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n\n**${c}**\n`;
+    });
 
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    // 5. Tách các tiểu mục Năng lực: a) Năng lực đặc thù..., b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*:]*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      c = c.replace(/^Năng\s*lực:\s*/i, 'Năng lực ');
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}**\n`;
+    });
 
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    // 6. Tách 1. Giáo viên:, 2. Học sinh: nếu dính liền
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)\b\s*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}**\n`;
+    });
 
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(d\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}**\n`;
+    });
 
-  // 8. Tách các bước trong d) Tổ chức thực hiện nếu bị dính dòng
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:)/gmi, (_m, p1) => {
-    let c = p1.replace(/\*/g, '').trim();
-    if (!c.endsWith(':')) c += ':';
-    return `\n**${c}** `;
-  });
+    // 7. Tách a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện: nếu dính liền
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}** `;
+    });
 
-  // 9. Tách * Hướng dẫn về nhà:, + Ôn tập kiến thức:, + Bài tập về nhà:, + Chuẩn bị bài mới:
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)\s*:?)/gmi, '\n\n* Hướng dẫn về nhà:\n');
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Ôn\s*tập\s*kiến\s*thức\b\s*:?)/gmi, '\n$1');
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà\b\s*:?)/gmi, '\n$1');
-  s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Chuẩn\s*bị\s*bài\s*mới\b\s*:?)/gmi, '\n$1');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}** `;
+    });
 
-  // 10. Tách *Tích hợp giáo dục hòa nhập: nếu dính dòng
-  s = s.replace(/(?<=[^\n])\s*(\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*:?)/gmi, '\n$1\n');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}** `;
+    });
 
-  // 11. Dọn dẹp khoảng trắng dòng trống dư thừa
-  s = s.replace(/\n{3,}/g, '\n\n');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(d\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)\b\s*:?)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}** `;
+    });
 
-  return s;
+    // 8. Tách các bước trong d) Tổ chức thực hiện (ngoài bảng) nếu bị dính dòng
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').trim();
+      if (!c.endsWith(':')) c += ':';
+      return `\n**${c}** `;
+    });
+
+    // 9. Tách * Hướng dẫn về nhà:, + Ôn tập kiến thức:, + Bài tập về nhà:, + Chuẩn bị bài mới:
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)\s*:?)/gmi, '\n\n* Hướng dẫn về nhà:\n');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Ôn\s*tập\s*kiến\s*thức\b\s*:?)/gmi, '\n$1');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà\b\s*:?)/gmi, '\n$1');
+    s = s.replace(/(?<=[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Chuẩn\s*bị\s*bài\s*mới\b\s*:?)/gmi, '\n$1');
+
+    // 10. Tách *Tích hợp giáo dục hòa nhập: nếu dính dòng
+    s = s.replace(/(?<=[^\n])\s*(\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*:?)/gmi, '\n$1\n');
+
+    processedLines.push(s);
+  }
+
+  let result = processedLines.join('\n');
+  result = result.replace(/\n{3,}/g, '\n\n');
+  return result;
 };
 
 /**

@@ -389,13 +389,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 1. Remove markdown code blocks
     clean = clean.replace(/^```markdown\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
 
-    // 2. Remove HTML Anchors (Bookmarks artifacts from Word conversion) e.g., <a id="_Hlk147258080"></a>
+    // 3. Remove HTML Anchors (Bookmarks artifacts from Word conversion)
     clean = clean.replace(/<a\s+id="[^"]*"><\/a>/gi, "");
-
-    // 3. Remove stray empty heading lines
-    if (format !== 'no_table') {
-      clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
-    }
 
     // 4. Clean all markdown hash subheadings (#####, ####, ###) into bold text to eliminate #####
     clean = clean.replace(/^(?:#{3,6})\s*(.*)$/gm, (match, p1) => {
