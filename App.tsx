@@ -27,7 +27,7 @@ export const DEFAULT_TEACHER_INFO: TeacherInfo = {
   teacherName: 'Mai Văn Hùng',
   reviewerName: 'Nguyễn Thị Huệ',
   phoneNumber: '0941037116',
-  department: 'Khoa học Tự Nhiên',
+  department: 'Toán - Tin - CĐS',
   includeInHeader: true
 };
 

@@ -9,10 +9,14 @@
 export const isActivityHeader = (line: string): boolean => {
   const trimmed = line.trim();
   if (!trimmed) return false;
+  if (trimmed.startsWith('|') || trimmed.endsWith('|')) return false;
   const clean = trimmed
     .replace(/^[\*#\s\-\+•_]+/, '')
     .replace(/[\*#\s_]+$/, '')
     .trim();
+  if (/^Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)/i.test(clean)) return false;
+  if (/^Kết\s*quả\s*hoạt\s*động/i.test(clean)) return false;
+  if (/^Tổ\s*chức\s*thực\s*hiện/i.test(clean)) return false;
   return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|[A-Za-z]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)/i.test(clean);
 };
 

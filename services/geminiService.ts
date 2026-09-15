@@ -192,13 +192,12 @@ export const generateNLSLessonPlan = async (
 
   // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.7-flash",
     "gemini-2.5-flash",
+    "gemini-2.5-pro",
     "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash-lite"
   ];
   
   let distributionContext = "";
@@ -616,7 +615,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents: tocParts
       });
 
@@ -686,10 +685,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     await setupContextCache(ai, modelId);
     
     const requestConfig: any = {
-       temperature: 0.2,
-       thinkingConfig: {
-         thinkingBudget: 0
-       }
+       temperature: 0.2
     };
     
     if (cachedContentName) {

@@ -897,8 +897,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
           children.push(new Paragraph({
             children: parseTextWithFormatting(formattedLine, lineStyles),
-            spacing: { before: 60, after: 60, line: 240, lineRule: LineRuleType.AUTO },
-            indent: { firstLine: isHeaderRow ? 0 : 720, left: 0, right: 0 },
+            spacing: { before: 40, after: 40, line: 240, lineRule: LineRuleType.AUTO },
+            indent: { firstLine: 0, left: 0, right: 0 },
             alignment: isHeaderRow ? AlignmentType.CENTER : AlignmentType.LEFT
           }));
         });
@@ -1839,7 +1839,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                     Trường: {teacherInfo.schoolName ? teacherInfo.schoolName.replace(/^Trường:\s*/i, '').replace(/^Trường\s+/i, '') : 'THCS Đồng Yên'}
                   </p>
                   <p className="font-bold text-slate-900">
-                    Tổ: <span className="text-red-600 font-bold">{teacherInfo.department ? teacherInfo.department.replace(/^Tổ:\s*/i, '').replace(/^Tổ\s+/i, '') : 'Khoa học Tự Nhiên'}</span>
+                    Tổ: <span className="text-red-600 font-bold">{teacherInfo.department ? teacherInfo.department.replace(/^Tổ:\s*/i, '').replace(/^Tổ\s+/i, '') : 'Toán - Tin - CĐS'}</span>
                   </p>
                 </div>
                 <div className="text-center">
