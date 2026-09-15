@@ -532,6 +532,32 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
   }
 
+  // LỌC SẠCH 100% CÁC CÂU HOẠT ĐỘNG CỦA HỌC SINH / GIÁO VIÊN BỊ LẠC SANG CỘT 2 (KẾT QUẢ HOẠT ĐỘNG)
+  const cleanedCol2: string[] = [];
+  const leakedToCol1: string[] = [];
+
+  col2Items.forEach(rawLine => {
+    let line = rawLine.trim().replace(/^[\\|:\s]+/, '').replace(/[\\|:\s]+$/, '').trim();
+    if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '|' || line === '- |' || line === '+ |') return;
+
+    // Bắt các câu mô tả hành động GV / HS
+    const isPedagogicalAction = /^(?:\*\*|\*|_)?(?:[\-\+•\s]*)(?:Bước\s*[1-4]|GV\b|Giáo\s*viên\b|HS\s*tích\s*cực|HS\s*báo\s*cáo|HS\s*ghi\s*nhớ|HS\s*làm\s*việc|HS\s*thực\s*hiện|HS\s*chú\s*ý|HS\s*quan\s*sát|HS\s*thảo\s*luận|HS\s*lắng\s*nghe|HS\s*trả\s*lời|HS\s*nhận\s*xét|\*?Tích\s*hợp)/i.test(line);
+
+    if (isPedagogicalAction) {
+      leakedToCol1.push(line);
+    } else {
+      cleanedCol2.push(line);
+    }
+  });
+
+  col2Items.length = 0;
+  col2Items.push(...cleanedCol2);
+
+  // Nếu Col 1 bị thiếu nội dung, chuyển các dòng hành động tìm thấy từ Col 2 sang Col 1
+  if (col1Items.length < 3 && leakedToCol1.length > 0) {
+    col1Items.push(...leakedToCol1);
+  }
+
   const isLuyenTap = /Luyện\s*tập/i.test(headerLine);
   const isVanDung = /Vận\s*dụng/i.test(headerLine);
 
@@ -642,8 +668,8 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   // Format cell contents by joining lines with <br>
   const formatCellText = (arr: string[]): string => {
     return arr
-      .map(line => line.trim())
-      .filter(l => Boolean(l) && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *')
+      .map(line => line.trim().replace(/^[\\|:\s]+/, '').replace(/[\\|:\s]+$/, '').trim())
+      .filter(l => Boolean(l) && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *' && l !== '|')
       .join('<br>')
       .replace(/\r?\n/g, '<br>')
       .replace(/(?<!<[^>]*)\|(?![^<]*>)/g, ' '); // Thay | thành space nếu không nằm trong thẻ HTML
