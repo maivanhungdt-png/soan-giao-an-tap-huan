@@ -595,9 +595,8 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       **d) Tổ chức thực hiện:**
       | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
       | :--- | :--- |
-      | Gồm đầy đủ 4 bước chi tiết, chuẩn mực sư phạm (BẮT BUỘC MỖI BƯỚC ĐỀU PHẢI VIẾT ĐẦY ĐỦ CẢ HOẠT ĐỘNG CỦA GV VÀ HS, TUYỆT ĐỐI KHÔNG VIẾT QUA LOA 1 CÂU VÀ KHÔNG ĐỂ TRỐNG BẤT KỲ BƯỚC NÀO):<br>**Bước 1: Chuyển giao nhiệm vụ:** [GV giao nhiệm vụ cụ thể, yêu cầu HS làm việc cá nhân/cặp đôi/nhóm, thời gian thực hiện, nêu rõ các bài tập hoặc thử thách]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS chủ động suy nghĩ, thảo luận nhóm/cặp đôi hoàn thành nhiệm vụ vào vở; GV quan sát, bao quát lớp, kịp thời gợi mở và hỗ trợ HS gặp khó khăn, HS hòa nhập]<br>**Bước 3: Báo cáo, thảo luận:** [GV chỉ định đại diện HS/nhóm lên bảng trình bày kết quả/lời giải; các HS khác theo dõi, nhận xét, đối chiếu bài làm, phản biện và bổ sung]<br>**Bước 4: Kết luận, nhận định:** [GV nhận xét thái độ làm việc, đánh giá kết quả trên bảng, chuẩn hóa lời giải chi tiết, chốt phương pháp giải và lưu ý lỗi sai thường gặp; HS lắng nghe và ghi chép vào vở] | Toàn bộ sản phẩm học tập, khung kiến thức trọng tâm, đề bài và LỜI GIẢI CHI TIẾT TỪNG BƯỚC cho tất cả các bài tập/ví dụ, câu trả lời đầy đủ của HS, hình vẽ SGK [HINHANHGOC_...].<br>🚨 TUYỆT ĐỐI CẤM ghi bất kỳ câu mô tả hành động tiến trình nào (như "- HS làm bài tập...", "- Đại diện HS lên bảng...", "- HS ghi chép sửa chữa...", "- GV quan sát...") vào Cột 2! Cột 2 CHỈ CHỨA LỜI GIẢI, KIẾN THỨC VÀ HÌNH ẢNH. |
+      | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
     `}
-    - QUY TẮC CỘT 2 (KẾT QUẢ HOẠT ĐỘNG): Cột 2 CHỈ CHỨA: Sản phẩm, nội dung khung kiến thức, bài tập SGK, lời giải chi tiết, câu trả lời của HS, công thức toán và hình ảnh minh họa. TUYỆT ĐỐI CẤM đưa các câu hành động của học sinh / giáo viên ("- HS làm bài tập vào vở...", "- Đại diện HS lên bảng...", "- HS ghi chép...", "- HS tích cực thực hiện nhiệm vụ", "- GV quan sát...") vào Cột 2!
     - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động, BẮT BUỘC bắt đầu bằng dấu * ở đầu câu (ví dụ: *Tích hợp năng lực số: ..., *Tích hợp năng lực AI: ..., *HS khuyết tật: ...).
     - KHÔNG chia thời lượng từng hoạt động.
     - 🚨 CHỐNG IN ĐẬM TÙY TIỆN: Chỉ in đậm đúng tên tiêu đề/nhãn, TUYỆT ĐỐI KHÔNG in đậm nội dung sau nhãn hoặc các câu diễn giải của GV/HS:
@@ -613,12 +612,8 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
     - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
     - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
     - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE & OMML):
-      + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), đơn thức ($2x^2y$, $-5x^2y$, $17z^4$, $3x^3y$, $12x^5$), đa thức ($x^2 - 2x$, $x^3 - \frac{1}{2}x$, $-2x + 7y$, $x + 2y - z$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$, $\\frac{1}{2}$, $-\\frac{5}{9}$), căn bậc hai ($\\sqrt{x}$, $\\sqrt{2}$), số mũ ($x^2$, $x^2y^3$, $x^3y^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\\\ a'x+b'y=c' \\end{cases}$), đẳng thức và chuỗi tính toán liên hoàn ($A + B = 2x^2y + (-5x^2y) = -3x^2y$, $M + P = 2,5x^2y^3 + 8,5x^2y^3 = 11x^2y^3$, $S = -x^3y + 4x^3y - 2x^3y = x^3y$, $(-1 + 4 - 2) = 1$, $B = 5x^2y^3z$, $4(x - 2) = 4x - 8$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), suy ra ($\\Rightarrow$, $\\Leftrightarrow$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType / OMML trong Word bằng 1 phím tắt Alt+\\ hoặc Alt+= mà không bao giờ bị lỗi.
-      + 🚨 DÙNG DẤU NGOẶC ĐƠN TIÊU CHUẨN: Dùng $(x - 2)$, $(3x + 1)$, $4(x - 2) = 4x - 8$, TUYỆT ĐỐI KHÔNG dùng \\left( và \\right) cho dấu ngoặc đơn thông thường để đảm bảo Word OMML (Alt +=) và MathType (Alt +\\) chuyển đổi 1-chạm không bao giờ bị lỗi.
-      + 🚨 CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN (BẮT BUỘC TUYỆT ĐỐI):
-        * Luôn có khoảng cách (dấu cách space) rõ ràng giữa công thức toán $...$ và các từ tiếng Việt xung quanh (kể cả dấu hai chấm, dấu chấm phẩy, dấu phẩy, chữ "là", "và", "của", "đa thức", "hạng tử", "bậc", "hệ số", "thay", "tại", "với", "vào").
-        * ✅ ĐÚNG: "cho đa thức $P(x)$ và", "với $x = 1$", "đa thức $A$ và đa thức $B$", "bậc là 4", "hệ số là 3", "có 4 hạng tử: $\\frac{1}{4}x^3y$; $-1,5yz$; $3x^2y$", "thay $x = 0,5 = \\frac{1}{2}$ và $y = 1$ vào đa thức $M$", "cộng $2x^4$ với $\\frac{1}{2}x^4$".
-        * ❌ CẤM DÍNH CHỮ: Cấm viết 'đa thứcA', 'thứcM', 'thứcB', 'thứcN', 'bậc là4', 'hệ số là3', 'tử:3x^2y', 'cộng2x^4', 'với1/2', 'là:1/2xy', 'thứcAtrước', 'và o' (viết 'vào').
+      + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), đơn thức ($2x^2y$, $-5x^2y$, $17z^4$, $3x^3y$, $12x^5$), đa thức ($x^2 - 2x$, $x^3 - \frac{1}{2}x$, $-2x + 7y$, $x + 2y - z$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$, $\\frac{1}{2}$, $-\\frac{5}{9}$), căn bậc hai ($\\sqrt{x}$, $\\sqrt{2}$), số mũ ($x^2$, $x^2y^3$, $x^3y^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\\\ a'x+b'y=c' \\end{cases}$), đẳng thức và chuỗi tính toán liên hoàn ($A + B = 2x^2y + (-5x^2y) = -3x^2y$, $M + P = 2,5x^2y^3 + 8,5x^2y^3 = 11x^2y^3$, $S = -x^3y + 4x^3y - 2x^3y = x^3y$, $(-1 + 4 - 2) = 1$, $B = 5x^2y^3z$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), suy ra ($\\Rightarrow$, $\\Leftrightarrow$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType / OMML trong Word bằng 1 phím tắt Alt+\\ hoặc Alt+= mà không bao giờ bị lỗi.
+      + 🚨 CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN: Luôn có khoảng cách (dấu cách) giữa công thức toán $...$ và các từ tiếng Việt xung quanh (ví dụ: "Biểu thức $x^2 - 2x$ không phải", "cho $2x^2y$ và $-5x^2y$... là những đơn thức"). TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN SÁT DÍNH VÀO TỪ BÊN CẠNH.
       + 🚨 CẤM TUYỆT ĐỐI VIẾT PHÂN SỐ VÀ BẤT ĐẲNG THỨC BẰNG TEXT THÔ:
         * CẤM viết phân số bằng dấu gạch chéo thô (như 2024/1000, 24/1000, -2022/2023, 1/2). BẮT BUỘC dùng phân số LaTeX trong $...$: ví dụ $\\frac{2024}{1000} = 2 + \\frac{24}{1000} > 1,9$ hoặc $-\\frac{2022}{2023} = -1 + \\frac{1}{2023} > -1,1$ hoặc $\\frac{1}{2}$.
         * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \\le 50$, $b \\le 50$, $x \\ge 0$, $x \\neq 3$.
@@ -792,8 +787,8 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
     // Dọn sạch các lỗi $DoS hoặc $ DoS
-    text = text.replace(/\$DoS\s*([^$]+?)\$\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
-    text = text.replace(/\$DoS\s*([^$]+?)\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
+    text = text.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
+    text = text.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
     text = text.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // Tách tất cả các đề mục bị dính liền trên 1 dòng
@@ -803,12 +798,6 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     text = text.replace(/([^\s\$\(\[\{<|])\$([^\$\n\r]+?)\$/g, (_m, p1, p2) => `${p1} $${p2}$`);
     text = text.replace(/\$([^\$\n\r]+?)\$([^\s\$\)\],.:;!?%><|])/g, (_m, p1, p2) => `$${p1}$ ${p2}`);
     text = text.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
-
-    // Tách từ tiếng Việt dính biến số hoặc phân số
-    text = text.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc|Thay|thay|Tính|tính|Tìm|tìm|chia|bằng|nhân|cộng|trừ|vào)\s*([xyzabtuvcmnXYZABTUVCMSNPQ])(?=\b|[^\w\sà-ỹÀ-Ỹ]|$)/g, '$1 $2');
-    text = text.replace(/\b([xyzabtuvcmnXYZABTUVCMSNPQ])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]*)\b/g, '$1 $2');
-    text = text.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(?<!SGK|VBT|SBT|THCS|GDPT|BGDĐT|NLS|GDQP|STEM|AI|DOCX|HTML|PDF|URL|IMG|DSMT4)([XYZABTUVCMSNPQ])\b/g, '$1 $2');
-    text = text.replace(/(\^[0-9a-zA-Z{}]+|[0-9a-zA-Z\)])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
 
     // 2. CHUẨN HÓA CÁC ĐOẠN TÍCH HỢP: ĐỨNG ĐẦU CÂU, KHÔNG CÓ GẠCH ĐẦU DÒNG
     text = text.replace(/^[ \t]*[-+•*][ \t]+\*?(Tích\s*hợp)/gmi, '*$1');

@@ -27,20 +27,13 @@ import {
   ImportedXmlComponent,
   Footer,
   ExternalHyperlink,
-  ImageRun,
-  Math as DocxMath,
-  MathRun,
-  MathFraction,
-  MathSuperScript,
-  MathSubScript,
-  MathRadical
+  ImageRun
 } from 'docx';
 import FileSaver from 'file-saver';
 import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
-import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings, smartSplitTableLine, isActivityHeader, isParentActivityHeader } from '../utils/tableFormatter';
-import { parseLatexToDocxMath } from '../utils/mathDocxParser';
+import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings } from '../utils/tableFormatter';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -132,58 +125,26 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (!text) return "";
     let res = text;
 
-    // 0. Sửa lỗi chính tả / OCR font glyph phổ biến: "và o" -> "vào"
-    res = res.replace(/\bvà\s+o\b/gi, 'vào');
+    // 1. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
+    res = res.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
 
-    // 0b. Đơn giản hóa \left( \right) thành dấu ngoặc đơn tiêu chuẩn ( ) để tương thích 100% với Word OMML (Alt +=) và MathType (Alt +\)
-    res = res.replace(/\\left\s*\(/g, '(')
-             .replace(/\\right\s*\)/g, ')')
-             .replace(/\\left\s*\[/g, '[')
-             .replace(/\\right\s*\]/g, ']')
-             .replace(/\\left\s*\\\{/g, '{')
-             .replace(/\\right\s*\\\}/g, '}');
+    // 2. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
+    res = res.replace(/(\$[^\$\n\r]+?\$)([a-zA-Z0-9À-ỹ\(])/g, (_m, p1, p2) => `${p1} ${p2}`);
 
-    // 1. Tách nhãn chữ cái đầu dòng dính công thức / phân số: "a)\frac..." -> "a) \frac...", "b)(-15..." -> "b) (-15..."
-    res = res.replace(/(^|[\s\n\r<|])([a-e]\))([^\s\n\r|])/gi, '$1$2 $3');
+    // 3. Tách từ tiếng Việt dính sát vào biến/lũy thừa/phép tính: "thứcx^2" -> "thức x^2", "thức2x" -> "thức 2x"
+    res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuv]\^[0-9a-zA-Z]+|\d+[a-zA-Z]\^[0-9a-zA-Z]+|\d+[xyzabtuv]\b)/g, '$1 $2');
+    res = res.replace(/([0-9a-zA-Z])\s+([xyzabtuv])\^/g, '$1$2^');
+    res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuv]\^|\d+[a-zA-Z])/g, '$1 $2');
+    res = res.replace(/([a-zA-ZÀ-ỹ])(\d+[a-zA-Z^])/g, '$1 $2');
 
-    // 2. Tách dấu hai chấm, dấu chấm phẩy, dấu phẩy dính liền số, chữ, biến số, căn thức, phân số
-    // Ví dụ: là:1/2xy -> là: 1/2xy, tử:3x^2y -> tử: 3x^2y, có:3 ⋅ 10 -> có: 3 ⋅ 10, được:P -> được: P, tử:√2x -> tử: √2x, ;y -> ; y, ,y= -> , y =
-    res = res.replace(/([,;:])([^\s\n\r,;:|])/g, '$1 $2');
+    // 4. Tách dấu chấm lửng dính chữ: "...là" -> "... là", "...những" -> "... những"
+    res = res.replace(/(\.{2,}|…)([a-zA-ZÀ-ỹ])/g, '$1 $2');
 
-    // 3. Tách từ tiếng Việt dính biến số đứng một mình hoặc có số mũ / dấu bằng / phép toán
-    // Ví dụ: thứcM -> thức M, thứcNthỏa mãn -> thức N thỏa mãn, Thayx -> Thay x, 2vào -> 2 vào, thứcP -> thức P, vớix -> với x, tạix -> tại x, chiaB -> chia B
-    res = res.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc|Thay|thay|Tính|tính|Tìm|tìm|chia|bằng|nhân|cộng|trừ|vào|thu gọn|bậc|hệ số|các|hai|ba|những|biểu thức|kết quả)\s*([xyzabtuvcmnXYZABTUVCMSNPQ])(?=\b|[^\w\sà-ỹÀ-Ỹ]|$)/g, '$1 $2');
-    
-    // Tách biến số dính từ tiếng Việt phía sau: Nthỏa -> N thỏa, Pta -> P ta, Ax -> A x, Blà -> B là, xcó -> x có, Atrước -> A trước, Mta -> M ta, Bkhông -> B không, xđồng -> x đồng, Nở -> N ở, Qvà -> Q và, Hđều -> H đều, Pcó -> P có
-    res = res.replace(/([xyzabtuvcmnXYZABTUVCMSNPQ])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]*)/g, '$1 $2');
-
-    // Tách từ tiếng Việt dính trước biến số: thứcA -> thức A, thứcB -> thức B, thứcM -> thức M, thứcN -> thức N, thứcP -> thức P, thứcQ -> thức Q, thứcH -> thức H, Thayx -> Thay x, vớix -> với x, chiaB -> chia B, trongA -> trong A, củaB -> của B
-    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(?<!SGK|VBT|SBT|THCS|GDPT|BGDĐT|NLS|GDQP|STEM|AI|DOCX|HTML|PDF|URL|IMG|DSMT4)([XYZABTUVCMSNPQ])\b/g, '$1 $2');
-
-    // Tách số/lũy thừa/phép tính dính từ tiếng Việt: y^2không -> y^2 không, 3x^2yvì -> 3x^2y vì, 9xy^4là -> 9xy^4 là, -3x^2ylà -> -3x^2y là, 2vào -> 2 vào, 1là -> 1 là, x^4đồng -> x^4 đồng, 4đều -> 4 đều, 2có -> 2 có
-    res = res.replace(/(\^[0-9a-zA-Z{}]+|[0-9a-zA-Z\)])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
-
-    // Tách từ tiếng Việt dính trước số/phép tính/dấu ngoặc/căn thức:
-    // Ví dụ: bậc là4 -> bậc là 4, bậc là2 -> bậc là 2, bậc là0 -> bậc là 0, hệ số là3 -> hệ số là 3, hệ số là1 -> hệ số là 1, hệ số là-1 -> hệ số là -1, hệ số là-7 -> hệ số là -7, hệ số là√2 -> hệ số là √2, cộng2x -> cộng 2x, với1/2 -> với 1/2, hạng tử2x -> hạng tử 2x, chia-3x -> chia -3x, là(9x -> là (9x
-    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]{2,})([0-9\(\[\-]|√|\\sqrt)/g, '$1 $2');
-
-    // Tách số lượng dính đơn vị: 8xđồng -> 8x đồng, 30xđồng -> 30x đồng, 24yđồng -> 24y đồng, 10quyển -> 10 quyển, 24chiếc -> 24 chiếc
-    res = res.replace(/(\d+[xyzabtuvcmnXYZABTUVCMSNPQ]?)([a-zA-Zà-ỹÀ-Ỹ]{2,})/g, '$1 $2');
-
-    // Tách dấu mở ngoặc / đóng ngoặc dính chữ tiếng Việt: 3x^2y)thì -> 3x^2y) thì, 2)vào -> 2) vào, thức(như -> thức (như, SGK)sau -> SGK) sau
-    res = res.replace(/(\))([a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
-    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(\()/g, '$1 $2');
-
-    // 4. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
-    res = res.replace(/([^\s\n\r$([{<"'])(\$[^\$\n\r]+?\$)/g, '$1 $2');
-
-    // 5. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
-    res = res.replace(/(\$[^\$\n\r]+?\$)([^\s\n\r$,;:.\)\]\?!>"'])/g, '$1 $2');
+    // 5. Tách dấu chấm phẩy dính công thức/chữ: ";-5" -> "; -5", ";2x" -> "; 2x"
+    res = res.replace(/;([^\s\n\r])/g, '; $1');
 
     // 6. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
     res = res.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
-    res = res.replace(/\$\s+([^$\n\r]+?)\$/g, (_m, p1) => `$${p1.trim()}$`);
-    res = res.replace(/\$([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
 
     return res;
   };
@@ -200,11 +161,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Bắt buộc phải có các dấu hiệu toán học: lệnh LaTeX, dấu =, +, -, /, ^ hoặc biến số toán học
     const hasMathFeatures = (
       /\\(?:frac|sqrt|left|right|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|gamma|pi|Delta|begin|end|widehat|vec|overrightarrow)/.test(trimmed) ||
-      /[=+\-\/\^:]/.test(trimmed) ||
+      /[=+\-\/\^]/.test(trimmed) ||
       /\b[xyzabtuvcmnXYZABTUVCMSNPQ]\^[0-9a-zA-Z{}]+\b/.test(trimmed) ||
-      /\b\d+[xyzabtuvcmnXYZABTUVCMSNPQ]+\b/.test(trimmed) ||
-      /^[A-Za-z]\s*=/.test(trimmed) ||
-      /^\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\)/.test(trimmed)
+      /\b\d+[xyzabtuvcmnXYZABTUVCMSNPQ]+\b/.test(trimmed)
     );
 
     if (!hasMathFeatures) return false;
@@ -221,47 +180,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (!s) return "";
 
     // Dọn sạch các lỗi $DoS hoặc $ DoS
-    s = s.replace(/\$DoS\s*([^$]+?)\$\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
-    s = s.replace(/\$DoS\s*([^$]+?)\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
+    s = s.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
+    s = s.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
     s = s.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
-    // 0. Dọn sạch dòng rác chỉ chứa dấu +, -, *, •, $*$, $* $
-    if (/^[\s\+\-\*•_]+$/.test(s) || s === '*' || s === '$*$' || s === '$* $' || s === '**') {
-      return "";
-    }
-
-    // 0b. Bảng markdown: giữ nguyên toàn bộ cú pháp ô và hàng
+    // 0. Bảng markdown: giữ nguyên toàn bộ cú pháp ô và hàng
     if (s.startsWith('|') || s.endsWith('|') || /^:?-+:?$/.test(s)) {
       return s;
     }
 
-    // 0c. Loại bỏ dấu gạch đầu dòng thừa trước các đề mục chính (I, II, III, 1. Kiến thức, 2. Năng lực, 1. Giáo viên, 2. Học sinh, a) Mục tiêu, Bước 1...)
-    s = s.replace(/^[\s\-\+•\*]+(?=(?:(?:I|II|III|IV|V|VI)\.\s*|\d+\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Năng\s*lực|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức|Yêu\s*cầu)|Bước\s*[1-4]|(?:#+\s*)?(?:\d+[\.\)]\s*)?Hoạt\s*động))/i, '');
-
     // 1. Tiêu đề mục lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học, IV. Hướng dẫn về nhà...)
     if (/^(?:#+\s*)?(?:\*\*)?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*[^:\n]+|Bài\s*\d+[^:\n]*|Tiết\s*\d+[^:\n]*)(?:\*\*)?$/i.test(s)) {
-      const cleanHeading = s.replace(/^#+\s*/, '').replace(/^[\s\-\+•\*]+/, '').replace(/^\*\*|\*\*$/g, '').trim();
+      const cleanHeading = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
       return `**${cleanHeading}**`;
     }
 
     // 2. Tiêu đề hoạt động dạy học (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng...)
     if (/^(?:#+\s*)?(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(s)) {
-      const cleanAct = s.replace(/^#+\s*/, '').replace(/^[\s\-\+•\*]+/, '').replace(/^\*\*|\*\*$/g, '').trim();
+      const cleanAct = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
       return `**${cleanAct}**`;
     }
 
     // 3. Tiêu đề "* Hướng dẫn về nhà"
     if (/^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(s)) {
       return `* Hướng dẫn về nhà:`;
-    }
-
-    // 3b. Các mục con của Hướng dẫn về nhà (- Ôn tập kiến thức:, - Bài tập về nhà:, - Chuẩn bị bài mới:)
-    const hwMatch = s.match(/^[\s\-\+•\*]*(?:\*\*)?(Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)(?::|\*\*)?[ \t]*(.*)$/i);
-    if (hwMatch) {
-      const label = hwMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-      const cleanLabel = label.endsWith(':') ? label : `${label}:`;
-      let rest = (hwMatch[2] || '').replace(/^\*\*+/, '').replace(/^[:\s\*\-]+/, '').replace(/\*\*+$/, '').trim();
-      return rest ? `- **${cleanLabel}** ${rest}` : `- **${cleanLabel}**`;
     }
 
     // 4. Nếu là dòng tích hợp (*Tích hợp...), giữ nguyên dấu * ở đầu câu
@@ -271,7 +213,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
 
     // 5. Đề mục số chính: 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất:, 1. Giáo viên:, 2. Học sinh:
-    const numHeadingMatch = s.match(/^(?:[\s\-\+•\*]*)(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất)|[1-2]\.\s*(?:Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu))(?::|\*\*)?[ \t]*(.*)$/i);
+    const numHeadingMatch = s.match(/^(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất)|[1-2]\.\s*(?:Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu))(?::|\*\*)?[ \t]*(.*)$/i);
     if (numHeadingMatch) {
       const label = numHeadingMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       const cleanLabel = label.endsWith(':') ? label : `${label}:`;
@@ -280,25 +222,25 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
 
     // 6. Đề mục chữ: a) Năng lực đặc thù:, b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:, a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-    const subLabelMatch = s.match(/^(?:[\s\-\+•\*]*)(?:\*\*)?([a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu))(?::|\*\*)?[ \t]*(.*)$/i);
+    const subLabelMatch = s.match(/^(?:\*\*)?([a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu))(?::|\*\*)?[ \t]*(.*)$/i);
     if (subLabelMatch) {
       const label = subLabelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       const cleanLabel = label.endsWith(':') ? label : `${label}:`;
-      const rest = (subLabelMatch[2] || '').replace(/^[\*\s:\-]+/, '').replace(/\*\*+$/, '').trim();
+      const rest = (subLabelMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
       return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
     }
 
     // 7. Các bước thực hiện: Bước 1: Chuyển giao nhiệm vụ:, Bước 2: ..., Bước 3: ..., Bước 4: ...
-    const stepMatch = s.match(/^(?:[\s\-\+•\*]*)(?:\*\*)?(Bước\s*[1-4]\s*:\s*[^:\n]+|Bước\s*[1-4])(?::|\*\*)?[ \t]*(.*)$/i);
+    const stepMatch = s.match(/^(?:\*\*)?(Bước\s*[1-4]\s*:\s*[^:\n]+|Bước\s*[1-4])(?::|\*\*)?[ \t]*(.*)$/i);
     if (stepMatch) {
       const label = stepMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       const cleanLabel = label.endsWith(':') ? label : `${label}:`;
-      const rest = (stepMatch[2] || '').replace(/^[\*\s:\-]+/, '').replace(/\*\*+$/, '').trim();
+      const rest = (stepMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
       return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
     }
 
     // 8. Các đề mục bài tập, ví dụ, câu hỏi Cột 2 (Ví dụ 1:, Luyện tập 1:, Vận dụng 1:, Bài 1.1:, ĐS:, Lời giải:)
-    const col2LabelMatch = s.match(/^([\s\-\+•\*]*)(?:\*\*)?(Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|\?\d+|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)(?::|\*\*)?[ \t]*(.*)$/i);
+    const col2LabelMatch = s.match(/^([\s\-\+•\*]*)(?:\*\*)?(Ví\s*dụ\s*\d*|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|\?\d+|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới|Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)(?::|\*\*)?[ \t]*(.*)$/i);
     if (col2LabelMatch) {
       const bullet = col2LabelMatch[1].includes('-') ? '- ' : (col2LabelMatch[1].includes('+') ? '+ ' : '');
       const label = col2LabelMatch[2].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
@@ -324,6 +266,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return `${bullet}${cleanContent}`;
     }
 
+    // 11. Dọn sạch dấu ** thừa ở cuối câu
+    s = s.replace(/\.\*\*+$/g, '.');
+    s = s.replace(/([^\*\n\r]+?)\*\*+$/g, '$1');
+    s = s.replace(/\*\*+$/g, '');
+
     return s;
   };
 
@@ -348,21 +295,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       // 1. Khắc phục in đậm chuẩn trên từng dòng
       cur = sanitizeLineBold(cur);
 
-      // Đơn giản hóa \left( \right) thành ( ) để tương thích 100% với OMML và MathType
-      cur = cur.replace(/\\left\s*\(/g, '(')
-               .replace(/\\right\s*\)/g, ')')
-               .replace(/\\left\s*\[/g, '[')
-               .replace(/\\right\s*\]/g, ']')
-               .replace(/\\left\s*\\\{/g, '{')
-               .replace(/\\right\s*\\\}/g, '}');
-
       // Phục hồi công thức phân số bị lỗi tiền tố rac -> \frac
       cur = repairRacToFrac(cur);
       cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (_match, p1, p2) => `\\frac{${p1.trim()}}{${p2.trim()}}`);
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
-
-      // Tách khoảng cách chống dính chữ
-      cur = ensureMathFormulaSpacing(cur);
 
       // 2. Tách nhãn tiêu đề (nếu có) để xử lý riêng
       const labelRegex = /^(?:[\*\s#\-•]*)((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực[^\n:]*)|(?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh)|HĐ\s*\d+|Kết\s*luận|Nhận\s*xét|Tranh\s*luận|Chú\s*ý|Quy\s*tắc|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|\?:(?:\s*SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?|[a-e]\))[:\s\*\-]*)(.*)$/i;
@@ -400,9 +336,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
       let processedBody = mathBody;
 
-      // A. Biểu thức có chứa lệnh LaTeX (\frac, \sqrt, \cdot, \times, \le, \ge, \neq...)
+      // A. Biểu thức có chứa lệnh LaTeX (\frac, \sqrt, \cdot, \times, \left, \right, \le, \ge, \neq...)
       processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)([=+\-]?\s*(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,:]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta)(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,:]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*)(?=$|[\s),.:;!?])/g, (_m, p1) => {
+        return t.replace(/(?:^|(?<=[\s(:;]))([=+\-]?\s*(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|left[\(\[]|right[\)\]]|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|left[\(\[]|right[\)\]]|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta)(?:[0-9a-zA-Z\(\)\[\]\^_{}\s\+\-\*\/=,]|\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}|left[\(\[]|right[\)\]]|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|Delta))*)(?=$|[\s),.:;!?])/g, (_m, p1) => {
           let m = p1.trim();
           while (/[,.:;!?]$/.test(m) && !/[\)\]\}]$/.test(m)) m = m.slice(0, -1).trim();
           if (/[à-ỹÀ-Ỹ]/.test(m)) return p1;
@@ -411,29 +347,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         });
       });
 
-      // B. Đa thức & phương trình đầy đủ (ví dụ: x^2 + 2x + 1, 4(x - 2) = 4x - 8, 3x^2 - 5x + 7, x = -3, y = 2, A = 9x^2y^4 - 12x^3y^3)
+      // B. Đơn thức / Đa thức có số mũ (ví dụ: -2x y^3z, -2xy^3z, 3x^2, 15x^4 - 5x^3 - 20x^2)
       processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)([+-]?\s*(?:(?:\d+(?:,\d+)?\s*)?[xyzabtuvcmnXYZABTUVCMSNPQ](?:\^[0-9a-zA-Z{}]+)?|\d+|\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\))(?:\s*[+\-\*\/=:]\s*[+-]?\s*(?:(?:\d+(?:,\d+)?\s*)?[xyzabtuvcmnXYZABTUVCMSNPQ](?:\^[0-9a-zA-Z{}]+)?|\d+|\([0-9a-zA-Z\s\+\-\*\/^\(\)]+\)))+)(?=$|[\s),.:;!?])/g, (match) => {
+        return t.replace(/(?:^|(?<=[\s(:;]))(-?\s*\d*(?:,\d+)?\s*[xyzabtuv](?:\s*[xyzabtuv])*(?:\^[0-9a-zA-Z{}]+)+(?:\s*[xyzabtuv0-9]*(?:\^[0-9a-zA-Z{}]+)*)*(?:\s*[+\-]\s*-?\s*\d*(?:,\d+)?\s*[xyzabtuv0-9](?:\^[0-9a-zA-Z{}]+)?)*)(?=$|[\s),.:;!?])/g, (match) => {
           let m = match.trim();
-          while (/[,.:;!?]$/.test(m) && !/[\)\]\}]$/.test(m)) m = m.slice(0, -1).trim();
+          while (/[,.:;!?]$/.test(m)) m = m.slice(0, -1).trim();
           if (/[à-ỹÀ-Ỹ]/.test(m)) return match;
+          m = m.replace(/(^|[^a-zA-Z\\])([xyzabtuv](?:\^[0-9a-zA-Z{}]+)?)\s+([xyzabtuv])(?![a-zA-Z])/g, '$1$2$3');
           m = m.replace(/(^|[^a-zA-Z\\])([xyzabtuv](?:\^[0-9a-zA-Z{}]+)?)\s+([xyzabtuv])(?![a-zA-Z])/g, '$1$2$3');
           return `$${m}$`;
         });
       });
 
-      // C. Đơn thức có số mũ (ví dụ: x^2, -5x^3y, 2x^2y^3, 9x^2y^4, -3x^2y)
-      processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/(?:^|(?<=[\s:;]))(?![a-e]\)\s*)(-?\s*\d*(?:,\d+)?\s*[xyzabtuvcmnXYZABTUVCMSNPQ](?:\s*[xyzabtuvcmnXYZABTUVCMSNPQ])*(?:\^[0-9a-zA-Z{}]+)+(?:\s*[xyzabtuvcmnXYZABTUVCMSNPQ0-9]*(?:\^[0-9a-zA-Z{}]+)*)*)(?=$|[\s),.:;!?])/g, (match) => {
-          let m = match.trim();
-          while (/[,.:;!?]$/.test(m) && !/[\)\]\}]$/.test(m)) m = m.slice(0, -1).trim();
-          if (/[à-ỹÀ-Ỹ]/.test(m)) return match;
-          m = m.replace(/(^|[^a-zA-Z\\])([xyzabtuv](?:\^[0-9a-zA-Z{}]+)?)\s+([xyzabtuv])(?![a-zA-Z])/g, '$1$2$3');
-          return `$${m}$`;
-        });
-      });
-
-      // D. Phân số đơn lẻ dạng text: 1/2, -5/9, 7/3
+      // C. Phân số đơn lẻ dạng text: 1/2, -5/9
       processedBody = transformNonLatex(processedBody, (t) => {
         return t.replace(/(?:^|(?<=[\s(]))(-?\s*\d+)\/(\d+)(?=$|[\s),.:;!?\n])/g, (_match, num, den) => {
           const cleanNum = num.replace(/\s+/g, '');
@@ -443,26 +369,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         });
       });
 
-      // E. Ký tự so sánh Unicode còn sót
+      // D. Ký tự so sánh Unicode còn sót
       processedBody = transformNonLatex(processedBody, (t) => {
         return t.replace(/≤/g, '$\\le$')
           .replace(/≥/g, '$\\ge$')
           .replace(/≠/g, '$\\neq$')
           .replace(/±/g, '$\\pm$');
       });
-
-      // F. Biến số đứng một mình sau các từ khóa toán học: "đa thức x", "biến y", "cho A và B", "đơn thức M", "đa thức N"
-      processedBody = transformNonLatex(processedBody, (t) => {
-        return t.replace(/\b(thức|biến|ẩn|hạng tử|nghiệm|cho|tại|với|tập hợp|đa thức|đơn thức|trong|của|chia|bằng|nhân|cộng|trừ)\s+([xyzabtuvcmnXYZABTUVCMSNPQ])\b(?!\s*[\^=+\-\*\/\)\]])/gi, (_m, p1, p2) => `${p1} $${p2}$`);
-      });
-
-      // Dọn sạch khoảng trắng trong dấu $
-      processedBody = processedBody.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
-      processedBody = processedBody.replace(/\$\s+([^$\n\r]+?)\$/g, (_m, p1) => `$${p1.trim()}$`);
-      processedBody = processedBody.replace(/\$([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
-
-      // Dọn sạch $$ mồ côi ở cuối công thức hoặc bên trong chuỗi
-      processedBody = processedBody.replace(/([^\$])\$\$([^\$]|$)/g, '$1$$$2');
 
       // Đảm bảo khoảng cách giữa chữ và $
       processedBody = processedBody.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
@@ -478,11 +391,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
 
-    // Xóa sạch tất cả các ký tự rác $*$, $* $, * |, | *, \* |, dòng rác +, -, *, •
+    // Xóa sạch tất cả các ký tự rác $*$, $* $, * |, | *, \* |, v.v.
     let clean = text.replace(/\$\s*\*\s*\$/g, '');
     clean = clean.replace(/\$\s*\*\s+/g, '');
     clean = clean.replace(/\\?\$\s*\\\*\s*\\?\$/g, '');
-    clean = clean.replace(/^[ \t]*[\+\-\*•][ \t]*$/gm, '');
     clean = clean.replace(/^\s*\*\s*\|\s*$/gm, '');
     clean = clean.replace(/^\s*\|\s*\*\s*$/gm, '');
     clean = clean.replace(/^\s*\*\s*$/gm, '');
@@ -491,8 +403,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = repairRacToFrac(clean);
 
     // Dọn dẹp các ký tự $DoS
-    clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
-    clean = clean.replace(/\$DoS\s*([^$]+?)\$/gi, (_m, p1) => `**ĐS:** $${p1.trim()}$`);
+    clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
+    clean = clean.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
     clean = clean.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
 
     // Tách tất cả các đề mục bị dính liền trên 1 dòng
@@ -763,15 +675,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         parts.forEach(part => {
           if (!part) return;
 
-          // Xuất công thức toán học dưới dạng LaTeX chuẩn ($...$ hoặc $$...$$) để giáo viên tự chuyển đổi sang MathType (Alt+\) hoặc OMML
-          if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
-            segRuns.push(new TextRun({
-              text: part,
-              font: "Times New Roman",
-              size: segStyles.size || 28,
-              italics: false,
-              color: segStyles.color
-            }));
+          // Giữ nguyên $...$ cho công thức toán học để tương thích 100% OMML và MathType
+          if (part.startsWith('$$') && part.endsWith('$$')) {
+            segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
+            return;
+          }
+          if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
+            segRuns.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
             return;
           }
 
@@ -865,28 +775,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       let innerText = part;
       let isMatched = false;
 
+
       // 1. If it is an image tag, render it directly as an image without breaking into italics
       if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
         (part.startsWith('![') && part.includes(')'))) {
         runs.push(...createTextRuns(part, matchStyles));
         return;
-      } else if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
-        try {
-          const mathObj = parseLatexToDocxMath(part);
-          if (mathObj) {
-            runs.push(mathObj);
-            return;
-          }
-        } catch (e) {
-          console.warn("[DOCX Math Parse Error]:", part, e);
-        }
-        runs.push(new TextRun({
-          text: part,
-          font: "Times New Roman",
-          size: matchStyles.size || 26,
-          italics: false,
-          color: matchStyles.color
-        }));
+      } else if (part.startsWith('$$') && part.endsWith('$$')) {
+        // Giữ nguyên $...$ cho công thức MathType / OMML
+        runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
+        return;
+      } else if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
+        // Giữ nguyên $...$ cho công thức MathType / OMML
+        runs.push(new TextRun({ text: ` ${part.trim()} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
         return;
       } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00') || lowerPart.includes('#dc2626'))) {
         innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
@@ -926,6 +827,38 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return runs;
   };
 
+  // Helper: Smart split for markdown tables that ignores pipes inside math formulas ($...$)
+  const smartSplitTableLine = (line: string): string[] => {
+    const cells: string[] = [];
+    let currentCell = '';
+    let inMath = false;
+    let inDoubleMath = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+
+      if (char === '\\' && nextChar === '|') {
+        currentCell += '|';
+        i++; // skip next |
+      } else if (char === '$' && nextChar === '$') {
+        inDoubleMath = !inDoubleMath;
+        currentCell += '$$';
+        i++; // skip next $
+      } else if (char === '$' && !inDoubleMath) {
+        inMath = !inMath;
+        currentCell += '$';
+      } else if (char === '|' && !inMath && !inDoubleMath) {
+        cells.push(currentCell);
+        currentCell = '';
+      } else {
+        currentCell += char;
+      }
+    }
+    cells.push(currentCell);
+    return cells;
+  };
+
   const parseHtmlTableToDocx = (htmlTable: string, baseStyles: any): Table => {
     let docxRows: TableRow[] = [];
     try {
@@ -951,8 +884,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         if (cells.length === 0) return null;
 
         const isHeaderRow = cells.some(c => c.tagName === 'TH') || rowIndex === 0;
-        const numCols = Math.max(cells.length, 1);
-        const colPercent = Math.max(Math.floor(100 / numCols), 15);
 
         return new TableRow({
           children: cells.map(td => {
@@ -969,13 +900,17 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
             const text = td.innerHTML || "";
             return new TableCell({
               children: parseDocxCellContent(text.trim(), cellStyles, isHeaderRow) as any,
-              width: { size: colPercent, type: WidthType.PERCENTAGE },
               borders: {
                 top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
               },
+              ...(td.getAttribute("width") || htmlTd.style.width ? {
+                width: (td.getAttribute("width") || htmlTd.style.width).includes("%")
+                  ? { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0"), type: WidthType.PERCENTAGE }
+                  : { size: parseFloat(td.getAttribute("width") || htmlTd.style.width || "0") * 15, type: WidthType.DXA }
+              } : {})
             });
           })
         });
@@ -1014,12 +949,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           if (!trimmedLine) return;
 
           const isInt = isIntegrationLine(trimmedLine);
-          const lineStyles = { ...baseStyles, size: baseStyles.size || 26 };
+          const lineStyles = { ...baseStyles };
           if (isInt) {
             lineStyles.color = "FF0000";
-            if (/(?:Năng\s*lực\s*(?:số|AI)|\*?Tích\s*hợp\s*năng\s*lực|\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập)/i.test(trimmedLine)) {
-              lineStyles.italics = true;
-            }
+            lineStyles.italics = false;
           }
 
           // Làm sạch in đậm tùy tiện trên dòng này
@@ -1030,7 +963,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
           children.push(new Paragraph({
             children: parseTextWithFormatting(formattedLine, lineStyles),
-            spacing: { before: 30, after: 30, line: 276, lineRule: LineRuleType.AUTO },
+            spacing: { before: 40, after: 40, line: 240, lineRule: LineRuleType.AUTO },
             indent: { firstLine: 0, left: 0, right: 0 },
             alignment: isHeaderRow ? AlignmentType.CENTER : AlignmentType.LEFT
           }));
@@ -1053,12 +986,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const reconstructCellWithSubTables = (rawCells: string[]): string => {
     if (rawCells.length === 0) return '';
     if (rawCells.length === 1) return rawCells[0] || '';
-
-    // If cells contain pedagogical content (Bước 1-4, GV, HS), just join with <br>
-    const hasPedagogical = rawCells.some(c => /Bước\s*[1-4]|(?:GV|HS|Giáo\s*viên|Học\s*sinh)\b|\*?Tích\s*hợp/i.test(c));
-    if (hasPedagogical) {
-      return rawCells.filter(Boolean).join('<br>');
-    }
 
     // Check if there are markdown table separator/alignment tokens (:---, ---, :---:)
     const sepIndices: number[] = [];
@@ -1096,13 +1023,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
         const afterText = rawCells.slice(dataIdx).join(' ').trim();
 
-        const maxCols = Math.max(subHeaders.length, 1);
-        const colPercent = Math.max(Math.floor(100 / maxCols), 15);
-
-        let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 11pt; margin: 6px 0;">`;
-        htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 6px 8px; text-align: center; width: ${colPercent}%; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
+        let htmlSubTable = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
+        htmlSubTable += `<tr>${subHeaders.map(h => `<th style="border: 1px solid black; padding: 4px; text-align: center; background-color: #f8fafc;">${h.trim()}</th>`).join('')}</tr>`;
         subRows.forEach(r => {
-          htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 6px 8px; text-align: center; width: ${colPercent}%;">${d.trim()}</td>`).join('')}</tr>`;
+          htmlSubTable += `<tr>${r.map(d => `<td style="border: 1px solid black; padding: 4px; text-align: center;">${d.trim()}</td>`).join('')}</tr>`;
         });
         htmlSubTable += `</table>`;
 
@@ -1235,27 +1159,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }
         }
 
-        // LỌC SẠCH CÁC CÂU HOẠT ĐỘNG CỦA HỌC SINH / GIÁO VIÊN BỊ LẠC SANG CỘT 2 (KẾT QUẢ HOẠT ĐỘNG)
-        const col1Lines = col1Text.split(/<br\s*\/?>/gi).map(l => l.trim().replace(/^[\\|:\s]+/, '').replace(/[\\|:\s]+$/, '')).filter(Boolean);
-        const newCol1: string[] = [];
-        const extraCol0: string[] = [];
-
-        col1Lines.forEach(line => {
-          const isPedagogicalAction = /^(?:\*\*|\*|_)?(?:[\-\+•\s]*)(?:Bước\s*[1-4]|GV\b|Giáo\s*viên\b|HS\s*tích\s*cực|HS\s*báo\s*cáo|HS\s*ghi\s*nhớ|HS\s*làm\s*việc|HS\s*thực\s*hiện|HS\s*chú\s*ý|HS\s*quan\s*sát|HS\s*thảo\s*luận|HS\s*lắng\s*nghe|HS\s*trả\s*lời|HS\s*nhận\s*xét|\*?Tích\s*hợp)/i.test(line);
-          if (isPedagogicalAction) {
-            extraCol0.push(line);
-          } else {
-            newCol1.push(line);
-          }
-        });
-
-        if (newCol1.length > 0) {
-          col1Text = newCol1.join('<br>');
-        }
-        if (extraCol0.length > 0 && !col0Text.includes("Bước 2") && !col0Text.includes("Bước 3")) {
-          col0Text = `${col0Text}<br>${extraCol0.join('<br>')}`;
-        }
-
         // ĐẢM BẢO 100% HÌNH ẢNH / HÌNH VẼ ĐƯỢC CHUYỂN VỀ CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM)
         const imgTagRegex = /\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)/gi;
         const col0Imgs = col0Text.match(imgTagRegex);
@@ -1302,9 +1205,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         if (cells.length > maxCols) maxCols = cells.length;
       });
 
-      const numCols = Math.max(maxCols, 1);
-      const colPercent = Math.max(Math.floor(100 / numCols), 15);
-
       const rows = parsedRows.map((cells, rowIndex) => {
         while (cells.length < maxCols) {
           cells.push('');
@@ -1323,7 +1223,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
             return new TableCell({
               children: parseDocxCellContent(cellText, baseStyles, isHeaderRow) as any,
-              width: { size: colPercent, type: WidthType.PERCENTAGE },
               borders: {
                 top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
@@ -1398,10 +1297,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào Cột 2 (Sản phẩm / Kết quả hoạt động):", educationalImages);
         const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
 
-        // Chèn vào Cột 2 của hàng dữ liệu bảng 2 cột
-        const tableDataRowMatch = preProcessedResult.match(/(\|\s*:?---+\s*\|\s*:?---+\s*\|\s*\r?\n\s*\|\s*[^|\n]+\|)([^|\n]+)(\|)/);
-        if (tableDataRowMatch) {
-          preProcessedResult = preProcessedResult.replace(tableDataRowMatch[0], `${tableDataRowMatch[1]}${tableDataRowMatch[2]} ${imgTagsInCell}${tableDataRowMatch[3]}`);
+        // Chèn vào Cột 2 của bảng 2 cột
+        const tableRowMatch = preProcessedResult.match(/(\|\s*[^|\n]+\|)([^|\n]+)(\|)/);
+        if (tableRowMatch) {
+          preProcessedResult = preProcessedResult.replace(tableRowMatch[0], `${tableRowMatch[1]}${tableRowMatch[2]} ${imgTagsInCell}${tableRowMatch[3]}`);
         }
       }
       const lines = preProcessedResult.split('\n');
@@ -1547,8 +1446,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           inTable = false;
         }
 
-        // 2. Empty Line Handling & Garbage line handling (+, -, *, •)
-        if (!trimmed || trimmed === '+' || trimmed === '-' || trimmed === '*' || trimmed === '•' || trimmed === '$*$' || trimmed === '$* $') {
+        // 2. Empty Line Handling
+        if (!trimmed) {
           continue;
         }
 
@@ -1618,7 +1517,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }
         }
         // 3b. Roman numeral main headings: I. Mục tiêu, II. Thiết bị..., III. Tiến trình...
-        else if (/^(?:[\s\-\+•\*]*)(?:\*\*)?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình)/i.test(trimmed)) {
+        else if (/^(?:\*\*)?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình)/i.test(trimmed)) {
           const cleanHeading = sanitizeLineBold(trimmed);
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanHeading, { bold: true, size: 28 }),
@@ -1628,7 +1527,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         // 3c. Activity headers: 1. Hoạt động 1: Khởi động, 2. Hoạt động 2: Hình thành..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng
-        else if (isActivityHeader(trimmed) || isParentActivityHeader(trimmed) || /^(?:[\s\-\+•\*]*)(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
+        else if (/^(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
           const cleanAct = sanitizeLineBold(trimmed);
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanAct, { bold: true, size: 28 }),
@@ -1638,7 +1537,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         // 3d. Section numbers: 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất:, 1. Giáo viên:, 2. Học sinh:, a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-        else if (/^(?:[\s\-\+•\*]*)(?:\*\*)?(?:[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực))/i.test(trimmed)) {
+        else if (/^(?:\*\*)?(?:[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực))/i.test(trimmed)) {
           const isInt = isIntegrationLine(trimmed);
           const lineStyles: any = isInt ? { color: "FF0000" } : {};
           const cleanSub = sanitizeLineBold(trimmed);

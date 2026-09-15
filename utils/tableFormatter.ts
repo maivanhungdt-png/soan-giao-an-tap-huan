@@ -15,21 +15,14 @@ export const isActivityHeader = (line: string): boolean => {
     .replace(/^[\*#\s\-\+•_]+/, '')
     .replace(/[\*#\s_]+$/, '')
     .trim();
-
-  // Exclude subject/metadata, table headers, steps, sections, textbook exercises (HĐ1, HĐ2)
-  if (/^(?:Môn\s*học\/)?Hoạt\s*động\s*giáo\s*dục/i.test(clean)) return false;
   if (/^Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)/i.test(clean)) return false;
-  if (/^Hoạt\s*động\s*(?:nhóm|cá\s*nhân|cặp\s*đôi)\b/i.test(clean)) return false;
   if (/^Kết\s*quả\s*hoạt\s*động/i.test(clean)) return false;
   if (/^Tổ\s*chức\s*thực\s*hiện/i.test(clean)) return false;
   if (/^[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức|Yêu\s*cầu)/i.test(clean)) return false;
   if (/^(?:Bước\s*[1-4]|\*?Tích\s*hợp|HS\s*khuyết\s*tật)/i.test(clean)) return false;
-  if (/^(?:I|II|III|IV|V|VI)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình|Hướng\s*dẫn)/i.test(clean)) return false;
-  if (/^[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)/i.test(clean)) return false;
-  if (/^(?:HĐ|HD)\s*\d+/i.test(clean)) return false; // HĐ1, HĐ2 in SGK belong to Col 2
 
   return (
-    /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean) ||
+    /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|:[^:\n]*|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean) ||
     /^(?:\d+[\.\)]\s*)?(?:Khởi\s*động|Luyện\s*tập|Vận\s*dụng)\s*[:\-\.]/i.test(clean) ||
     /^[1-4]\.\s*(?:Khởi\s*động|Hình\s*thành\s*kiến\s*thức|Luyện\s*tập|Vận\s*dụng)\b/i.test(clean)
   );
@@ -38,7 +31,7 @@ export const isActivityHeader = (line: string): boolean => {
 // Helper: Check if a line is a Parent Container Header (e.g., "2. Hoạt động 2: Hình thành kiến thức mới")
 export const isParentActivityHeader = (line: string): boolean => {
   const clean = line.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
-  return /^(?:\d+[\.\)]\s*)?(?:Hoạt\s*động\s*2\s*:?\s*)?Hình\s*thành\s*kiến\s*thức(?:\s*mới)?\s*:?$/i.test(clean) ||
+  return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?$/i.test(clean) ||
          /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:?\s*$/i.test(clean);
 };
 
@@ -52,7 +45,7 @@ export const isSectionEnd = (line: string): boolean => {
     .trim();
   return (
     /^\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)/i.test(clean) ||
-    /^(?:IV|V|VI)\s*[\.\)]\s*(?:HƯỚNG|Hướng|DẶN|Dặn|PHỤ|Phụ|ĐÁNH|Đánh)/i.test(clean) ||
+    /^(?:IV|V|VI|4|5|6)\s*[\.\)]\s*(?:HƯỚNG|Hướng|DẶN|Dặn|PHỤ|Phụ|ĐÁNH|Đánh)/i.test(clean) ||
     /^(?:Dặn\s*dò|Giao\s*bài\s*về\s*nhà)/i.test(clean) ||
     /^(?:Ôn\s*tập\s*kiến\s*thức|Bài\s*tập\s*về\s*nhà|Chuẩn\s*bị\s*bài\s*mới)/i.test(clean) ||
     /^(?:Người\s*kiểm\s*tra|Người\s*xây\s*dựng|Ký\s*duyệt)/i.test(clean)
@@ -131,52 +124,52 @@ export const splitAllMergedHeadings = (text: string): string => {
     s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, ':\n\n');
 
     // 1. Tách các tiêu đề lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học)
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
 
     // 2. Tách Hoạt động 2: Hình thành kiến thức mới
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
 
     // 3. Tách các Hoạt động (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., Hoạt động 2.2: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng)
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').replace(/^#+\s*/, '').replace(/^[\-\+•\s]+/, '').trim();
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[\s\S]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^#+\s*/, '').trim();
       if (c.startsWith('**') && c.endsWith('**')) c = c.slice(2, -2).trim();
       return `\n\n**${c}**\n\n`;
     });
 
     // 4. Tách 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất: nếu dính liền
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(1\.\s*(?:Kiến\s*thức|KIẾN\s*THỨC)\s*:?)(?:\*\*)?/gmi, '\n\n**1. Kiến thức:**\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(2\.\s*(?:Năng\s*lực|NĂNG\s*LỰC)\s*:?)(?:\*\*)?/gmi, '\n\n**2. Năng lực:**\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(3\.\s*(?:Phẩm\s*chất|PHẨM\s*CHẤT)\s*:?)(?:\*\*)?/gmi, '\n\n**3. Phẩm chất:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(1\.\s*(?:Kiến\s*thức|KIẾN\s*THỨC)\s*:?)(?:\*\*)?/gmi, '\n\n**1. Kiến thức:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(2\.\s*(?:Năng\s*lực|NĂNG\s*LỰC)\s*:?)(?:\*\*)?/gmi, '\n\n**2. Năng lực:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(3\.\s*(?:Phẩm\s*chất|PHẨM\s*CHẤT)\s*:?)(?:\*\*)?/gmi, '\n\n**3. Phẩm chất:**\n');
 
     // 5. Tách các tiểu mục Năng lực: a) Năng lực đặc thù..., b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*:]*:?)(?:\*\*)?/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').replace(/^[:\-\s\+•]+|[:\-\s]+$/g, '').trim();
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*:]*:?)(?:\*\*)?/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
       c = c.replace(/^Năng\s*lực:\s*/i, 'Năng lực ');
       if (!c.endsWith(':')) c += ':';
       return `\n**${c}**\n`;
     });
 
     // 6. Tách 1. Giáo viên:, 2. Học sinh: nếu dính liền
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)\b\s*:?)(?:\*\*)?/gmi, '\n**1. Giáo viên:**\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)(?:\*\*)?/gmi, '\n**2. Học sinh:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)\b\s*:?)(?:\*\*)?/gmi, '\n**1. Giáo viên:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)(?:\*\*)?/gmi, '\n**2. Học sinh:**\n');
 
     // 7. Tách a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**a) Mục tiêu:** ');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**b) Nội dung:** ');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**c) Sản phẩm:** ');
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(d\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**d) Tổ chức thực hiện:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**a) Mục tiêu:** ');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**b) Nội dung:** ');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**c) Sản phẩm:** ');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(d\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**d) Tổ chức thực hiện:**\n');
 
     // 8. Tách các bước trong d) Tổ chức thực hiện (ngoài bảng) nếu bị dính dòng
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').replace(/^[\-\+•\s]+/, '').trim();
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').trim();
       if (!c.endsWith(':')) c += ':';
       return `\n**${c}** `;
     });
 
     // 9. Tách * Hướng dẫn về nhà:, + Ôn tập kiến thức:, + Bài tập về nhà:, + Chuẩn bị bài mới:
-    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n* Hướng dẫn về nhà:\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n* Hướng dẫn về nhà:\n');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Ôn\s*tập\s*kiến\s*thức\b\s*:?)(?:\*\*)?/gmi, '\n$1');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà\b\s*:?)(?:\*\*)?/gmi, '\n$1');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Chuẩn\s*bị\s*bài\s*mới\b\s*:?)(?:\*\*)?/gmi, '\n$1');
@@ -184,44 +177,16 @@ export const splitAllMergedHeadings = (text: string): string => {
     // 10. Tách *Tích hợp giáo dục hòa nhập: nếu dính dòng
     s = s.replace(/(?:^|[^\n])\s*(\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*:?)/gmi, '\n$1\n');
 
+    // 11. Xóa ký tự ** thừa ở cuối câu
+    s = s.replace(/\.\*\*+$/gm, '.');
+    s = s.replace(/([^\*\n])\*\*+$/gm, '$1');
+
     processedLines.push(s);
   }
 
   let result = processedLines.join('\n');
   result = result.replace(/\n{3,}/g, '\n\n');
   return result;
-};
-
-// Helper: Smart split for markdown tables that ignores pipes inside math formulas ($...$)
-export const smartSplitTableLine = (line: string): string[] => {
-  const cells: string[] = [];
-  let currentCell = '';
-  let inMath = false;
-  let inDoubleMath = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-
-    if (char === '\\' && nextChar === '|') {
-      currentCell += '|';
-      i++; // skip next |
-    } else if (char === '$' && nextChar === '$') {
-      inDoubleMath = !inDoubleMath;
-      currentCell += '$$';
-      i++; // skip next $
-    } else if (char === '$' && !inDoubleMath) {
-      inMath = !inMath;
-      currentCell += '$';
-    } else if (char === '|' && !inMath && !inDoubleMath) {
-      cells.push(currentCell);
-      currentCell = '';
-    } else {
-      currentCell += char;
-    }
-  }
-  cells.push(currentCell);
-  return cells;
 };
 
 // Helper: Chuyển đổi một nhóm các dòng bảng dữ liệu nhiều cột thành HTML Table an toàn
@@ -233,7 +198,7 @@ const convertMarkdownSubTableToHtml = (tableLines: string[]): string => {
     if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(line.trim()) || /^:?-+:?$/.test(line.trim())) {
       continue;
     }
-    const parts = smartSplitTableLine(line).map(p => p.trim());
+    const parts = line.split('|').map(p => p.trim());
     if (line.trim().startsWith('|') && parts.length > 0 && parts[0] === '') parts.shift();
     if (line.trim().endsWith('|') && parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
     if (parts.length > 0) {
@@ -243,16 +208,13 @@ const convertMarkdownSubTableToHtml = (tableLines: string[]): string => {
 
   if (parsedRows.length === 0) return '';
 
-  const maxCols = Math.max(...parsedRows.map(r => r.length), 1);
-  const colPercent = Math.max(Math.floor(100 / maxCols), 15);
-
-  let html = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 11pt; margin: 8px 0;">`;
+  let html = `<table border="1" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin: 6px 0;">`;
   parsedRows.forEach((row, rIdx) => {
     html += `<tr>`;
     row.forEach(cell => {
       const tag = rIdx === 0 ? 'th' : 'td';
       const bg = rIdx === 0 ? 'background-color: #f1f5f9; font-weight: bold;' : '';
-      html += `<${tag} style="border: 1px solid black; padding: 6px 8px; text-align: center; width: ${colPercent}%; ${bg}">${cell}</${tag}>`;
+      html += `<${tag} style="border: 1px solid black; padding: 4px 6px; text-align: center; ${bg}">${cell}</${tag}>`;
     });
     html += `</tr>`;
   });
@@ -400,7 +362,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     let line = tochucRawLines[i].trim();
     if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '* |' || line === '| *') continue;
 
-    // Kiểm tra nếu là nhóm các dòng bảng markdown (| ... |)
+    // Kiểm tra nếu là nhóm các dòng bảng con nhiều cột (Inner Multi-column Markdown Table)
     if (line.startsWith('|') && line.endsWith('|') && !line.includes('Hoạt động của giáo viên')) {
       const subTableLines: string[] = [line];
       while (i + 1 < tochucRawLines.length && tochucRawLines[i + 1].trim().startsWith('|') && tochucRawLines[i + 1].trim().endsWith('|')) {
@@ -408,48 +370,21 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
         subTableLines.push(tochucRawLines[i].trim());
       }
 
-      // Kiểm tra xem bảng này có chứa các bước sư phạm (Bước 1-4, GV, HS, Nhiệm vụ, Tích hợp) hay không
-      const hasPedagogicalContent = subTableLines.some(st => /Bước\s*[1-4]|(?:GV|HS|Giáo\s*viên|Học\s*sinh)\b|\*?Tích\s*hợp/i.test(st));
-
-      if (hasPedagogicalContent) {
-        // Đây là bảng hoạt động dạy học của GV và HS -> tách các bước sang Cột 1 và bài tập/lời giải sang Cột 2
+      // Kiểm tra số cột của bảng con
+      const firstRowCells = subTableLines[0].split('|').map(p => p.trim()).filter(Boolean);
+      if (firstRowCells.length === 2 && (/Bước\s*[1-4]/i.test(firstRowCells[0]) || /GV|HS|Giáo\s*viên/i.test(firstRowCells[0]))) {
+        // Đây là 1 bảng 2 cột chuẩn: Cột 0 là Col1, Cột 1 là Col2
         subTableLines.forEach(stLine => {
-          if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(stLine) || /^:?-+:?$/.test(stLine)) return;
-          const cells = smartSplitTableLine(stLine).map(p => p.trim());
-          if (stLine.trim().startsWith('|') && cells.length > 0 && cells[0] === '') cells.shift();
-          if (stLine.trim().endsWith('|') && cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
-          if (cells.length === 0) return;
-
-          if (cells.length === 2) {
+          const cells = stLine.split('|').map(p => p.trim()).filter(Boolean);
+          if (cells.length >= 2) {
             const left = cells[0].replace(/^[:\-\s]+$/, '').trim();
-            const right = cells[1].replace(/^[:\-\s]+$/, '').trim();
+            const right = cells.slice(1).join(' ').replace(/^[:\-\s]+$/, '').trim();
             if (left && !left.startsWith(':---')) col1Items.push(left);
             if (right && !right.startsWith(':---')) col2Items.push(right);
-          } else if (cells.length > 2) {
-            const leftParts: string[] = [];
-            const rightParts: string[] = [];
-            cells.forEach(c => {
-              const trimmedC = c.replace(/^[:\-\s]+$/, '').trim();
-              if (!trimmedC || trimmedC.startsWith(':---')) return;
-              if (/^(?:\*\*|\*|_)?(?:Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh|Nhiệm\s*vụ|\*?Tích\s*hợp)/i.test(trimmedC)) {
-                leftParts.push(trimmedC);
-              } else {
-                rightParts.push(trimmedC);
-              }
-            });
-            if (leftParts.length > 0) col1Items.push(leftParts.join('<br>'));
-            if (rightParts.length > 0) col2Items.push(rightParts.join('<br>'));
-          } else if (cells.length === 1) {
-            const single = cells[0].trim();
-            if (/^(?:\*\*|\*|_)?(?:Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh|Nhiệm\s*vụ|\*?Tích\s*hợp)/i.test(single)) {
-              col1Items.push(single);
-            } else {
-              col2Items.push(single);
-            }
           }
         });
       } else {
-        // Đây là bảng số liệu toán học thực tế (ví dụ: bảng giá trị x, y, bảng tần số)
+        // Đây là bảng dữ liệu toán học / bảng nhiều cột -> chuyển đổi thành HTML Table và đẩy vào Cột 2
         const htmlTable = convertMarkdownSubTableToHtml(subTableLines);
         if (htmlTable) {
           col2Items.push(htmlTable);
@@ -532,134 +467,39 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
   }
 
-  // LỌC SẠCH 100% CÁC CÂU HOẠT ĐỘNG CỦA HỌC SINH / GIÁO VIÊN BỊ LẠC SANG CỘT 2 (KẾT QUẢ HOẠT ĐỘNG)
-  const cleanedCol2: string[] = [];
-  const leakedToCol1: string[] = [];
-
-  col2Items.forEach(rawLine => {
-    let line = rawLine.trim().replace(/^[\\|:\s]+/, '').replace(/[\\|:\s]+$/, '').trim();
-    if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '|' || line === '- |' || line === '+ |') return;
-
-    // Bắt toàn diện các câu mô tả hành động GV / HS / Tiến trình học tập
-    const isPedagogicalAction = /^(?:\*\*|\*|_)?(?:[\-\+•\s]*)(?:Bước\s*[1-4]|GV\b|Giáo\s*viên\b|HS\b|Học\s*sinh\b|Đại\s*diện\b|Các\s*nhóm\b|Cả\s*lớp\b|\*?Tích\s*hợp|\*?HS\s*khuyết\s*tật)/i.test(line) &&
-      !/^(?:\*\*|\*|_)?(?:Bài\s*(?:tập\s*)?\d+|Ví\s*dụ|Luyện\s*tập|Vận\s*dụng|HĐ\s*\d+|Khám\s*phá|Câu\s*hỏi|Quy\s*tắc|Kết\s*luận|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|Lời\s*giải|Đa\s*thức|Đơn\s*thức|Biểu\s*thức|Tính\s*giá\s*trị|Tìm\s*đơn\s*thức|Tìm\s*đa\s*thức)/i.test(line);
-
-    if (isPedagogicalAction) {
-      leakedToCol1.push(line);
-    } else {
-      cleanedCol2.push(line);
-    }
-  });
-
-  col2Items.length = 0;
-  col2Items.push(...cleanedCol2);
-
-  // Nếu Col 1 bị thiếu nội dung, chuyển các dòng hành động tìm thấy từ Col 2 sang Col 1
-  if (leakedToCol1.length > 0) {
-    col1Items.push(...leakedToCol1);
-  }
-
   const isLuyenTap = /Luyện\s*tập/i.test(headerLine);
   const isVanDung = /Vận\s*dụng/i.test(headerLine);
-  const isKhoiDong = /Khởi\s*động|Mở\s*đầu/i.test(headerLine);
-
-  // Chuẩn hóa và làm giàu chi tiết 4 bước sư phạm chuyên nghiệp cho Cột 1
-  const enrichedCol1Items: string[] = [];
-  for (let idx = 0; idx < col1Items.length; idx++) {
-    let item = col1Items[idx].trim();
-    if (!item) continue;
-
-    // Bước 1: Chuyển giao nhiệm vụ
-    if (/^\*\*(?:-\s*)?Bước\s*1\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*1\b/i.test(item) && item.length < 50)) {
-      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
-      if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*[2-4]\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
-        item = isLuyenTap
-          ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi để trao đổi, kiểm tra chéo đáp án."
-          : (isVanDung
-            ? "**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống gắn với thực tế đời sống; yêu cầu HS nghiên cứu, giải quyết bài toán theo nhóm hoặc cá nhân."
-            : (isKhoiDong
-              ? "**Bước 1: Chuyển giao nhiệm vụ:** GV trình chiếu tình huống mở đầu / câu hỏi khởi động; yêu cầu HS quan sát, suy nghĩ độc lập và sẵn sàng chia sẻ dự đoán."
-              : "**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ học tập khám phá kiến thức mới cho HS; hướng dẫn HS đọc SGK, quan sát ví dụ mẫu và hoạt động nhóm để thực hiện nhiệm vụ."));
-      }
-    }
-
-    // Bước 2: Thực hiện nhiệm vụ
-    if (/^\*\*(?:-\s*)?Bước\s*2\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*2\b/i.test(item) && item.length < 50)) {
-      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
-      if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*[3-4]\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
-        item = isLuyenTap
-          ? "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm bài tập vào vở ghi, trao đổi cặp đôi về phương pháp giải; GV quan sát, bao quát lớp, kịp thời hỗ trợ và hướng dẫn các HS còn gặp khó khăn."
-          : (isVanDung
-            ? "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức đã học để giải quyết vấn đề, thảo luận thống nhất phương án; GV theo dõi tiến độ, gợi mở các hướng tư duy cho các nhóm."
-            : (isKhoiDong
-              ? "**Bước 2: Thực hiện nhiệm vụ:** HS quan sát hình ảnh/video/tình huống, suy nghĩ cá nhân và trao đổi nhanh với bạn cùng bàn; GV theo dõi và khuyến khích tinh thần học tập."
-              : "**Bước 2: Thực hiện nhiệm vụ:** HS chủ động nghiên cứu SGK, thảo luận nhóm thực hiện các yêu cầu của hoạt động; GV quan sát, trợ giúp và định hướng khi cần thiết."));
-      }
-    }
-
-    // Bước 3: Báo cáo, thảo luận
-    if (/^\*\*(?:-\s*)?Bước\s*3\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*3\b/i.test(item) && item.length < 50)) {
-      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
-      if (!next || /^(?:\*\*|\*|_)?(?:-\s*)?Bước\s*4\s*:/i.test(next) || /^\*Tích\s*hợp/i.test(next)) {
-        item = isLuyenTap
-          ? "**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu bài làm, phân tích và bổ sung các cách giải khác."
-          : (isVanDung
-            ? "**Bước 3: Báo cáo, thảo luận:** Đại diện nhóm/HS trình bày sản phẩm, giải pháp trước lớp; các nhóm khác chú ý lắng nghe, nhận xét, đặt câu hỏi phản biện."
-            : (isKhoiDong
-              ? "**Bước 3: Báo cáo, thảo luận:** Đại diện một số HS xung phong phát biểu ý kiến hoặc trả lời câu hỏi mở đầu; các HS khác lắng nghe và bổ sung ý kiến."
-              : "**Bước 3: Báo cáo, thảo luận:** Đại diện các nhóm báo cáo kết quả thảo luận; các nhóm khác theo dõi, nhận xét chéo và tranh luận làm rõ nội dung kiến thức."));
-      }
-    }
-
-    // Bước 4: Kết luận, nhận định
-    if (/^\*\*(?:-\s*)?Bước\s*4\s*:[^\*]*\*\*[:\s]*$/i.test(item) || (/^\*\*(?:-\s*)?Bước\s*4\b/i.test(item) && item.length < 50)) {
-      const next = col1Items[idx + 1] ? col1Items[idx + 1].trim() : '';
-      if (!next || /^\*Tích\s*hợp/i.test(next)) {
-        item = isLuyenTap
-          ? "**Bước 4: Kết luận, nhận định:** GV nhận xét thái độ làm bài, đánh giá bài làm trên bảng; chuẩn hóa lời giải chi tiết, chốt phương pháp giải và lưu ý các sai sót thường gặp cho HS."
-          : (isVanDung
-            ? "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả và tinh thần vận dụng sáng tạo của học sinh; chính xác hóa câu trả lời và tuyên dương các nhóm hoàn thành tốt."
-            : (isKhoiDong
-              ? "**Bước 4: Kết luận, nhận định:** GV ghi nhận câu trả lời của HS, chưa chốt đúng sai mà dẫn dắt, kết nối trực tiếp vào nội dung bài học mới."
-              : "**Bước 4: Kết luận, nhận định:** GV đánh giá quá trình làm việc của các nhóm, chính xác hóa câu trả lời, rút ra kết luận và chốt kiến thức trọng tâm của bài học."));
-      }
-    }
-
-    enrichedCol1Items.push(item);
-  }
 
   // If col1 is missing 4 steps, generate standard pedagogical 4 steps
-  const hasStep1 = enrichedCol1Items.some(l => /Bước\s*1/i.test(l));
-  const hasStep2 = enrichedCol1Items.some(l => /Bước\s*2/i.test(l));
-  const hasStep3 = enrichedCol1Items.some(l => /Bước\s*3/i.test(l));
-  const hasStep4 = enrichedCol1Items.some(l => /Bước\s*4/i.test(l));
+  const hasStep1 = col1Items.some(l => /Bước\s*1/i.test(l));
+  const hasStep2 = col1Items.some(l => /Bước\s*2/i.test(l));
+  const hasStep3 = col1Items.some(l => /Bước\s*3/i.test(l));
+  const hasStep4 = col1Items.some(l => /Bước\s*4/i.test(l));
 
   if (!hasStep1 || !hasStep2 || !hasStep3 || !hasStep4) {
     if (isLuyenTap) {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi để trao đổi, kiểm tra chéo đáp án.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm bài tập vào vở ghi, trao đổi cặp đôi về phương pháp giải; GV quan sát, bao quát lớp, kịp thời hỗ trợ và hướng dẫn các HS còn gặp khó khăn.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu bài làm, phân tích và bổ sung các cách giải khác.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét thái độ làm bài, đánh giá bài làm trên bảng; chuẩn hóa lời giải chi tiết, chốt phương pháp giải và lưu ý các sai sót thường gặp cho HS.");
+      col1Items.unshift(
+        "**Bước 1: Chuyển giao nhiệm vụ:** GV giao các bài tập luyện tập trong SGK / phiếu học tập cho HS; yêu cầu HS làm việc cá nhân kết hợp thảo luận cặp đôi.",
+        "**Bước 2: Thực hiện nhiệm vụ:** HS làm bài tập vào vở ghi; GV quan sát, bao quát lớp, kịp thời hỗ trợ HS khó khăn.",
+        "**Bước 3: Báo cáo, thảo luận:** Đại diện HS lên bảng chữa bài / báo cáo kết quả; các HS khác theo dõi, nhận xét, đối chiếu.",
+        "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả, chuẩn hóa lời giải chi tiết và chốt phương pháp giải."
+      );
     } else if (isVanDung) {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống gắn với thực tế đời sống; yêu cầu HS nghiên cứu, giải quyết bài toán theo nhóm hoặc cá nhân.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức đã học để giải quyết vấn đề, thảo luận thống nhất phương án; GV theo dõi tiến độ, gợi mở các hướng tư duy cho các nhóm.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện nhóm/HS trình bày sản phẩm, giải pháp trước lớp; các nhóm khác chú ý lắng nghe, nhận xét, đặt câu hỏi phản biện.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá kết quả và tinh thần vận dụng sáng tạo của học sinh; chính xác hóa câu trả lời và tuyên dương các nhóm hoàn thành tốt.");
-    } else if (isKhoiDong) {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV trình chiếu tình huống mở đầu / câu hỏi khởi động; yêu cầu HS quan sát, suy nghĩ độc lập và sẵn sàng chia sẻ dự đoán.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS quan sát hình ảnh/video/tình huống, suy nghĩ cá nhân và trao đổi nhanh với bạn cùng bàn; GV theo dõi và khuyến khích tinh thần học tập.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện một số HS xung phong phát biểu ý kiến hoặc trả lời câu hỏi mở đầu; các HS khác lắng nghe và bổ sung ý kiến.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV ghi nhận câu trả lời của HS, chưa chốt đúng sai mà dẫn dắt, kết nối trực tiếp vào nội dung bài học mới.");
-    } else {
-      if (!hasStep1) enrichedCol1Items.unshift("**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ học tập khám phá kiến thức mới cho HS; hướng dẫn HS đọc SGK, quan sát ví dụ mẫu và hoạt động nhóm để thực hiện nhiệm vụ.");
-      if (!hasStep2) enrichedCol1Items.splice(1, 0, "**Bước 2: Thực hiện nhiệm vụ:** HS chủ động nghiên cứu SGK, thảo luận nhóm thực hiện các yêu cầu của hoạt động; GV quan sát, trợ giúp và định hướng khi cần thiết.");
-      if (!hasStep3) enrichedCol1Items.push("**Bước 3: Báo cáo, thảo luận:** Đại diện các nhóm báo cáo kết quả thảo luận; các nhóm khác theo dõi, nhận xét chéo và tranh luận làm rõ nội dung kiến thức.");
-      if (!hasStep4) enrichedCol1Items.push("**Bước 4: Kết luận, nhận định:** GV đánh giá quá trình làm việc của các nhóm, chính xác hóa câu trả lời, rút ra kết luận và chốt kiến thức trọng tâm của bài học.");
+      col1Items.unshift(
+        "**Bước 1: Chuyển giao nhiệm vụ:** GV giao bài toán thực tiễn / nhiệm vụ tình huống cho HS thực hiện.",
+        "**Bước 2: Thực hiện nhiệm vụ:** HS vận dụng kiến thức bài học để nghiên cứu, trao đổi nhóm hoặc hoàn thiện nhiệm vụ.",
+        "**Bước 3: Báo cáo, thảo luận:** HS nộp sản phẩm / đại diện trình bày phương án giải quyết; cả lớp cùng nhận xét, phản biện.",
+        "**Bước 4: Kết luận, nhận định:** GV nhận xét, đánh giá tinh thần tự học, khả năng vận dụng sáng tạo của học sinh."
+      );
+    } else if (col1Items.length === 0) {
+      col1Items.push(
+        "**Bước 1: Chuyển giao nhiệm vụ:** GV phổ biến nhiệm vụ học tập rõ ràng, cụ thể cho học sinh.",
+        "**Bước 2: Thực hiện nhiệm vụ:** HS tích cực làm việc cá nhân / nhóm dưới sự hướng dẫn, quan sát của GV.",
+        "**Bước 3: Báo cáo, thảo luận:** Đại diện HS trình bày kết quả, các nhóm thảo luận, nhận xét và phản hồi.",
+        "**Bước 4: Kết luận, nhận định:** GV tổng kết, đánh giá quá trình học tập và chính xác hóa kiến thức."
+      );
     }
   }
-
-  col1Items.length = 0;
-  col1Items.push(...enrichedCol1Items);
 
   // If col2 is empty, generate standard result placeholder
   if (col2Items.length === 0) {
@@ -683,8 +523,8 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   // Format cell contents by joining lines with <br>
   const formatCellText = (arr: string[]): string => {
     return arr
-      .map(line => line.trim().replace(/^[\\|:\s]+/, '').replace(/[\\|:\s]+$/, '').trim())
-      .filter(l => Boolean(l) && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *' && l !== '|')
+      .map(line => line.trim())
+      .filter(l => Boolean(l) && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *')
       .join('<br>')
       .replace(/\r?\n/g, '<br>')
       .replace(/(?<!<[^>]*)\|(?![^<]*>)/g, ' '); // Thay | thành space nếu không nằm trong thẻ HTML
@@ -782,27 +622,22 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
     }
 
     // Check if Section III starts
-    if (/^(?:#+\s*)?(?:[\s\-\+•\*]*)(?:\*\*)?(?:III|3|[B-C])[\.\)]\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)/i.test(trimmed)) {
+    if (/^(?:#+\s*)?(?:\*\*)?(?:III|3|[B-C])[\.\)]\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)/i.test(trimmed)) {
       flushActivity();
       inSectionIII = true;
-      const cleanSec3 = trimmed.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
+      const cleanSec3 = trimmed.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
       resultLines.push(`**${cleanSec3}**`);
-      continue;
-    }
-
-    // Do NOT collect or convert activities outside Section III (protect Section I and Section II)
-    if (!inSectionIII) {
-      resultLines.push(line);
       continue;
     }
 
     // Check if an activity starts
     if (isActivityHeader(trimmed)) {
       flushActivity();
+      inSectionIII = true;
       
       // If this is the parent header "2. Hoạt động 2: Hình thành kiến thức mới" and sub-activities exist
       if (hasSubActivities && isParentActivityHeader(trimmed)) {
-        const cleanParent = trimmed.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
+        const cleanParent = trimmed.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
         resultLines.push(`**${cleanParent}**`);
         isCollectingActivity = false;
         continue;
@@ -814,7 +649,7 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
     }
 
     // Check if homework / conclusion or next Roman numeral starts
-    if (isSectionEnd(trimmed) || (/^(?:#+\s*)?(?:\*\*)?(?:IV|V|VI)\s*[\.\)]/i.test(trimmed) && inSectionIII)) {
+    if (isSectionEnd(trimmed) || (/^(?:#+\s*)?(?:\*\*)?(?:IV|V|VI|4|5|6)\s*[\.\)]/i.test(trimmed) && inSectionIII)) {
       flushActivity();
       inSectionIII = false;
       isCollectingActivity = false;
