@@ -153,13 +153,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const isPureMathExpression = (str: string): boolean => {
     const trimmed = str.trim();
     if (!trimmed) return false;
+    // Nếu chỉ chứa các ký tự hoa thị, gạch đầu dòng, khoảng trắng, gạch đứng, dấu phẩy -> không phải biểu thức toán
+    if (!trimmed.replace(/[\*\s\-\+_#|•\.,;:]/g, '')) return false;
     // Nếu có chứa dấu tiếng Việt -> không phải là biểu thức toán học thuần túy
     if (/[à-ỹÀ-Ỹ]/.test(trimmed)) return false;
 
-    // Bắt buộc phải có các dấu hiệu toán học: lệnh LaTeX, dấu =, +, -, *, /, ^ hoặc biến số toán học
+    // Bắt buộc phải có các dấu hiệu toán học: lệnh LaTeX, dấu =, +, -, /, ^ hoặc biến số toán học
     const hasMathFeatures = (
       /\\(?:frac|sqrt|left|right|cdot|times|div|pm|approx|le|ge|neq|perp|parallel|subset|cup|cap|emptyset|alpha|beta|gamma|pi|Delta|begin|end|widehat|vec|overrightarrow)/.test(trimmed) ||
-      /[=+\-*\/\^]/.test(trimmed) ||
+      /[=+\-\/\^]/.test(trimmed) ||
       /\b[xyzabtuvcmnXYZABTUVCMSNPQ]\^[0-9a-zA-Z{}]+\b/.test(trimmed) ||
       /\b\d+[xyzabtuvcmnXYZABTUVCMSNPQ]+\b/.test(trimmed)
     );
@@ -358,8 +360,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
 
+    // Xóa sạch tất cả các ký tự rác $*$, $* $, * |, | *, \* |, v.v.
+    let clean = text.replace(/\$\s*\*\s*\$/g, '');
+    clean = clean.replace(/\$\s*\*\s+/g, '');
+    clean = clean.replace(/\\?\$\s*\\\*\s*\\?\$/g, '');
+    clean = clean.replace(/^\s*\*\s*\|\s*$/gm, '');
+    clean = clean.replace(/^\s*\|\s*\*\s*$/gm, '');
+    clean = clean.replace(/^\s*\*\s*$/gm, '');
+
     // Phục hồi công thức phân số bị lỗi trước khi làm sạch
-    let clean = repairRacToFrac(text);
+    clean = repairRacToFrac(clean);
 
     // Dọn dẹp các ký tự $DoS
     clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
@@ -379,6 +389,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (format !== 'no_table') {
       clean = ensureAllActivitiesInTwoColumnTable(clean);
     }
+
+    // Xóa lần nữa các dòng rác sau khi qua table formatter
+    clean = clean.replace(/\$\s*\*\s*\$/g, '');
+    clean = clean.replace(/\$\s*\*\s+/g, '');
+    clean = clean.replace(/^\s*\*\s*\|\s*$/gm, '');
+    clean = clean.replace(/^\s*\|\s*\*\s*$/gm, '');
+    clean = clean.replace(/^\s*\*\s*$/gm, '');
 
     // 0. Pre-clean and normalize image tags
     clean = clean.replace(/\[\s*H(?:ÌNH|INH)[\s_*<i></i>\/\\]*(?:ẢNH|ANH|VẼ|VE)?[\s_*<i></i>\/\\]*(?:GỐC|GOC)?[\s_*<i></i>\/\\]*[:_#\-]?\s*(\d+)\s*\]/gi, '[HINHANHGOC_$1]');
@@ -1059,6 +1076,35 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         col0Text = col0Text.replace(/^\*\s*/, "").replace(/^\\s+/, "").replace(/^[\\|\s]+/, "");
         col1Text = col1Text.replace(/^\*\s*/, "").replace(/^\\s+/, "").replace(/^[\\|\s]+/, "");
 
+        // Clean stray $*$, $* $, * |, | *
+        col0Text = col0Text.replace(/\$\s*\*\s*\$/g, '').replace(/\$\s*\*\s+/g, '').replace(/^\s*\*\s*\|\s*/g, '').replace(/<br>\s*\*?\s*\|\s*/g, '<br>').replace(/<br>\s*\*\s*<br>/g, '<br>').trim();
+        col1Text = col1Text.replace(/\$\s*\*\s*\$/g, '').replace(/\$\s*\*\s+/g, '').replace(/^\s*\*\s*\|\s*/g, '').replace(/<br>\s*\*?\s*\|\s*/g, '<br>').replace(/<br>\s*\*\s*<br>/g, '<br>').trim();
+
+        // If Col 0 contains knowledge / exercises / solutions (e.g. Bài toán mở đầu, HĐ1, Ví dụ, Luyện tập, Bài 1.x) that were leaked into Col 0
+        const col0Lines = col0Text.split(/<br\s*\/?>/gi).map(l => l.trim()).filter(Boolean);
+        const newCol0: string[] = [];
+        const extraCol1: string[] = [];
+
+        col0Lines.forEach(line => {
+          if (/^(?:\*\*|\*|_)?(?:\*?\s*\d+\.\s*[A-ZÀ-Ỹ]|Bài\s*toán\s*mở\s*đầu|Tình\s*huống\s*mở\s*đầu|Bài\s*toán\s*khởi\s*động|Mở\s*đầu|HĐ\s*\d+|Hoạt\s*động\s*\d+|Khám\s*phá|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán)/i.test(line)) {
+            extraCol1.push(line);
+          } else if (extraCol1.length > 0 && !/^(?:\*\*|\*|_)?(?:Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh|Nhiệm\s*vụ|\*?Tích\s*hợp)/i.test(line)) {
+            extraCol1.push(line);
+          } else {
+            newCol0.push(line);
+          }
+        });
+
+        if (extraCol1.length > 0) {
+          col0Text = newCol0.join('<br>');
+          const isGenericCol1 = col1Text.includes("Học sinh hoàn thành các nhiệm vụ") || col1Text.includes("Câu trả lời, sản phẩm học tập") || col1Text.includes("Học sinh hoàn thành bài toán");
+          if (isGenericCol1) {
+            col1Text = extraCol1.join('<br>');
+          } else {
+            col1Text = `${extraCol1.join('<br>')}<br>${col1Text}`;
+          }
+        }
+
         // ĐẢM BẢO 100% HÌNH ẢNH / HÌNH VẼ ĐƯỢC CHUYỂN VỀ CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM)
         const imgTagRegex = /\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)/gi;
         const col0Imgs = col0Text.match(imgTagRegex);
@@ -1409,7 +1455,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanHeading, { bold: true, size: 28 }),
             spacing: { before: 180, after: 60, line: 240, lineRule: LineRuleType.AUTO },
-            indent: { firstLine: 0, left: 0 },
+            indent: { firstLine: FIRST_LINE_INDENT },
             alignment: AlignmentType.LEFT
           }));
         }

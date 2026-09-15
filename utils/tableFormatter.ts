@@ -1,7 +1,7 @@
 /**
  * Utility to ensure all activities in a lesson plan are formatted into 
  * standard 2-column Markdown tables (| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |).
- * Guarantees all activities (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng)
+ * Guarantees all activities (Khởi động, Hình thành kiến thức (các HĐ 2.1, 2.2...), Luyện tập, Vận dụng)
  * have proper a) Mục tiêu, b) Nội dung, c) Sản phẩm, and d) Tổ chức thực hiện (Bảng 2 cột).
  */
 
@@ -10,6 +10,7 @@ export const isActivityHeader = (line: string): boolean => {
   const trimmed = line.trim();
   if (!trimmed) return false;
   if (trimmed.startsWith('|') || trimmed.endsWith('|')) return false;
+  if (trimmed === '*' || trimmed === '$*$' || trimmed === '$* $' || trimmed === '**') return false;
   const clean = trimmed
     .replace(/^[\*#\s\-\+•_]+/, '')
     .replace(/[\*#\s_]+$/, '')
@@ -17,7 +18,14 @@ export const isActivityHeader = (line: string): boolean => {
   if (/^Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)/i.test(clean)) return false;
   if (/^Kết\s*quả\s*hoạt\s*động/i.test(clean)) return false;
   if (/^Tổ\s*chức\s*thực\s*hiện/i.test(clean)) return false;
-  return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|[A-Za-z]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)/i.test(clean);
+  return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|:[^:\n]*|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean);
+};
+
+// Helper: Check if a line is a Parent Container Header (e.g., "2. Hoạt động 2: Hình thành kiến thức mới")
+export const isParentActivityHeader = (line: string): boolean => {
+  const clean = line.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
+  return /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?$/i.test(clean) ||
+         /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:?\s*$/i.test(clean);
 };
 
 // Helper to check if a line is the start of Section IV or Homework section
@@ -87,6 +95,11 @@ export const splitAllMergedHeadings = (text: string): string => {
     const rawLine = rawLines[idx];
     const trimmed = rawLine.trim();
 
+    // Dọn sạch dòng rác $*$, $* $, *, | *
+    if (trimmed === '*' || trimmed === '$*$' || trimmed === '$* $' || trimmed === '* |' || trimmed === '| *') {
+      continue;
+    }
+
     // Nếu là dòng bảng Markdown (| ... |) hoặc đường phân cách bảng (:--- | :---), BẢO TỒN NGUYÊN VẸN 100%
     if (trimmed.startsWith('|') || trimmed.endsWith('|') || /^:?-+:?$/.test(trimmed) || /^\|\s*:?---+\s*\|\s*:?---+\s*\|?$/.test(trimmed)) {
       processedLines.push(rawLine);
@@ -96,6 +109,8 @@ export const splitAllMergedHeadings = (text: string): string => {
     let s = rawLine;
 
     // Dọn sạch ký tự hoa thị rác
+    s = s.replace(/\$\s*\*\s*\$/g, '');
+    s = s.replace(/\$\s*\*\s+/g, '');
     s = s.replace(/\*\*\s*\*\*/g, '');
     s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, '**');
 
@@ -107,7 +122,7 @@ export const splitAllMergedHeadings = (text: string): string => {
     // 2. Tách Hoạt động 2: Hình thành kiến thức mới
     s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
 
-    // 3. Tách các Hoạt động (1. Hoạt động 1, Hoạt động 2.1, 3. Hoạt động 3, 4. Hoạt động 4)
+    // 3. Tách các Hoạt động (1. Hoạt động 1: Khởi động, Hoạt động 2.1, 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng)
     s = s.replace(/(?<=[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n*:]*:?)/gmi, (_m, p1) => {
       let c = p1.replace(/\*/g, '').trim();
       return `\n\n**${c}**\n`;
@@ -211,14 +226,24 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 
   // Split any merged headings first
   const normalizedBlock = splitAllMergedHeadings(activityBlock);
-  const lines = normalizedBlock.split(/\r?\n/);
-  if (lines.length === 0) return activityBlock;
+  const rawLines = normalizedBlock.split(/\r?\n/).map(l => l.trim()).filter(l => {
+    return l !== '' && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *';
+  });
+  if (rawLines.length === 0) return activityBlock;
 
-  // Header line of the activity
-  let rawHeader = lines[0].trim();
-  let restLines = lines.slice(1);
+  // Find the true activity header line
+  let headerIndex = -1;
+  for (let i = 0; i < rawLines.length; i++) {
+    if (isActivityHeader(rawLines[i])) {
+      headerIndex = i;
+      break;
+    }
+  }
 
-  // If lines[0] has concatenated activity header + a) Mục tiêu / b) Nội dung, extract it
+  let rawHeader = headerIndex >= 0 ? rawLines[headerIndex] : rawLines[0];
+  let restLines = headerIndex >= 0 ? [...rawLines.slice(0, headerIndex), ...rawLines.slice(headerIndex + 1)] : rawLines.slice(1);
+
+  // If header line has concatenated activity header + a) Mục tiêu / b) Nội dung, extract it
   const headerSplit = rawHeader.match(/^([\s\S]*?(?:Hoạt\s*động\s*[\d\.]*(?:\s*:[^\n*a-e\)]*)?))(?:\*\*)?[ \t]*(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[\s\S]*)$/i);
   if (headerSplit) {
     rawHeader = headerSplit[1].trim();
@@ -258,6 +283,11 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
     if (/^\|\s*Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)[^|]*\|\s*(?:Kết\s*quả|Sản\s*phẩm)[^|]*\|?$/i.test(trimmed)) {
       state = 'tochuc';
+      continue;
+    }
+
+    // Strip leaked activity headers from subsections
+    if (isActivityHeader(trimmed)) {
       continue;
     }
 
@@ -326,7 +356,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 
   for (let i = 0; i < tochucRawLines.length; i++) {
     let line = tochucRawLines[i].trim();
-    if (!line) continue;
+    if (!line || line === '*' || line === '$*$' || line === '$* $' || line === '* |' || line === '| *') continue;
 
     // Check if line contains a markdown table pipe separator
     if (line.includes('|')) {
@@ -335,8 +365,8 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
         // Left is col1, right is col2
         const left = parts[0].replace(/^[:\-\s]+$/, '').trim();
         const right = parts.slice(1).join(' ').replace(/^[:\-\s]+$/, '').trim();
-        if (left && !left.startsWith(':---')) col1Items.push(left);
-        if (right && !right.startsWith(':---')) col2Items.push(right);
+        if (left && !left.startsWith(':---') && left !== '*' && left !== '$*$') col1Items.push(left);
+        if (right && !right.startsWith(':---') && right !== '*' && right !== '$*$') col2Items.push(right);
         continue;
       } else if (parts.length === 1) {
         line = parts[0];
@@ -345,11 +375,36 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
 
     // Clean stray leading/trailing pipes
     line = line.replace(/^[\\|:\-\s]+/, '').replace(/[\\|:\-\s]+$/, '').trim();
-    if (!line) continue;
+    if (!line || line === '*' || line === '$*$' || line === '$* $') continue;
 
     // Image tags ALWAYS go to Col 2 (Sản phẩm / Kết quả)
     if (/\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH|ẢNH_GỐC|ẢNH)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]/i.test(line) ||
       (line.startsWith('![') && line.includes(')'))) {
+      col2Items.push(line);
+      continue;
+    }
+
+    // Check indicators for Col 2:
+    // (Bài toán mở đầu, Tình huống mở đầu, HĐ1, Ví dụ, Luyện tập, Vận dụng, Bài 1.x, Quy tắc, Kết luận, Khung kiến thức...)
+    if (/^(?:\*\*|\*|_)?(?:\*?\s*\d+\.\s*[A-ZÀ-Ỹ]|Bài\s*toán\s*mở\s*đầu|Tình\s*huống\s*mở\s*đầu|Bài\s*toán\s*khởi\s*động|Mở\s*đầu|HĐ\s*\d+|Hoạt\s*động\s*\d+|Khám\s*phá|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|[a-e]\)\s*[A-ZÀ-Ỹ]|Đa\s*thức|Khái\s*niệm|Tổng\s*hai|Hiệu\s*hai|Nhân\s*hai|Nhân\s*đơn)\b/i.test(line)) {
+      currentTargetCol = 2;
+      let cleanItem = line.replace(/^[\*\-\+•\s_]+/, '').replace(/[\*\s_]+$/, '').trim();
+      const itemMatch = cleanItem.match(/^(\*?\s*\d+\.\s*[^:\n]+|Bài\s*toán\s*mở\s*đầu|Tình\s*huống\s*mở\s*đầu|Bài\s*toán\s*khởi\s*động|Mở\s*đầu|HĐ\s*\d+|Hoạt\s*động\s*\d+|Khám\s*phá|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Thực\s*hành\s*[\d\*]*|Vận\s*dụng\s*\d*|Thử\s*thách\s*(?:nhỏ)?|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|[a-e]\)\s*[^:\n]+)[:\s]*(.*)$/i);
+      if (itemMatch) {
+        let label = itemMatch[1].trim().replace(/^\*+/, '').trim();
+        if (!label.endsWith(':') && !/^\d+\./.test(label) && !/^[a-e]\)/.test(label)) label += ':';
+        let rest = (itemMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/[\*\s]+$/, '').trim();
+        cleanItem = rest ? `**${label}** ${rest}` : `**${label}**`;
+      } else {
+        cleanItem = `**${cleanItem}**`;
+      }
+      col2Items.push(cleanItem);
+      continue;
+    }
+
+    // Mathematical equations or formulas belong to Col 2
+    if (/^\$?[A-Za-z0-9_]+\s*(?::|=)/.test(line) || /^\$[^\$]+\$$/.test(line) || /^[a-e]\)\s*[\$0-9A-Za-z]/.test(line) || /^=\s*[\$\d]/.test(line)) {
+      currentTargetCol = 2;
       col2Items.push(line);
       continue;
     }
@@ -378,31 +433,9 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       col1Items.push(cleanInt);
       continue;
     }
-    if (/^(?:GV|Giáo\s*viên|HS|Học\s*sinh|HĐ\s*cá\s*nhân|HĐ\s*cặp\s*đôi|HĐ\s*nhóm|Đại\s*diện)\b/i.test(line)) {
+    if (/^(?:GV|Giáo\s*viên|HS|Học\s*sinh|Nhiệm\s*vụ\s*\d+|HĐ\s*cá\s*nhân|HĐ\s*cặp\s*đôi|HĐ\s*nhóm|Đại\s*diện|Cả\s*lớp)\b/i.test(line)) {
       currentTargetCol = 1;
       col1Items.push(line);
-      continue;
-    }
-
-    // Check indicators for Col 2 (Exercises, Solutions, Knowledge Boxes, Formulas, Lesson Content Headings)
-    if (/^(?:\*\*|\*|_)?(?:\*?\s*\d+\.\s*[A-ZÀ-Ỹ]|HĐ\s*\d+|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|[a-e]\)\s*[A-ZÀ-Ỹ]|Đa\s*thức|Khái\s*niệm|Tổng\s*hai|Hiệu\s*hai)\b/i.test(line)) {
-      currentTargetCol = 2;
-      let cleanItem = line.replace(/^[\*\-\+•\s_]+/, '').replace(/[\*\s_]+$/, '').trim();
-      const itemMatch = cleanItem.match(/^(\*?\s*\d+\.\s*[^:\n]+|HĐ\s*\d+|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|Quy\s*tắc|Kết\s*luận|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Nhận\s*xét|Chú\s*ý|Tranh\s*luận|\?:|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|Lời\s*giải|Dự\s*đoán|[a-e]\)\s*[^:\n]+)[:\s]*(.*)$/i);
-      if (itemMatch) {
-        let label = itemMatch[1].trim().replace(/^\*+/, '').trim();
-        if (!label.endsWith(':') && !/^\d+\./.test(label) && !/^[a-e]\)/.test(label)) label += ':';
-        let rest = (itemMatch[2] || '').replace(/^[\*\s:]+/, '').replace(/[\*\s]+$/, '').trim();
-        cleanItem = rest ? `**${label}** ${rest}` : `**${label}**`;
-      } else {
-        cleanItem = `**${cleanItem}**`;
-      }
-      col2Items.push(cleanItem);
-      continue;
-    }
-    if (/^\$?[A-Za-z0-9_]+\s*(?::|=)/.test(line) || /^\$[^\$]+\$$/.test(line) || /^[a-e]\)\s*[\$0-9A-Za-z]/.test(line)) {
-      currentTargetCol = 2;
-      col2Items.push(line);
       continue;
     }
 
@@ -471,7 +504,7 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   const formatCellText = (arr: string[]): string => {
     return arr
       .map(line => line.trim())
-      .filter(Boolean)
+      .filter(l => Boolean(l) && l !== '*' && l !== '$*$' && l !== '$* $' && l !== '* |' && l !== '| *')
       .join('<br>')
       .replace(/\r?\n/g, '<br>')
       .replace(/\|/g, ' ');
@@ -483,6 +516,8 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     let combined = linesArr.join('\n');
     // Strip all occurrences of prefix, including repeated "a) Mục tiêu: a) Mục tiêu: **", "**a) Mục tiêu:**", etc.
     combined = combined.replace(/^(?:[\s\*\-#•]*[a-e]\s*[\)\.:\-]?\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức\s*thực\s*hiện)\s*[:\*\-]*\s*)+/gmi, '').trim();
+    // Strip any leaked activity headers inside section text
+    combined = combined.replace(/^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)[^\n:]*:?\s*/gmi, '').trim();
     combined = combined.replace(/^[:\*\-\s]+/, '').replace(/[\*\s]+$/, '').trim();
     combined = combined.replace(/\*\*+$/, '').trim();
     return combined ? `**${prefix}** ${combined}` : `**${prefix}**`;
@@ -521,11 +556,22 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
   let currentActivityLines: string[] = [];
   let isCollectingActivity = false;
 
+  // Check if document contains sub-activities like Hoạt động 2.1
+  const hasSubActivities = lines.some(l => /Hoạt\s*động\s*2\.\d+/i.test(l));
+
   const flushActivity = () => {
     if (currentActivityLines.length > 0) {
       const block = currentActivityLines.join('\n');
-      const converted = convertActivityBlockToTable(block);
-      resultLines.push(converted);
+      const firstLine = currentActivityLines[0].trim();
+      
+      // If it's the parent container "2. Hoạt động 2: Hình thành kiến thức mới" and we have sub-activities (2.1, 2.2...)
+      if (hasSubActivities && isParentActivityHeader(firstLine)) {
+        const cleanParent = firstLine.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+        resultLines.push(`**${cleanParent}**`);
+      } else {
+        const converted = convertActivityBlockToTable(block);
+        resultLines.push(converted);
+      }
       currentActivityLines = [];
     }
   };
@@ -534,11 +580,17 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
     const line = lines[i];
     const trimmed = line.trim();
 
+    // Skip garbage lines
+    if (trimmed === '*' || trimmed === '$*$' || trimmed === '$* $' || trimmed === '* |' || trimmed === '| *') {
+      continue;
+    }
+
     // Check if Section III starts
     if (/^(?:#+\s*)?(?:\*\*)?(?:III|3|[B-C])[\.\)]\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)/i.test(trimmed)) {
       flushActivity();
       inSectionIII = true;
-      resultLines.push(line);
+      const cleanSec3 = trimmed.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+      resultLines.push(`**${cleanSec3}**`);
       continue;
     }
 
@@ -546,6 +598,15 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
     if (isActivityHeader(trimmed)) {
       flushActivity();
       inSectionIII = true;
+      
+      // If this is the parent header "2. Hoạt động 2: Hình thành kiến thức mới" and sub-activities exist
+      if (hasSubActivities && isParentActivityHeader(trimmed)) {
+        const cleanParent = trimmed.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+        resultLines.push(`**${cleanParent}**`);
+        isCollectingActivity = false;
+        continue;
+      }
+
       isCollectingActivity = true;
       currentActivityLines.push(line);
       continue;
