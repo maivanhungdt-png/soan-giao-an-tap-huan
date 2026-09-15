@@ -15,15 +15,21 @@ export const isActivityHeader = (line: string): boolean => {
     .replace(/^[\*#\s\-\+•_]+/, '')
     .replace(/[\*#\s_]+$/, '')
     .trim();
+
+  // Exclude subject/metadata, table headers, steps, sections, textbook exercises (HĐ1, HĐ2)
+  if (/^(?:Môn\s*học\/)?Hoạt\s*động\s*giáo\s*dục/i.test(clean)) return false;
   if (/^Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)/i.test(clean)) return false;
+  if (/^Hoạt\s*động\s*(?:nhóm|cá\s*nhân|cặp\s*đôi)\b/i.test(clean)) return false;
   if (/^Kết\s*quả\s*hoạt\s*động/i.test(clean)) return false;
   if (/^Tổ\s*chức\s*thực\s*hiện/i.test(clean)) return false;
   if (/^[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức|Yêu\s*cầu)/i.test(clean)) return false;
   if (/^(?:Bước\s*[1-4]|\*?Tích\s*hợp|HS\s*khuyết\s*tật)/i.test(clean)) return false;
+  if (/^(?:I|II|III|IV|V|VI)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình|Hướng\s*dẫn)/i.test(clean)) return false;
+  if (/^[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)/i.test(clean)) return false;
+  if (/^(?:HĐ|HD)\s*\d+/i.test(clean)) return false; // HĐ1, HĐ2 in SGK belong to Col 2
 
   return (
-    /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|:[^:\n]*|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean) ||
-    /^(?:HĐ|HD)\s*(?:\d+(?:\.\d+)?|[1-4])\s*[:\-\.]/i.test(clean) ||
+    /^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng|Mở\s*đầu)\b/i.test(clean) ||
     /^(?:\d+[\.\)]\s*)?(?:Khởi\s*động|Luyện\s*tập|Vận\s*dụng)\s*[:\-\.]/i.test(clean) ||
     /^[1-4]\.\s*(?:Khởi\s*động|Hình\s*thành\s*kiến\s*thức|Luyện\s*tập|Vận\s*dụng)\b/i.test(clean)
   );
@@ -125,62 +131,58 @@ export const splitAllMergedHeadings = (text: string): string => {
     s = s.replace(/\*\*\s*[:\-]?\s*\*\*/g, ':\n\n');
 
     // 1. Tách các tiêu đề lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học)
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:I|1)\.\s*(?:MỤC\s*TIÊU|Mục\s*tiêu)\s*:?)(?:\*\*)?/gmi, '\n\n**I. Mục tiêu**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:II|2)\.\s*(?:THIẾT\s*BỊ\s*DẠY\s*HỌC\s*VÀ\s*HỌC\s*LIỆU|Thiết\s*bị\s*dạy\s*học\s*và\s*học\s*liệu|THIẾT\s*BỊ\s*DẠY\s*HỌC|Thiết\s*bị\s*dạy\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n**II. Thiết bị dạy học và học liệu**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:III|3|[B-C])\.\s*(?:TIẾN\s*TRÌNH\s*DẠY\s*HỌC|Tiến\s*trình\s*dạy\s*học|CÁC\s*HOẠT\s*ĐỘNG\s*DẠY\s*HỌC|Các\s*hoạt\s*động\s*dạy\s*học|TIẾN\s*TRÌNH|Tiến\s*trình)\s*:?)(?:\*\*)?/gmi, '\n\n**III. Tiến trình dạy học**\n\n');
 
     // 2. Tách Hoạt động 2: Hình thành kiến thức mới
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
 
     // 3. Tách các Hoạt động (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., Hoạt động 2.2: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng)
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[\s\S]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').replace(/^#+\s*/, '').trim();
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^#+\s*/, '').replace(/^[\-\+•\s]+/, '').trim();
       if (c.startsWith('**') && c.endsWith('**')) c = c.slice(2, -2).trim();
       return `\n\n**${c}**\n\n`;
     });
 
     // 4. Tách 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất: nếu dính liền
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(1\.\s*(?:Kiến\s*thức|KIẾN\s*THỨC)\s*:?)(?:\*\*)?/gmi, '\n\n**1. Kiến thức:**\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(2\.\s*(?:Năng\s*lực|NĂNG\s*LỰC)\s*:?)(?:\*\*)?/gmi, '\n\n**2. Năng lực:**\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(3\.\s*(?:Phẩm\s*chất|PHẨM\s*CHẤT)\s*:?)(?:\*\*)?/gmi, '\n\n**3. Phẩm chất:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(1\.\s*(?:Kiến\s*thức|KIẾN\s*THỨC)\s*:?)(?:\*\*)?/gmi, '\n\n**1. Kiến thức:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(2\.\s*(?:Năng\s*lực|NĂNG\s*LỰC)\s*:?)(?:\*\*)?/gmi, '\n\n**2. Năng lực:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(3\.\s*(?:Phẩm\s*chất|PHẨM\s*CHẤT)\s*:?)(?:\*\*)?/gmi, '\n\n**3. Phẩm chất:**\n');
 
     // 5. Tách các tiểu mục Năng lực: a) Năng lực đặc thù..., b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*:]*:?)(?:\*\*)?/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').replace(/^[:\-\s]+|[:\-\s]+$/g, '').trim();
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?([a-e]\)\s*Năng\s*lực(?::\s*|\s*:\s*|\s+)[^\n*:]*:?)(?:\*\*)?/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[:\-\s\+•]+|[:\-\s]+$/g, '').trim();
       c = c.replace(/^Năng\s*lực:\s*/i, 'Năng lực ');
       if (!c.endsWith(':')) c += ':';
       return `\n**${c}**\n`;
     });
 
     // 6. Tách 1. Giáo viên:, 2. Học sinh: nếu dính liền
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)\b\s*:?)(?:\*\*)?/gmi, '\n**1. Giáo viên:**\n');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)(?:\*\*)?/gmi, '\n**2. Học sinh:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(1\.\s*(?:Giáo\s*viên|Thiết\s*bị)\b\s*:?)(?:\*\*)?/gmi, '\n**1. Giáo viên:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(2\.\s*(?:Học\s*sinh|Học\s*liệu)\b\s*:?)(?:\*\*)?/gmi, '\n**2. Học sinh:**\n');
 
     // 7. Tách a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**a) Mục tiêu:** ');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**b) Nội dung:** ');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**c) Sản phẩm:** ');
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(d\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**d) Tổ chức thực hiện:**\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(a\)\s*(?:Mục\s*tiêu|Yêu\s*cầu)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**a) Mục tiêu:** ');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(b\)\s*(?:Nội\s*dung)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**b) Nội dung:** ');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(c\)\s*(?:Sản\s*phẩm|Kết\s*quả)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**c) Sản phẩm:** ');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(d\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)\b\s*:?)\s*(?:\*\*)?\s*/gmi, '\n\n**d) Tổ chức thực hiện:**\n');
 
     // 8. Tách các bước trong d) Tổ chức thực hiện (ngoài bảng) nếu bị dính dòng
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').trim();
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]\s*:)\s*(?:\*\*)?\s*/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^[\-\+•\s]+/, '').trim();
       if (!c.endsWith(':')) c += ':';
       return `\n**${c}** `;
     });
 
     // 9. Tách * Hướng dẫn về nhà:, + Ôn tập kiến thức:, + Bài tập về nhà:, + Chuẩn bị bài mới:
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n* Hướng dẫn về nhà:\n');
+    s = s.replace(/(?:^|[^\n])\s*(?:[\-\+•\*]\s*)?(?:\*\*)?(\*?\s*Hướng\s*dẫn\s*(?:về\s*nhà|học\s*ở\s*nhà|tự\s*học)\s*:?)(?:\*\*)?/gmi, '\n\n* Hướng dẫn về nhà:\n');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Ôn\s*tập\s*kiến\s*thức\b\s*:?)(?:\*\*)?/gmi, '\n$1');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Bài\s*tập\s*về\s*nhà\b\s*:?)(?:\*\*)?/gmi, '\n$1');
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?([\+\-\*•]\s*Chuẩn\s*bị\s*bài\s*mới\b\s*:?)(?:\*\*)?/gmi, '\n$1');
 
     // 10. Tách *Tích hợp giáo dục hòa nhập: nếu dính dòng
     s = s.replace(/(?:^|[^\n])\s*(\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập\s*:?)/gmi, '\n$1\n');
-
-    // 11. Xóa ký tự ** thừa ở cuối câu
-    s = s.replace(/\.\*\*+$/gm, '.');
-    s = s.replace(/([^\*\n])\*\*+$/gm, '$1');
 
     processedLines.push(s);
   }
@@ -739,22 +741,27 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
     }
 
     // Check if Section III starts
-    if (/^(?:#+\s*)?(?:\*\*)?(?:III|3|[B-C])[\.\)]\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)/i.test(trimmed)) {
+    if (/^(?:#+\s*)?(?:[\s\-\+•\*]*)(?:\*\*)?(?:III|3|[B-C])[\.\)]\s*(?:TIẾN\s*TRÌNH|Tiến\s*trình|CÁC\s*HOẠT\s*ĐỘNG|Các\s*hoạt\s*động)/i.test(trimmed)) {
       flushActivity();
       inSectionIII = true;
-      const cleanSec3 = trimmed.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+      const cleanSec3 = trimmed.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
       resultLines.push(`**${cleanSec3}**`);
+      continue;
+    }
+
+    // Do NOT collect or convert activities outside Section III (protect Section I and Section II)
+    if (!inSectionIII) {
+      resultLines.push(line);
       continue;
     }
 
     // Check if an activity starts
     if (isActivityHeader(trimmed)) {
       flushActivity();
-      inSectionIII = true;
       
       // If this is the parent header "2. Hoạt động 2: Hình thành kiến thức mới" and sub-activities exist
       if (hasSubActivities && isParentActivityHeader(trimmed)) {
-        const cleanParent = trimmed.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+        const cleanParent = trimmed.replace(/^[\*#\s\-\+•_]+/, '').replace(/[\*#\s_]+$/, '').trim();
         resultLines.push(`**${cleanParent}**`);
         isCollectingActivity = false;
         continue;

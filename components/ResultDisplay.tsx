@@ -201,15 +201,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return s;
     }
 
+    // 0c. Loại bỏ dấu gạch đầu dòng thừa trước các đề mục chính (I, II, III, 1. Kiến thức, 2. Năng lực, 1. Giáo viên, 2. Học sinh, a) Mục tiêu, Bước 1...)
+    s = s.replace(/^[\s\-\+•\*]+(?=(?:(?:I|II|III|IV|V|VI)\.\s*|\d+\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Năng\s*lực|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức|Yêu\s*cầu)|Bước\s*[1-4]|(?:#+\s*)?(?:\d+[\.\)]\s*)?Hoạt\s*động))/i, '');
+
     // 1. Tiêu đề mục lớn La Mã (I. Mục tiêu, II. Thiết bị dạy học và học liệu, III. Tiến trình dạy học, IV. Hướng dẫn về nhà...)
     if (/^(?:#+\s*)?(?:\*\*)?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*[^:\n]+|Bài\s*\d+[^:\n]*|Tiết\s*\d+[^:\n]*)(?:\*\*)?$/i.test(s)) {
-      const cleanHeading = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
+      const cleanHeading = s.replace(/^#+\s*/, '').replace(/^[\s\-\+•\*]+/, '').replace(/^\*\*|\*\*$/g, '').trim();
       return `**${cleanHeading}**`;
     }
 
     // 2. Tiêu đề hoạt động dạy học (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng...)
     if (/^(?:#+\s*)?(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(s)) {
-      const cleanAct = s.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
+      const cleanAct = s.replace(/^#+\s*/, '').replace(/^[\s\-\+•\*]+/, '').replace(/^\*\*|\*\*$/g, '').trim();
       return `**${cleanAct}**`;
     }
 
@@ -234,7 +237,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
 
     // 5. Đề mục số chính: 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất:, 1. Giáo viên:, 2. Học sinh:
-    const numHeadingMatch = s.match(/^(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất)|[1-2]\.\s*(?:Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu))(?::|\*\*)?[ \t]*(.*)$/i);
+    const numHeadingMatch = s.match(/^(?:[\s\-\+•\*]*)(?:\*\*)?([1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất)|[1-2]\.\s*(?:Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu))(?::|\*\*)?[ \t]*(.*)$/i);
     if (numHeadingMatch) {
       const label = numHeadingMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       const cleanLabel = label.endsWith(':') ? label : `${label}:`;
@@ -243,20 +246,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     }
 
     // 6. Đề mục chữ: a) Năng lực đặc thù:, b) Năng lực chung:, c) Năng lực số:, d) Năng lực AI:, a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-    const subLabelMatch = s.match(/^(?:\*\*)?([a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu))(?::|\*\*)?[ \t]*(.*)$/i);
+    const subLabelMatch = s.match(/^(?:[\s\-\+•\*]*)(?:\*\*)?([a-e]\)\s*(?:Năng\s*lực[^\n:]*|Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu))(?::|\*\*)?[ \t]*(.*)$/i);
     if (subLabelMatch) {
       const label = subLabelMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       const cleanLabel = label.endsWith(':') ? label : `${label}:`;
-      const rest = (subLabelMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      const rest = (subLabelMatch[2] || '').replace(/^[\*\s:\-]+/, '').replace(/\*\*+$/, '').trim();
       return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
     }
 
     // 7. Các bước thực hiện: Bước 1: Chuyển giao nhiệm vụ:, Bước 2: ..., Bước 3: ..., Bước 4: ...
-    const stepMatch = s.match(/^(?:\*\*)?(Bước\s*[1-4]\s*:\s*[^:\n]+|Bước\s*[1-4])(?::|\*\*)?[ \t]*(.*)$/i);
+    const stepMatch = s.match(/^(?:[\s\-\+•\*]*)(?:\*\*)?(Bước\s*[1-4]\s*:\s*[^:\n]+|Bước\s*[1-4])(?::|\*\*)?[ \t]*(.*)$/i);
     if (stepMatch) {
       const label = stepMatch[1].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       const cleanLabel = label.endsWith(':') ? label : `${label}:`;
-      const rest = (stepMatch[2] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      const rest = (stepMatch[2] || '').replace(/^[\*\s:\-]+/, '').replace(/\*\*+$/, '').trim();
       return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
     }
 
@@ -286,11 +289,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       const cleanContent = s.replace(/^[\s\-\+•]+/, '').replace(/\*\*+$/, '').trim();
       return `${bullet}${cleanContent}`;
     }
-
-    // 11. Dọn sạch dấu ** thừa ở cuối câu
-    s = s.replace(/\.\*\*+$/g, '.');
-    s = s.replace(/([^\*\n\r]+?)\*\*+$/g, '$1');
-    s = s.replace(/\*\*+$/g, '');
 
     return s;
   };
@@ -1527,7 +1525,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }
         }
         // 3b. Roman numeral main headings: I. Mục tiêu, II. Thiết bị..., III. Tiến trình...
-        else if (/^(?:\*\*)?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình)/i.test(trimmed)) {
+        else if (/^(?:[\s\-\+•\*]*)(?:\*\*)?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình)/i.test(trimmed)) {
           const cleanHeading = sanitizeLineBold(trimmed);
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanHeading, { bold: true, size: 28 }),
@@ -1537,7 +1535,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         // 3c. Activity headers: 1. Hoạt động 1: Khởi động, 2. Hoạt động 2: Hình thành..., Hoạt động 2.1: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng
-        else if (isActivityHeader(trimmed) || isParentActivityHeader(trimmed) || /^(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
+        else if (isActivityHeader(trimmed) || isParentActivityHeader(trimmed) || /^(?:[\s\-\+•\*]*)(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*[^:\n]+(?::.*)?)(?:\*\*)?$/i.test(trimmed)) {
           const cleanAct = sanitizeLineBold(trimmed);
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanAct, { bold: true, size: 28 }),
@@ -1547,7 +1545,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           }));
         }
         // 3d. Section numbers: 1. Kiến thức:, 2. Năng lực:, 3. Phẩm chất:, 1. Giáo viên:, 2. Học sinh:, a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:
-        else if (/^(?:\*\*)?(?:[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực))/i.test(trimmed)) {
+        else if (/^(?:[\s\-\+•\*]*)(?:\*\*)?(?:[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu)|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực))/i.test(trimmed)) {
           const isInt = isIntegrationLine(trimmed);
           const lineStyles: any = isInt ? { color: "FF0000" } : {};
           const cleanSub = sanitizeLineBold(trimmed);
