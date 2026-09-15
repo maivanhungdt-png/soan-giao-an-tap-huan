@@ -40,7 +40,6 @@ import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
 import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings, smartSplitTableLine, isActivityHeader, isParentActivityHeader } from '../utils/tableFormatter';
-import { parseLatexToDocxMath, cleanLatexSymbols } from '../utils/mathDocxParser';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -695,18 +694,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         parts.forEach(part => {
           if (!part) return;
 
-          // Render công thức toán học thành phần tử docx.Math chuẩn (OMML Word Equation)
+          // Xuất công thức toán học dưới dạng LaTeX chuẩn ($...$ hoặc $$...$$) để giáo viên tự chuyển đổi sang MathType (Alt+\) hoặc OMML
           if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
-            try {
-              const mathElem = parseLatexToDocxMath(part);
-              if (mathElem) {
-                segRuns.push(mathElem);
-                return;
-              }
-            } catch (mathErr) {
-              console.warn("Lỗi parse công thức toán sang docx Math:", mathErr);
-            }
-            segRuns.push(new TextRun({ text: ` ${cleanLatexSymbols(part)} `, font: "Times New Roman", size: segStyles.size || 28, italics: true, color: segStyles.color }));
+            segRuns.push(new TextRun({
+              text: part,
+              font: "Times New Roman",
+              size: segStyles.size || 28,
+              italics: false,
+              color: segStyles.color
+            }));
             return;
           }
 
@@ -760,7 +756,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
             unescapedSeg = unescapedSeg.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, '');
             unescapedSeg = repairRacToFrac(unescapedSeg);
-            unescapedSeg = cleanLatexSymbols(unescapedSeg);
 
             // Use inherited color if available
             const runOptions: any = {
@@ -807,16 +802,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         runs.push(...createTextRuns(part, matchStyles));
         return;
       } else if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
-        try {
-          const mathElem = parseLatexToDocxMath(part);
-          if (mathElem) {
-            runs.push(mathElem);
-            return;
-          }
-        } catch (mathErr) {
-          console.warn("Lỗi parse công thức toán sang docx Math:", mathErr);
-        }
-        runs.push(new TextRun({ text: ` ${cleanLatexSymbols(part)} `, font: "Times New Roman", size: matchStyles.size || 28, italics: true, color: matchStyles.color }));
+        runs.push(new TextRun({
+          text: part,
+          font: "Times New Roman",
+          size: matchStyles.size || 28,
+          italics: false,
+          color: matchStyles.color
+        }));
         return;
       } else if (lowerPart.startsWith('<span') && (lowerPart.includes('red') || lowerPart.includes('#ff0000') || lowerPart.includes('#f00') || lowerPart.includes('#dc2626'))) {
         innerText = part.replace(/^<span[^>]*>|<\/span>$/gi, '');
