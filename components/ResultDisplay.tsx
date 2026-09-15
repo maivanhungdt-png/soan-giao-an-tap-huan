@@ -541,6 +541,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 11. Remove duplicate top header metadata lines that may be extracted from the old file
     clean = clean.replace(/^(?:#+\s*)?Phụ\s*lục\s*(?:IV|4)\b[^\n]*\n?/gim, "");
 
+    // 12. Chuẩn hóa và căn giữa khối tiêu đề đầu bài (Bài [Số]: [TÊN BÀI], Môn học/lớp, Thời gian thực hiện/Tiết PPCT)
+    clean = clean.replace(/^(?:<center>\s*)?(?:#+\s*)?(?:\*\*)?((?:Bài|BÀI|KẾ\s*HOẠCH\s*BÀI\s*DẠY|BÀI\s*HỌC|BÀI\s*DẠY|TÊN\s*BÀI\s*DẠY)\s*[:\d][^\n]*)(?:\*\*)?(?:\s*<\/center>)?$/gmi, (_m, p1) => {
+      const cleanTitle = p1.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+      return `<center>\n\n**${cleanTitle}**\n\n</center>`;
+    });
+    clean = clean.replace(/^(?:<center>\s*)?(?:#+\s*)?(?:\*\*)?((?:Môn\s*học\/Hoạt\s*động\s*giáo\s*dục|Môn\s*học|Môn)\s*[:;][^\n]*)(?:\*\*)?(?:\s*<\/center>)?$/gmi, (_m, p1) => {
+      const cleanMeta = p1.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+      return `<center>\n\n${cleanMeta}\n\n</center>`;
+    });
+    clean = clean.replace(/^(?:<center>\s*)?(?:#+\s*)?(?:\*\*)?((?:Thời\s*gian\s*thực\s*hiện|Thời\s*lượng|Tiết\s*PPCT|Số\s*tiết)\s*[:;][^\n]*)(?:\*\*)?(?:\s*<\/center>)?$/gmi, (_m, p1) => {
+      const cleanMeta = p1.replace(/^[\*#\s]+/, '').replace(/[\*#\s]+$/, '').trim();
+      return `<center>\n\n${cleanMeta}\n\n</center>`;
+    });
+
     // 14. Tách 2. Năng lực: và a) Năng lực đặc thù... xuống dòng riêng biệt
     clean = clean.replace(/(?:\*\*)?(?:2\.|2\))\s*Năng\s*lực(?::|\*\*)?[ \t]*(?:-\s*|\+\s*)?(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n]*)/gmi, (_m, p1) => {
       const cleanP1 = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/^[\*\s\-]+/, '').trim();
@@ -1470,20 +1484,33 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
 
         // 3. Center-aligned Lesson Title & metadata (Bài 2: ĐA THỨC...)
-        if (trimmed.startsWith('# ') || (/^(?:Bài|BÀI)\s*\d+/i.test(trimmed) && trimmed.length < 150)) {
+        if (trimmed.startsWith('# ') || (/^(?:<center>)?(?:\*\*)?(?:Bài|BÀI|KẾ\s*HOẠCH\s*BÀI\s*DẠY|BÀI\s*HỌC|BÀI\s*DẠY|TÊN\s*BÀI\s*DẠY)\s*[:\d]/i.test(trimmed) && trimmed.length < 150)) {
+          const cleanTitle = trimmed.replace(/<\/?center>/gi, '').replace(/^#+\s*/, '').replace(/^\*\*+|\*\*+$/g, '').trim();
           children.push(new Paragraph({
-            children: parseTextWithFormatting(trimmed.replace(/^#+\s*/, ''), { bold: true, size: 30 }),
+            children: parseTextWithFormatting(`**${cleanTitle}**`, { bold: true, size: 30 }),
             heading: HeadingLevel.TITLE,
             spacing: { before: 180, after: 60, line: 240, lineRule: LineRuleType.AUTO },
             alignment: AlignmentType.CENTER
           }));
         }
-        else if (/^(?:Môn\s*học|Thời\s*gian\s*thực\s*hiện|Số\s*báo\s*giảng)/i.test(trimmed) && trimmed.length < 220) {
+        else if (/^(?:<center>)?(?:\*\*)?(?:Môn\s*học|Môn|Thời\s*gian\s*thực\s*hiện|Thời\s*lượng|Tiết\s*PPCT|Số\s*tiết|Số\s*báo\s*giảng|Lớp|Khối\s*lớp)/i.test(trimmed) && trimmed.length < 250) {
+          const cleanMeta = trimmed.replace(/<\/?center>/gi, '').replace(/^\*\*+|\*\*+$/g, '').trim();
           children.push(new Paragraph({
-            children: parseTextWithFormatting(trimmed),
+            children: parseTextWithFormatting(cleanMeta, { bold: false, size: 28 }),
             spacing: { before: 40, after: 40, line: 240, lineRule: LineRuleType.AUTO },
             alignment: AlignmentType.CENTER
           }));
+        }
+        else if (trimmed.startsWith('<center>') || trimmed.endsWith('</center>')) {
+          const inner = trimmed.replace(/<\/?center>/gi, '').trim();
+          if (inner) {
+            const isTitle = /^(?:\*\*)?(?:Bài|BÀI|KẾ\s*HOẠCH\s*BÀI\s*DẠY|BÀI\s*HỌC)\s*[:\d]/i.test(inner);
+            children.push(new Paragraph({
+              children: parseTextWithFormatting(inner, isTitle ? { bold: true, size: 30 } : { size: 28 }),
+              spacing: isTitle ? { before: 180, after: 60, line: 240, lineRule: LineRuleType.AUTO } : { before: 40, after: 40, line: 240, lineRule: LineRuleType.AUTO },
+              alignment: AlignmentType.CENTER
+            }));
+          }
         }
         // 3b. Roman numeral main headings: I. Mục tiêu, II. Thiết bị..., III. Tiến trình...
         else if (/^(?:\*\*)?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s*(?:Mục\s*tiêu|Thiết\s*bị|Tiến\s*trình)/i.test(trimmed)) {

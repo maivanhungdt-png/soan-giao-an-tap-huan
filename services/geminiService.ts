@@ -427,6 +427,15 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ, KHÔNG ĐƯỢC THAY ĐỔI MÃ, KHÔNG ĐƯỢC ĐẶT Ở CỘT 1 "Hoạt động của giáo viên và học sinh".
       * 🚨 VỊ TRÍ ĐẶT HÌNH ẢNH BẮT BUỘC: ĐẶT TẠI CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM). Cú pháp: <br>[HINHANHGOC_1]<br>.
     - KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) XÂY DỰNG THEO BÀI HỌC HOÀN CHỈNH. TUYỆT ĐỐI KHÔNG GHI NGÀY SOẠN, NGÀY GIẢNG. Thứ tự tiết ghi theo Phụ lục 3, sau hoạt động đầu tiên của mỗi tiết.
+    - PHẦN TIÊU ĐỀ ĐẦU BÀI DẠY (BẮT BUỘC TRÌNH BÀY ĐÚNG 3 DÒNG CĂN GIỮA):
+      <center>
+
+      **Bài [Số]: [TÊN BÀI HỌC IN HOA]**
+      Môn học/Hoạt động giáo dục: [Tên môn]; lớp: [Các lớp học]
+      Thời gian thực hiện: [Số tiết] tiết; Tiết PPCT: [Các tiết PPCT]
+
+      </center>
+
     - PHẦN MỤC TIÊU (CHUẨN CÔNG VĂN 5512 - GDPT 2018):
       **I. Mục tiêu**
       **1. Kiến thức:**
