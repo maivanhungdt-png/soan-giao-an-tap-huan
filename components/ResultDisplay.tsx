@@ -40,6 +40,7 @@ import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
 import { ensureAllActivitiesInTwoColumnTable, isIntegrationLine, splitAllMergedHeadings, smartSplitTableLine, isActivityHeader, isParentActivityHeader } from '../utils/tableFormatter';
+import { parseLatexToDocxMath } from '../utils/mathDocxParser';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -131,7 +132,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     if (!text) return "";
     let res = text;
 
-    // 0. Đơn giản hóa \left( \right) thành dấu ngoặc đơn tiêu chuẩn ( ) để tương thích 100% với Word OMML (Alt +=) và MathType (Alt +\)
+    // 0. Sửa lỗi chính tả / OCR font glyph phổ biến: "và o" -> "vào"
+    res = res.replace(/\bvà\s+o\b/gi, 'vào');
+
+    // 0b. Đơn giản hóa \left( \right) thành dấu ngoặc đơn tiêu chuẩn ( ) để tương thích 100% với Word OMML (Alt +=) và MathType (Alt +\)
     res = res.replace(/\\left\s*\(/g, '(')
              .replace(/\\right\s*\)/g, ')')
              .replace(/\\left\s*\[/g, '[')
@@ -142,35 +146,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 1. Tách nhãn chữ cái đầu dòng dính công thức / phân số: "a)\frac..." -> "a) \frac...", "b)(-15..." -> "b) (-15..."
     res = res.replace(/(^|[\s\n\r<|])([a-e]\))([^\s\n\r|])/gi, '$1$2 $3');
 
-    // 2. Tách từ tiếng Việt dính biến số đứng một mình hoặc có số mũ / dấu bằng / phép toán
-    // Ví dụ: thứcM -> thức M, thứcNthỏa mãn -> thức N thỏa mãn, Thayx -> Thay x, 2vào -> 2 vào, thứcP -> thức P, vớix -> với x
-    res = res.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc|Thay|thay|Tính|tính|Tìm|tìm|chia|bằng|nhân|cộng|trừ|vào)\s*([xyzabtuvcmnXYZABTUVCMSNPQ])(?=\b|[^\w\sà-ỹÀ-Ỹ]|$)/g, '$1 $2');
-    
-    // Tách biến số dính từ tiếng Việt phía sau: Nthỏa -> N thỏa, Pta -> P ta, Ax -> A x, Blà -> B là, xcó -> x có
-    res = res.replace(/\b([xyzabtuvcmnXYZABTUVCMSNPQ])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]*)\b/g, '$1 $2');
+    // 2. Tách dấu hai chấm, dấu chấm phẩy, dấu phẩy dính liền số, chữ, biến số, căn thức, phân số
+    // Ví dụ: là:1/2xy -> là: 1/2xy, tử:3x^2y -> tử: 3x^2y, có:3 ⋅ 10 -> có: 3 ⋅ 10, được:P -> được: P, tử:√2x -> tử: √2x, ;y -> ; y, ,y= -> , y =
+    res = res.replace(/([,;:])([^\s\n\r,;:|])/g, '$1 $2');
 
-    // Tách từ tiếng Việt dính trước biến số: thứcM -> thức M, thứcN -> thức N, thứcP -> thức P, Thayx -> Thay x, vớix -> với x, chiaB -> chia B, trongA -> trong A, củaB -> của B
+    // 3. Tách từ tiếng Việt dính biến số đứng một mình hoặc có số mũ / dấu bằng / phép toán
+    // Ví dụ: thứcM -> thức M, thứcNthỏa mãn -> thức N thỏa mãn, Thayx -> Thay x, 2vào -> 2 vào, thứcP -> thức P, vớix -> với x, tạix -> tại x, chiaB -> chia B
+    res = res.replace(/\b(thức|biến|ẩn|hạng tử|đa thức|đơn thức|nghiệm|tổng|hiệu|tích|thương|cho|với|tại|là|và|của|ở|trong|điểm|đoạn thẳng|tam giác|góc|Thay|thay|Tính|tính|Tìm|tìm|chia|bằng|nhân|cộng|trừ|vào|thu gọn|bậc|hệ số|các|hai|ba|những|biểu thức|kết quả)\s*([xyzabtuvcmnXYZABTUVCMSNPQ])(?=\b|[^\w\sà-ỹÀ-Ỹ]|$)/g, '$1 $2');
+    
+    // Tách biến số dính từ tiếng Việt phía sau: Nthỏa -> N thỏa, Pta -> P ta, Ax -> A x, Blà -> B là, xcó -> x có, Atrước -> A trước, Mta -> M ta, Bkhông -> B không, xđồng -> x đồng, Nở -> N ở, Qvà -> Q và, Hđều -> H đều, Pcó -> P có
+    res = res.replace(/([xyzabtuvcmnXYZABTUVCMSNPQ])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]*)/g, '$1 $2');
+
+    // Tách từ tiếng Việt dính trước biến số: thứcA -> thức A, thứcB -> thức B, thứcM -> thức M, thứcN -> thức N, thứcP -> thức P, thứcQ -> thức Q, thứcH -> thức H, Thayx -> Thay x, vớix -> với x, chiaB -> chia B, trongA -> trong A, củaB -> của B
     res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(?<!SGK|VBT|SBT|THCS|GDPT|BGDĐT|NLS|GDQP|STEM|AI|DOCX|HTML|PDF|URL|IMG|DSMT4)([XYZABTUVCMSNPQ])\b/g, '$1 $2');
 
-    // Tách số/lũy thừa/phép tính dính từ tiếng Việt: y^2không -> y^2 không, 3x^2yvì -> 3x^2y vì, 9xy^4là -> 9xy^4 là, -3x^2ylà -> -3x^2y là, 2vào -> 2 vào, 1là -> 1 là
+    // Tách số/lũy thừa/phép tính dính từ tiếng Việt: y^2không -> y^2 không, 3x^2yvì -> 3x^2y vì, 9xy^4là -> 9xy^4 là, -3x^2ylà -> -3x^2y là, 2vào -> 2 vào, 1là -> 1 là, x^4đồng -> x^4 đồng, 4đều -> 4 đều, 2có -> 2 có
     res = res.replace(/(\^[0-9a-zA-Z{}]+|[0-9a-zA-Z\)])([à-ỹÀ-Ỹ][a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
 
-    // Tách từ tiếng Việt dính trước số/phép tính/dấu ngoặc: chia-3x -> chia -3x, là(9x -> là (9x, được:P -> được: P
-    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]{2,})([0-9\(\[\-])/g, '$1 $2');
+    // Tách từ tiếng Việt dính trước số/phép tính/dấu ngoặc/căn thức:
+    // Ví dụ: bậc là4 -> bậc là 4, bậc là2 -> bậc là 2, bậc là0 -> bậc là 0, hệ số là3 -> hệ số là 3, hệ số là1 -> hệ số là 1, hệ số là-1 -> hệ số là -1, hệ số là-7 -> hệ số là -7, hệ số là√2 -> hệ số là √2, cộng2x -> cộng 2x, với1/2 -> với 1/2, hạng tử2x -> hạng tử 2x, chia-3x -> chia -3x, là(9x -> là (9x
+    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]{2,})([0-9\(\[\-]|√|\\sqrt)/g, '$1 $2');
 
-    // Tách dấu đóng ngoặc dính chữ tiếng Việt: 3x^2y)thì -> 3x^2y) thì, 2)vào -> 2) vào
+    // Tách số lượng dính đơn vị: 8xđồng -> 8x đồng, 30xđồng -> 30x đồng, 24yđồng -> 24y đồng, 10quyển -> 10 quyển, 24chiếc -> 24 chiếc
+    res = res.replace(/(\d+[xyzabtuvcmnXYZABTUVCMSNPQ]?)([a-zA-Zà-ỹÀ-Ỹ]{2,})/g, '$1 $2');
+
+    // Tách dấu mở ngoặc / đóng ngoặc dính chữ tiếng Việt: 3x^2y)thì -> 3x^2y) thì, 2)vào -> 2) vào, thức(như -> thức (như, SGK)sau -> SGK) sau
     res = res.replace(/(\))([a-zA-Zà-ỹÀ-Ỹ]+)/g, '$1 $2');
+    res = res.replace(/([a-zA-Zà-ỹÀ-Ỹ]+)(\()/g, '$1 $2');
 
-    // Tách dấu phẩy / dấu hai chấm / chấm phẩy dính chữ/số/biến: ,y -> , y, :M -> : M, ;y -> ; y, ,y= -> , y =
-    res = res.replace(/([,;:])([^\s\n\r0-9,;:|])/g, '$1 $2');
+    // 4. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
+    res = res.replace(/([^\s\n\r$([{<"'])(\$[^\$\n\r]+?\$)/g, '$1 $2');
 
-    // 3. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
-    res = res.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
+    // 5. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
+    res = res.replace(/(\$[^\$\n\r]+?\$)([^\s\n\r$,;:.\)\]\?!>"'])/g, '$1 $2');
 
-    // 4. Tách $...$ khỏi từ hoặc số đứng liền kề phía sau: $math$chữ -> $math$ chữ
-    res = res.replace(/(\$[^\$\n\r]+?\$)([a-zA-Z0-9À-ỹ\(])/g, (_m, p1, p2) => `${p1} ${p2}`);
-
-    // 5. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
+    // 6. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
     res = res.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
     res = res.replace(/\$\s+([^$\n\r]+?)\$/g, (_m, p1) => `$${p1.trim()}$`);
     res = res.replace(/\$([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
@@ -861,10 +871,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         runs.push(...createTextRuns(part, matchStyles));
         return;
       } else if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('$') && part.endsWith('$') && part.length > 1)) {
+        try {
+          const mathObj = parseLatexToDocxMath(part);
+          if (mathObj) {
+            runs.push(mathObj);
+            return;
+          }
+        } catch (e) {
+          console.warn("[DOCX Math Parse Error]:", part, e);
+        }
         runs.push(new TextRun({
           text: part,
           font: "Times New Roman",
-          size: matchStyles.size || 28,
+          size: matchStyles.size || 26,
           italics: false,
           color: matchStyles.color
         }));
@@ -995,10 +1014,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           if (!trimmedLine) return;
 
           const isInt = isIntegrationLine(trimmedLine);
-          const lineStyles = { ...baseStyles };
+          const lineStyles = { ...baseStyles, size: baseStyles.size || 26 };
           if (isInt) {
             lineStyles.color = "FF0000";
-            lineStyles.italics = false;
+            if (/(?:Năng\s*lực\s*(?:số|AI)|\*?Tích\s*hợp\s*năng\s*lực|\*?Tích\s*hợp\s*giáo\s*dục\s*hòa\s*nhập)/i.test(trimmedLine)) {
+              lineStyles.italics = true;
+            }
           }
 
           // Làm sạch in đậm tùy tiện trên dòng này
@@ -1009,7 +1030,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
           children.push(new Paragraph({
             children: parseTextWithFormatting(formattedLine, lineStyles),
-            spacing: { before: 40, after: 40, line: 240, lineRule: LineRuleType.AUTO },
+            spacing: { before: 30, after: 30, line: 276, lineRule: LineRuleType.AUTO },
             indent: { firstLine: 0, left: 0, right: 0 },
             alignment: isHeaderRow ? AlignmentType.CENTER : AlignmentType.LEFT
           }));

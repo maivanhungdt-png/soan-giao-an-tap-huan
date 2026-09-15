@@ -33,9 +33,16 @@ export function cleanLatexSymbols(latexStr: string): string {
   if (s.includes('\\begin{cases}')) {
     s = s.replace(/\\begin\{cases\}([\s\S]*?)\\end\{cases\}/g, (_m, body) => {
       const casesLines = body.split(/\\\\/).map(l => l.trim()).filter(Boolean);
-      return `{ ${casesLines.join(' ;  ')} }`;
+      return `\\{ ${casesLines.join(' ;  ')} \\}`;
     });
   }
+
+  // Chuẩn hóa phân số rac -> frac
+  s = s.replace(/(?<!\\f|\\|f)rac\{/g, 'frac{');
+
+  // Đơn giản hóa \left, \right
+  s = s.replace(/\\left\s*([(\[{\\.|])/g, '$1')
+       .replace(/\\right\s*([)\]}\\.|])/g, '$1');
 
   s = s.replace(/\\cdot\b/g, ' · ')
        .replace(/\\times\b/g, ' × ')
@@ -80,16 +87,16 @@ export function cleanLatexSymbols(latexStr: string): string {
        .replace(/\\overrightarrow\{([^}]+)\}/g, '$1')
        .replace(/\\overline\{([^}]+)\}/g, '$1')
        .replace(/\\underline\{([^}]+)\}/g, '$1')
-       .replace(/\\left[\(\[\{\|\.]/g, (m) => m.slice(5))
-       .replace(/\\right[\)\]\}\|\.]/g, (m) => m.slice(6))
        .replace(/\\\{/g, '{')
        .replace(/\\\}/g, '}')
        .replace(/\\text\{([^}]+)\}/g, '$1')
        .replace(/\\mathrm\{([^}]+)\}/g, '$1')
        .replace(/\\mathbf\{([^}]+)\}/g, '$1')
        .replace(/\\mathit\{([^}]+)\}/g, '$1')
-       .replace(/\\quad|\\qquad|\\;|\\,|\\!/g, ' ')
-       .replace(/\\/g, '');
+       .replace(/\\quad|\\qquad|\\;|\\,|\\!/g, ' ');
+
+  // Xóa các backslash còn sót lại không thuộc frac hoặc sqrt
+  s = s.replace(/\\(?!frac|sqrt)/g, '');
 
   return s;
 }
