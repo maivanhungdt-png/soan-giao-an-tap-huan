@@ -125,10 +125,11 @@ export const splitAllMergedHeadings = (text: string): string => {
     // 2. Tách Hoạt động 2: Hình thành kiến thức mới
     s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*2\s*:\s*Hình\s*thành\s*kiến\s*thức\s*mới\s*:?)(?:\*\*)?/gmi, '\n\n**2. Hoạt động 2: Hình thành kiến thức mới**\n\n');
 
-    // 3. Tách các Hoạt động (1. Hoạt động 1, Hoạt động 2.1, Hoạt động 2.2, 3. Hoạt động 3, 4. Hoạt động 4)
-    // Tách cả khi bị dính chữ phía trước (vd: "Tiến trình dạy học1. Hoạt động 1", "kiến thức mớiHoạt động 2.1")
-    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?(\*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n*:]*:?)/gmi, (_m, p1) => {
-      let c = p1.replace(/\*/g, '').trim();
+    // 3. Tách các Hoạt động (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., Hoạt động 2.2: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng)
+    // Tách trọn vẹn tiêu đề hoạt động bao gồm cả dấu hai chấm và tên hoạt động, dừng lại trước a) Mục tiêu:
+    s = s.replace(/(?:^|[^\n])\s*(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[\s\S]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)/gmi, (_m, p1) => {
+      let c = p1.replace(/\*/g, '').replace(/^#+\s*/, '').trim();
+      if (c.startsWith('**') && c.endsWith('**')) c = c.slice(2, -2).trim();
       return `\n\n**${c}**\n\n`;
     });
 
@@ -211,8 +212,8 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
   let restLines = headerIndex >= 0 ? [...rawLines.slice(0, headerIndex), ...rawLines.slice(headerIndex + 1)] : rawLines.slice(1);
 
   // If header line has concatenated activity header + a) Mục tiêu / b) Nội dung, extract it
-  const headerSplit = rawHeader.match(/^([\s\S]*?(?:Hoạt\s*động\s*[\d\.]*(?:\s*:[^\n*a-e\)]*)?))(?:\*\*)?[ \t]*(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)[\s\S]*)$/i);
-  if (headerSplit) {
+  const headerSplit = rawHeader.match(/^([\s\S]*?(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)[\s\S]*?)(?=(?:\*\*)?\s*[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Yêu\s*cầu|Tổ\s*chức)|$)([\s\S]*)$/i);
+  if (headerSplit && headerSplit[2] && headerSplit[2].trim()) {
     rawHeader = headerSplit[1].trim();
     const remainingAfterHeader = headerSplit[2].trim();
     if (remainingAfterHeader) {
@@ -487,7 +488,23 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     combined = combined.replace(/^(?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)[^\n:]*:?\s*/gmi, '').trim();
     combined = combined.replace(/^[:\*\-\s]+/, '').replace(/[\*\s]+$/, '').trim();
     combined = combined.replace(/\*\*+$/, '').trim();
-    return combined ? `**${prefix}** ${combined}` : `**${prefix}**`;
+
+    // Check if combined text has multiple lines or bullet points
+    const subLines = combined.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (subLines.length > 1) {
+      const formattedSubLines = subLines.map(l => {
+        let cleanL = l.replace(/^[\*\s]+|[\*\s]+$/g, '').trim();
+        if (!cleanL.startsWith('-') && !cleanL.startsWith('+') && !cleanL.startsWith('*')) {
+          cleanL = `- ${cleanL}`;
+        }
+        return cleanL;
+      });
+      return `**${prefix}**\n${formattedSubLines.join('\n')}`;
+    }
+
+    // Single line: strip bullet dash if present to match standard inline format
+    let cleanSingle = combined.replace(/^[\-\+•\s]+/, '').trim();
+    return cleanSingle ? `**${prefix}** ${cleanSingle}` : `**${prefix}**`;
   };
 
   const mucTieuText = formatSectionText('a) Mục tiêu:', mucTieu, '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.');

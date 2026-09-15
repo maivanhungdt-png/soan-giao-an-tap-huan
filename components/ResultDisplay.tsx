@@ -540,14 +540,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       return rest ? `**${cleanLabel}** ${rest}` : `**${cleanLabel}**`;
     });
 
-    // 15. Auto bold activities
-    clean = clean.replace(/^(?:\*\*)?((?:\d+\.\s*)?Hoạt\s*động\s*\d+\s*:[^\n]*?)(?:\*\*)?$/gmi, (m, p1) => {
+    // 15. Auto bold activities (1. Hoạt động 1: Khởi động..., Hoạt động 2.1: ..., Hoạt động 2.2: ..., 3. Hoạt động 3: Luyện tập, 4. Hoạt động 4: Vận dụng)
+    clean = clean.replace(/^(?:\*\*)?((?:\d+[\.\)]\s*)?Hoạt\s*động\s*(?:\d+(?:\.\d+)?|[1-4]|Khởi\s*động|Hình\s*thành|Luyện\s*tập|Vận\s*dụng)\b[^\n]*?)(?:\*\*)?$/gmi, (m, p1) => {
       const t = p1.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       return `**${t}**`;
     });
 
     // 16. Auto bold sub-steps (a) Mục tiêu:, b) Nội dung:, c) Sản phẩm:, d) Tổ chức thực hiện:) - Chỉ in đậm đúng tiêu đề
-    clean = clean.replace(/(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
+    clean = clean.replace(/^(?:\*\*)?([a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu)):?[ \t]*(?:\*\*)?[ \t]*(.*)$/gmi, (_m, p1, p2) => {
+      const label = p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':';
+      let rest = (p2 || '').trim();
+      rest = rest.replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+      return rest ? `**${label}** ${rest}` : `**${label}**`;
+    });
     clean = clean.replace(/(?:\*\*)?([a-e]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.trim().endsWith(':') ? p1.trim() : p1.trim() + ':'}**`);
 
     // Clean up any double-asterisk artifacts: "** : **", ":**", "** **"
@@ -1477,11 +1482,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
           const isInt = isIntegrationLine(trimmed);
           const lineStyles: any = isInt ? { color: "FF0000" } : {};
           const cleanSub = sanitizeLineBold(trimmed);
+          const isShortHeader = /^(?:\*\*)?(?:[a-e]\)\s*Tổ\s*chức\s*thực\s*hiện:?|[1-3]\.\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất):?|[1-2]\.\s*(?:Giáo\s*viên|Học\s*sinh|Thiết\s*bị|Học\s*liệu):?|[a-e]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?$/i.test(cleanSub.trim());
           children.push(new Paragraph({
             children: parseTextWithFormatting(cleanSub, lineStyles),
             spacing: { before: 80, after: 40, line: 240, lineRule: LineRuleType.AUTO },
             indent: { firstLine: FIRST_LINE_INDENT },
-            alignment: AlignmentType.LEFT
+            alignment: isShortHeader ? AlignmentType.LEFT : AlignmentType.JUSTIFIED
           }));
         }
         else if (trimmed.startsWith('<center>') && trimmed.endsWith('</center>')) {

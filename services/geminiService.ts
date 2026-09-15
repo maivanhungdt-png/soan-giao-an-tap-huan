@@ -438,19 +438,58 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       3. Phẩm chất: Các phẩm chất cốt lõi gắn liền với bài học (Chăm chỉ, Trung thực, Trách nhiệm...).
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '*HS khuyết tật: [Mục tiêu điều chỉnh]'}` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
-    - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG:
-      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
-        🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
-        🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
-        Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
-        Mỗi hoạt động gồm đầy đủ:
+    - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG (CHUẨN PHỤ LỤC IV THEO CV 5512):
+      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ CÁC HOẠT ĐỘNG ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
+        Cấu trúc chuẩn tuyệt đối:
+        **III. Tiến trình dạy học**
+
+        **1. Hoạt động 1: Khởi động (Tiết PPCT: Tiết ...)**
+        **a) Mục tiêu:** [Nội dung mục tiêu, chỉ in đậm nhãn]
+        **b) Nội dung:** [Nội dung học tập, chỉ in đậm nhãn]
+        **c) Sản phẩm:** [Sản phẩm dự kiến, chỉ in đậm nhãn]
+        **d) Tổ chức thực hiện:**
+        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+        | :--- | :--- |
+        | (Cột 1: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Sản phẩm/câu trả lời/kết quả dự đoán) |
+
+        **2. Hoạt động 2: Hình thành kiến thức mới**
+        (Chỉ là tiêu đề mục cha in đậm, KHÔNG kẻ bảng trống ở đây, mà kẻ bảng trong từng Hoạt động con 2.1, 2.2 bên dưới)
+
+        **Hoạt động 2.1: [Tên mục kiến thức 1] (Tiết PPCT: Tiết ...)**
         **a) Mục tiêu:** ...
         **b) Nội dung:** ...
         **c) Sản phẩm:** ...
         **d) Tổ chức thực hiện:**
-      | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-      | :--- | :--- |
-      | (Cột 1: Đặt tên chính xác là "Hoạt động của giáo viên và học sinh" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Kết quả hoạt động" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
+        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+        | :--- | :--- |
+        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Khung kiến thức, Ví dụ, Luyện tập, Hình ảnh [HINHANHGOC_1]) |
+
+        **Hoạt động 2.2: [Tên mục kiến thức 2] (Tiết PPCT: Tiết ...)**
+        **a) Mục tiêu:** ...
+        **b) Nội dung:** ...
+        **c) Sản phẩm:** ...
+        **d) Tổ chức thực hiện:**
+        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+        | :--- | :--- |
+        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Khung kiến thức, Ví dụ, Luyện tập, Hình ảnh) |
+
+        **3. Hoạt động 3: Luyện tập**
+        **a) Mục tiêu:** ...
+        **b) Nội dung:** ...
+        **c) Sản phẩm:** ...
+        **d) Tổ chức thực hiện:**
+        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+        | :--- | :--- |
+        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Toàn bộ bài tập luyện tập trong SGK và LỜI GIẢI CHI TIẾT) |
+
+        **4. Hoạt động 4: Vận dụng**
+        **a) Mục tiêu:** ...
+        **b) Nội dung:** ...
+        **c) Sản phẩm:** ...
+        **d) Tổ chức thực hiện:**
+        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+        | :--- | :--- |
+        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Bài toán thực tế/vận dụng và lời giải chi tiết) |`}
     - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI (ĐẶT HOÀN TOÀN NGOÀI BẢNG):
       * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà: (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...", VÀ PHẢI ĐẶT NGOÀI BẢNG).
       * Trình bày gồm 3 gạch đầu dòng chuẩn theo mẫu:
