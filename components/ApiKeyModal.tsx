@@ -62,10 +62,9 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setTestMessage('Đang kết nối thử nghiệm với Google AI...');
 
     const candidateModels = [
-      'gemini-3.5-flash',
-      'gemini-3-flash-preview',
-      'gemini-flash-lite-latest',
       'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-2.5-flash',
       'gemini-1.5-flash'
     ];
     let lastErr: any = null;

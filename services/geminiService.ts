@@ -22,12 +22,14 @@ export const cleanApiKey = (raw: string): string => {
 };
 
 export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
-  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", desc: "⚡ Thế hệ mới nhất, phản hồi tức thì, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
-  { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", desc: "✨ Mô hình thế hệ mới tối ưu hóa cho giáo dục & sư phạm", badge: "Thế hệ mới" },
-  { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite", desc: "🚀 Tiết kiệm hạn mức tối đa, phản hồi siêu tốc", badge: "Siêu nhẹ" },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "🛡️ Mô hình đa nhiệm ổn định và phổ biến", badge: "Ổn định" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "📚 Tương thích với các mã khóa truyền thống", badge: "Cơ bản" }
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Thế hệ mới nhất, tốc độ siêu nhanh, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
+  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tiết kiệm hạn mức tối đa, phản hồi tức thì", badge: "Siêu nhẹ & Nhanh" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", desc: "✨ Mô hình thông minh thế hệ mới tối ưu sư phạm", badge: "Thế hệ mới" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "📚 Tương thích và ổn định với mọi mã khóa API", badge: "Ổn định" }
 ];
+
+// Lưu model OCR thành công để tái sử dụng ngay lập tức cho các ảnh tiếp theo
+let cachedWorkingOcrModel: string = "gemini-2.0-flash";
 
 /**
  * Chuyển đổi các hình ảnh công thức toán học / phân số trong tài liệu sang mã LaTeX chuẩn $...$ bằng Gemini Vision
@@ -90,22 +92,17 @@ export const transcribeMathImagesToLatex = async (
   const ai = new GoogleGenAI({ apiKey });
   let updatedContent = content;
 
-  // Xử lý từng ảnh với Gemini Vision tốc độ cao (chia nhóm nhỏ để tránh vượt hạn mức 15 RPM của khóa miễn phí)
-  const results: { item: typeof candidateImages[0]; latex: string; success: boolean }[] = [];
-  const ocrCandidateModels = [
-    "gemini-3.5-flash",
-    "gemini-3-flash-preview",
-    "gemini-flash-lite-latest",
+  // Danh sách model OCR tốc độ cao chuẩn xác
+  const baseOcrModels = [
+    cachedWorkingOcrModel,
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
     "gemini-1.5-flash"
   ];
+  const ocrCandidateModels = Array.from(new Set(baseOcrModels));
 
-  for (const item of candidateImages.slice(0, 12)) {
-    try {
-      const mimeType = item.dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
-      const b64 = item.dataUrl.includes(",") ? item.dataUrl.split(",")[1] : item.dataUrl;
-
-      const promptText = `Bạn là chuyên gia số hoá công thức toán học và phân số. Hãy đọc chính xác công thức toán hoặc phân số trong ảnh và chuyển đổi sang cú pháp LaTeX chuẩn tương thích MathType đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập).
+  const promptText = `Bạn là chuyên gia số hoá công thức toán học và phân số. Hãy đọc chính xác công thức toán hoặc phân số trong ảnh và chuyển đổi sang cú pháp LaTeX chuẩn tương thích MathType đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập).
 QUY TẮC BẮT BUỘC:
 1. Phân số: bắt buộc dùng \\frac{tử}{mẫu} (ví dụ: $-\\frac{5}{7}$, $\\frac{8}{21}$, $\\frac{25}{100}$, $\\frac{17}{12}$).
 2. Dấu trừ trước phân số: viết dấu trừ liền trước lệnh \\frac (ví dụ: $-\\frac{7}{8}$, $-\\frac{21}{24}$).
@@ -114,35 +111,56 @@ QUY TẮC BẮT BUỘC:
 5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
 6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 6000));
-      const fetchPromise = (async () => {
-        for (const ocrModel of ocrCandidateModels) {
-          try {
-            const res = await ai.models.generateContent({
-              model: ocrModel,
-              contents: [
-                { text: promptText },
-                { inlineData: { data: b64, mimeType } }
-              ]
-            });
-            if (res && res.text) return res;
-          } catch {
-            // thử tiếp model OCR tiếp theo
+  // Hàm xử lý OCR cho 1 ảnh đơn lẻ với timeout tối ưu
+  const processSingleImage = async (item: typeof candidateImages[0]): Promise<{ item: typeof candidateImages[0]; latex: string; success: boolean } | null> => {
+    try {
+      const mimeType = item.dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+      const b64 = item.dataUrl.includes(",") ? item.dataUrl.split(",")[1] : item.dataUrl;
+
+      for (const ocrModel of ocrCandidateModels) {
+        try {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4500));
+          const generatePromise = ai.models.generateContent({
+            model: ocrModel,
+            contents: [
+              { text: promptText },
+              { inlineData: { data: b64, mimeType } }
+            ]
+          });
+
+          const res: any = await Promise.race([generatePromise, timeoutPromise]);
+          const resText = (res && res.text) ? res.text.trim() : "";
+          if (resText) {
+            cachedWorkingOcrModel = ocrModel; // Ghi nhớ model đã chạy thành công
+            if (!resText.includes("NOT_MATH") && resText.includes("$")) {
+              const latexMatch = resText.match(/\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$/);
+              const finalLatex = latexMatch ? latexMatch[0] : (resText.startsWith("$") ? resText : `$${resText}$`);
+              return { item, latex: finalLatex, success: true };
+            }
+            return null;
           }
+        } catch {
+          // Thử model tiếp theo
         }
-        return null;
-      })();
-
-      const response: any = await Promise.race([fetchPromise, timeoutPromise]);
-
-      const resText = (response && response.text) ? response.text.trim() : "";
-      if (resText && !resText.includes("NOT_MATH") && resText.includes("$")) {
-        const latexMatch = resText.match(/\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$/);
-        const finalLatex = latexMatch ? latexMatch[0] : (resText.startsWith("$") ? resText : `$${resText}$`);
-        results.push({ item, latex: finalLatex, success: true });
       }
     } catch (err) {
       console.warn(`Lỗi nhận diện ảnh công thức ${item.cleanId}:`, err);
+    }
+    return null;
+  };
+
+  // Xử lý song song từng nhóm 4 ảnh để đạt tốc độ tối đa mà không bị nghẽn mạng
+  const batchSize = 4;
+  const items = candidateImages.slice(0, 12);
+  const results: { item: typeof candidateImages[0]; latex: string; success: boolean }[] = [];
+
+  for (let i = 0; i < items.length; i += batchSize) {
+    const chunk = items.slice(i, i + batchSize);
+    const chunkResults = await Promise.all(chunk.map(it => processSingleImage(it)));
+    for (const r of chunkResults) {
+      if (r && r.success && r.latex) {
+        results.push(r);
+      }
     }
   }
 
@@ -150,7 +168,6 @@ QUY TẮC BẮT BUỘC:
     if (res.success && res.latex) {
       // Thay thế tag ảnh trong text bằng mã LaTeX
       updatedContent = updatedContent.replaceAll(res.item.tag, ` ${res.latex} `);
-      // TUYỆT ĐỐI KHÔNG XÓA imageCache để bảo đảm không bao giờ làm mất hình vẽ giáo án của người dùng!
       console.log(`[Math OCR] Đã chuyển đổi thành công ảnh ${res.item.cleanId} thành LaTeX: ${res.latex}`);
     }
   }
@@ -231,16 +248,14 @@ export const generateNLSLessonPlan = async (
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
   // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
-  // Ưu tiên các model hoạt động tốt nhất cho cả khóa mới (AQ.) và khóa truyền thống (AIzaSy)
+  // Ưu tiên các model phản hồi nhanh nhất và ổn định nhất
   const models = [
-    "gemini-3.5-flash",
-    "gemini-3-flash-preview",
-    "gemini-flash-lite-latest",
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
     "gemini-1.5-flash",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash",
-    "gemini-3.5-flash-lite"
+    "gemini-2.5-pro",
+    "gemini-1.5-pro"
   ];
   
   let distributionContext = "";
@@ -720,7 +735,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: tocParts
       });
 
@@ -777,6 +792,11 @@ ${userPromptText}`;
 
     let text = "";
 
+    const isModelNotFound = (err: any): boolean => {
+      const msg = (err?.message || (typeof err === 'string' ? err : JSON.stringify(err || ''))).toLowerCase();
+      return msg.includes('404') || msg.includes('not_found') || msg.includes('not found') || msg.includes('unsupported') || msg.includes('is not found');
+    };
+
     // 1. Thử gọi qua streaming trước để có preview mượt mà
     try {
       const responseStream = await ai.models.generateContentStream({
@@ -795,6 +815,9 @@ ${userPromptText}`;
           }
       }
     } catch (streamError) {
+      if (isModelNotFound(streamError)) {
+        throw streamError;
+      }
       console.warn(`[Stream] Model ${modelId} stream thất bại, tự động chuyển sang chế độ gọi trực tiếp...`, streamError);
       
       // 2. Fallback sang gọi thường (non-streaming)
@@ -806,6 +829,9 @@ ${userPromptText}`;
         });
         text = directResp.text || "";
       } catch (directError) {
+        if (isModelNotFound(directError)) {
+          throw directError;
+        }
         console.warn(`[Direct SDK] Model ${modelId} thất bại, thử nghiệm kết nối qua REST API...`, directError);
         
         // 3. Fallback cuối cùng: Gọi REST API chuẩn của Google Generative Language
