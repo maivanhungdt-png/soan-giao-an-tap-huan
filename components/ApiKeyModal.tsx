@@ -62,9 +62,14 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setTestMessage('Đang kết nối thử nghiệm với Google AI...');
 
     const candidateModels = [
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-flash-latest',
+      'gemini-flash-lite-latest',
+      'gemini-3.7-flash',
+      'gemini-3.1-flash-lite',
       'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
-      'gemini-2.5-flash',
       'gemini-1.5-flash'
     ];
     let lastErr: any = null;
@@ -118,7 +123,9 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       setTestStatus('error');
       const msg = err?.message || JSON.stringify(err || '');
       const errStr = msg.toLowerCase();
-      if (errStr.includes('api_key_invalid') || errStr.includes('invalid') || errStr.includes('400')) {
+      if (errStr.includes('denied access') || errStr.includes('has been denied') || errStr.includes('permission_denied') || errStr.includes('403')) {
+        setTestMessage('Dự án Google Cloud của khóa API này đã bị Google từ chối truy cập ("Your project has been denied access"). Vui lòng truy cập Google AI Studio (aistudio.google.com), nhấn "Create API key" rồi chọn "Create API key in new project" để tạo khóa mới hoàn toàn miễn phí.');
+      } else if (errStr.includes('api_key_invalid') || errStr.includes('invalid') || errStr.includes('400')) {
         setTestMessage('Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại mã khóa tạo từ Google AI Studio.');
       } else if (errStr.includes('quota') || errStr.includes('429') || errStr.includes('resource_exhausted')) {
         setTestMessage('Khóa API đã hết hạn mức (Quota / 15 lượt gọi/phút cho Free tier). Vui lòng đổi khóa khác.');

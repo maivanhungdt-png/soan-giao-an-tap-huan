@@ -17,19 +17,21 @@ export const cleanApiKey = (raw: string): string => {
   let cleaned = raw.trim();
   cleaned = cleaned.replace(/^(?:GEMINI_API_KEY|API_KEY|APIKEY|KEY|VITE_GEMINI_API_KEY)\s*[:=]\s*/i, '');
   cleaned = cleaned.replace(/^Bearer\s+/i, '');
-  cleaned = cleaned.replace(/[\\`"']/g, '');
+  cleaned = cleaned.replace(/[\\`"';,]/g, '');
   return cleaned.trim();
 };
 
 export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Thế hệ mới nhất, tốc độ siêu nhanh, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
-  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tiết kiệm hạn mức tối đa, phản hồi tức thì", badge: "Siêu nhẹ & Nhanh" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", desc: "✨ Mô hình thông minh thế hệ mới tối ưu sư phạm", badge: "Thế hệ mới" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "📚 Tương thích và ổn định với mọi mã khóa API", badge: "Ổn định" }
+  { id: "gemini-3.6-flash", name: "Gemini 3.6 Flash", desc: "⚡ Thế hệ mới nhất, phản hồi siêu tốc, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
+  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", desc: "✨ Mô hình thông minh thế hệ mới tối ưu sư phạm", badge: "Thế hệ mới" },
+  { id: "gemini-flash-latest", name: "Gemini Flash Latest", desc: "🚀 Bản phát hành mới nhất của Google AI Studio", badge: "Mới nhất" },
+  { id: "gemini-flash-lite-latest", name: "Gemini Flash-Lite Latest", desc: "🪶 Siêu nhẹ, phản hồi tức thì và tiết kiệm hạn mức", badge: "Siêu nhẹ" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "🛡️ Mô hình đa nhiệm ổn định", badge: "Ổn định" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "📚 Tương thích với các mã khóa truyền thống", badge: "Cơ bản" }
 ];
 
 // Lưu model OCR thành công để tái sử dụng ngay lập tức cho các ảnh tiếp theo
-let cachedWorkingOcrModel: string = "gemini-2.0-flash";
+let cachedWorkingOcrModel: string = "gemini-3.6-flash";
 
 /**
  * Chuyển đổi các hình ảnh công thức toán học / phân số trong tài liệu sang mã LaTeX chuẩn $...$ bằng Gemini Vision
@@ -95,9 +97,12 @@ export const transcribeMathImagesToLatex = async (
   // Danh sách model OCR tốc độ cao chuẩn xác
   const baseOcrModels = [
     cachedWorkingOcrModel,
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-flash",
     "gemini-1.5-flash"
   ];
   const ocrCandidateModels = Array.from(new Set(baseOcrModels));
@@ -248,8 +253,14 @@ export const generateNLSLessonPlan = async (
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
   // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
-  // Ưu tiên các model phản hồi nhanh nhất và ổn định nhất
+  // Ưu tiên các model phản hồi nhanh nhất và ổn định nhất cho mọi thế hệ API key
   const models = [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-3.7-flash",
+    "gemini-3.1-flash-lite",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-2.5-flash",
@@ -915,17 +926,17 @@ ${userPromptText}`;
       const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err || ''));
       const errStr = msg.toLowerCase();
 
+      if (errStr.includes("denied access") || errStr.includes("has been denied") || errStr.includes("permission_denied") || errStr.includes("403")) {
+        return "Dự án Google Cloud của khóa API này đã bị Google từ chối truy cập hoặc tạm ngưng ('Your project has been denied access'). Vui lòng truy cập Google AI Studio (aistudio.google.com), nhấn 'Create API key' và chọn 'Create API key in new project' để lấy mã khóa từ một dự án mới hoàn toàn miễn phí.";
+      }
       if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid api key") || errStr.includes("api_key_missing") || errStr.includes("unauthenticated")) {
-        return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại mã khóa từ Google AI Studio.";
+        return "Khóa API không hợp lệ hoặc đã bị xóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại mã khóa mới từ Google AI Studio.";
       }
       if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("resource_exhausted")) {
         return "Khóa API đã hết hạn mức sử dụng (Google giới hạn 15 lượt gọi/phút cho tài khoản Free). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn 'Khóa API' để đổi khóa khác.";
       }
       if (errStr.includes("404") || errStr.includes("not_found") || errStr.includes("not found")) {
-        return `Mô hình AI chưa sẵn sàng hoặc mã khóa chưa kích hoạt dịch vụ (${msg}). Vui lòng kiểm tra lại tài khoản tại Google AI Studio.`;
-      }
-      if (errStr.includes("permission_denied") || errStr.includes("403")) {
-        return "Khóa API bị từ chối quyền truy cập (Permission Denied 403). Vui lòng kiểm tra vị trí tài khoản hoặc tạo API Key mới trên Google AI Studio.";
+        return `Mô hình AI chưa sẵn sàng hoặc mã khóa chưa kích hoạt dịch vụ (${msg}). Vui lòng tạo API Key mới tại Google AI Studio (aistudio.google.com).`;
       }
       return `Lỗi kết nối Gemini API (${msg}). Vui lòng nhấn nút 'Khóa API' để kiểm tra lại mã khóa.`;
     };
@@ -935,7 +946,9 @@ ${userPromptText}`;
     console.error("Gemini API Error:", error);
     const msg = error?.message || "";
     const errStr = msg.toLowerCase();
-    if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid_argument")) {
+    if (errStr.includes("denied access") || errStr.includes("has been denied") || errStr.includes("permission_denied") || errStr.includes("403")) {
+      throw new Error("Dự án Google Cloud của khóa API này đã bị Google từ chối truy cập ('Your project has been denied access'). Vui lòng vào Google AI Studio (aistudio.google.com), nhấn 'Create API key' rồi chọn 'Create API key in new project' để tạo khóa mới.");
+    } else if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid_argument")) {
       throw new Error("Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập mã khóa mới.");
     } else if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("resource_exhausted")) {
       throw new Error("Hạn mức API đã đạt giới hạn (Quota / 429). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn nút 'Khóa API' để đổi khóa API mới.");
