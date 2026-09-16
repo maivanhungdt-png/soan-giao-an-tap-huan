@@ -57,12 +57,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     const candidateModels = [
       'gemini-2.5-flash',
       'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
       'gemini-1.5-flash',
-      'gemini-3.8-flash',
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
       'gemini-2.5-pro',
       'gemini-1.5-pro'
     ];
@@ -74,8 +70,13 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       
       for (const m of candidateModels) {
         try {
+          const reqConfig: any = {};
+          if (m.startsWith('gemini-2.5')) {
+            reqConfig.thinkingConfig = { thinkingBudget: 0 };
+          }
           const response = await ai.models.generateContent({
             model: m,
+            config: reqConfig,
             contents: 'Xin chào, vui lòng phản hồi đúng chữ "OK".'
           });
 
@@ -91,7 +92,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
       if (successfulModel) {
         setTestStatus('success');
-        setTestMessage(`Khóa API hợp lệ! Kết nối thành công với Google Gemini (Model: ${successfulModel}).`);
+        setTestMessage(`Khóa API hợp lệ! Kết nối thành công với Google Gemini (${successfulModel}).`);
       } else {
         throw lastErr || new Error('Không nhận được phản hồi từ AI.');
       }
@@ -223,7 +224,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               <li>Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-700 font-semibold underline">aistudio.google.com/app/apikey</a> và đăng nhập Google.</li>
               <li>Nhấn vào nút màu xanh <b>"Create API key"</b> (Tạo khóa API).</li>
               <li>Sao chép mã khóa (bắt đầu bằng <code>AIzaSy...</code>) và dán vào ô trên.</li>
-              <li>Nhấn <b>"Kiểm tra kết nối"</b> rồi chọn <b>"Lưu khóa API"</b>.</li>
+              <li>Nhấn <b>"Kiểm tra"</b> rồi chọn <b>"Lưu khóa API"</b>.</li>
             </ol>
           </div>
         </div>

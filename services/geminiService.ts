@@ -5,6 +5,22 @@ import { masterDataCsv } from "../masterData";
 import { ensureAllActivitiesInTwoColumnTable, splitAllMergedHeadings } from "../utils/tableFormatter";
 import { imageCache } from "./imageCache";
 
+export interface GeminiModelOption {
+  id: string;
+  name: string;
+  desc: string;
+  badge?: string;
+}
+
+export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Tốc độ cao nhất, phản hồi tức thì, khuyên dùng", badge: "Khuyên dùng - Nhanh nhất" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", desc: "✨ Thế hệ 2.5 mới nhất, khả năng sư phạm mạnh mẽ", badge: "Mới nhất" },
+  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tối ưu hóa hạn mức, phản hồi siêu nhanh", badge: "Siêu nhẹ" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "🛡️ Mô hình ổn định, phổ biến và đáng tin cậy", badge: "Ổn định" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", desc: "🧠 Tư duy chuyên sâu, phân tích sư phạm mở rộng", badge: "Pro" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", desc: "📚 Cửa sổ ngữ cảnh cực lớn cho tài liệu đồ sộ", badge: "Pro" }
+];
+
 /**
  * Chuyển đổi các hình ảnh công thức toán học / phân số trong tài liệu sang mã LaTeX chuẩn $...$ bằng Gemini Vision
  */
@@ -66,7 +82,7 @@ export const transcribeMathImagesToLatex = async (
   const ai = new GoogleGenAI({ apiKey });
   let updatedContent = content;
 
-  // Xử lý từng ảnh với Gemini Vision
+  // Xử lý từng ảnh với Gemini Vision tốc độ cao
   const transcriptionPromises = candidateImages.map(async (item) => {
     try {
       const mimeType = item.dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
@@ -81,14 +97,31 @@ QUY TẮC BẮT BUỘC:
 5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
 6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
-      const fetchPromise = ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          { text: promptText },
-          { inlineData: { data: b64, mimeType } }
-        ]
-      });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 7000));
+      const fetchPromise = (async () => {
+        const ocrCandidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"];
+        for (const ocrModel of ocrCandidateModels) {
+          try {
+            const reqConfig: any = {};
+            if (ocrModel.startsWith("gemini-2.5")) {
+              reqConfig.thinkingConfig = { thinkingBudget: 0 };
+            }
+            const res = await ai.models.generateContent({
+              model: ocrModel,
+              config: reqConfig,
+              contents: [
+                { text: promptText },
+                { inlineData: { data: b64, mimeType } }
+              ]
+            });
+            if (res && res.text) return res;
+          } catch {
+            // thử tiếp model OCR tiếp theo
+          }
+        }
+        return null;
+      })();
+
       const response: any = await Promise.race([fetchPromise, timeoutPromise]);
 
       const resText = (response && response.text) ? response.text.trim() : "";
@@ -190,19 +223,15 @@ export const generateNLSLessonPlan = async (
   const cleanContent = optimizeTextForTokenSaving(info.content);
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
-  // Cấu hình danh sách Model Google Gemini đa dạng với cơ chế tự động fallback thông minh
+  // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
+  // Mặc định ưu tiên Gemini 2.5 Flash, nếu gặp sự cố sẽ tự động chuyển sang các model tiếp theo
   const models = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
     "gemini-2.5-pro",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash-lite"
+    "gemini-1.5-pro"
   ];
   
   let distributionContext = "";
@@ -683,6 +712,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
 
       const tocResponse = await ai.models.generateContent({
         model: "gemini-2.5-flash",
+        config: { thinkingConfig: { thinkingBudget: 0 } },
         contents: tocParts
       });
 
@@ -754,6 +784,13 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     const requestConfig: any = {
        temperature: 0.2
     };
+
+    // Tối ưu hóa phản hồi trực tiếp, loại bỏ độ trễ suy nghĩ (thinking delay) cho các model thế hệ 2.5
+    if (modelId.startsWith("gemini-2.5")) {
+      requestConfig.thinkingConfig = {
+        thinkingBudget: 0
+      };
+    }
     
     if (cachedContentName) {
        requestConfig.cachedContent = cachedContentName;
