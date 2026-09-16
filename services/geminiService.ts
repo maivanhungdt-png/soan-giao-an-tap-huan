@@ -25,7 +25,7 @@ export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
   { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "🛡️ Tương thích 100% với tài khoản miễn phí (Free Tier), cực kỳ ổn định", badge: "Khuyên dùng - Ổn định nhất" },
   { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Tốc độ cao, phản hồi tức thì, chuẩn GDPT 2018", badge: "Tốc độ cao" },
   { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tiết kiệm hạn mức, phản hồi siêu tốc", badge: "Siêu nhẹ" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", desc: "📚 Phân tích sư phạm chuyên sâu, ngữ cảnh mở rộng", badge: "Pro" }
+  { id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash 8B", desc: "⚡ Mô hình siêu tốc độ cho tài khoản miễn phí", badge: "Flash 8B" }
 ];
 
 /**
@@ -224,12 +224,12 @@ export const generateNLSLessonPlan = async (
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
   // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
-  // Ưu tiên Gemini 1.5 Flash (ổn định nhất cho Free API) và Gemini 2.0 Flash
+  // Ưu tiên các model 100% khả dụng trên Free tier
   const models = [
     "gemini-1.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-1.5-pro"
+    "gemini-1.5-flash-8b"
   ];
   
   let distributionContext = "";
@@ -737,7 +737,14 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     }
   }
 
-  let parts: any[] = [{ text: userPromptText }];
+  const combinedPromptText = `[QUY TẮC PHÁP QUY & CHUYÊN GIA SƯ PHẠM]:
+${SYSTEM_INSTRUCTION}
+
+=========================================================
+[YÊU CẦU SOẠN THẢO KẾ HOẠCH BÀI DẠY]:
+${userPromptText}`;
+
+  let parts: any[] = [{ text: combinedPromptText }];
   
   if (info.isAutoGenerate && filteredImages.length > 0) {
     filteredImages.forEach((base64Str) => {
@@ -752,41 +759,10 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     });
   }
 
-  // === CƠ CHẾ CONTEXT CACHING ===
-  let cachedContentName = "";
-
-  
-  const setupContextCache = async (aiInstance: GoogleGenAI, modelId: string) => {
-    if (userPromptText.length > 110000 && !cachedContentName) {
-      try {
-        console.log(`[Cache] Phát hiện siêu văn bản (${userPromptText.length} ký tự). Đang yêu cầu cung cấp Context Caching...`);
-        const cache = await aiInstance.caches.create({
-          model: modelId,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            ttl: "3600s",
-          },
-        });
-        cachedContentName = cache.name;
-        console.log(`[Cache] Tạo Context Caching thành công: ${cachedContentName}.`);
-      } catch (cacheErr) {
-        console.warn(`[Cache] Thất bại khởi tạo Context Cache. Tự động dùng luồng xử lý thông thường...`);
-      }
-    }
-  };
-
   const callModel = async (modelId: string): Promise<string> => {
-    await setupContextCache(ai, modelId);
-    
     const requestConfig: any = {
        temperature: 0.2
     };
-    
-    if (cachedContentName) {
-       requestConfig.cachedContent = cachedContentName;
-    } else {
-       requestConfig.systemInstruction = SYSTEM_INSTRUCTION;
-    }
 
     let text = "";
 
@@ -795,9 +771,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       const responseStream = await ai.models.generateContentStream({
         model: modelId,
         config: requestConfig,
-        contents: cachedContentName 
-          ? "Xin hãy tạo giáo án phối hợp tối ưu hóa năng lực theo thông tin đã set ở Cache." 
-          : parts,
+        contents: parts,
       });
       
       for await (const chunk of responseStream) {
@@ -817,9 +791,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
         const directResp = await ai.models.generateContent({
           model: modelId,
           config: requestConfig,
-          contents: cachedContentName 
-            ? "Xin hãy tạo giáo án phối hợp tối ưu hóa năng lực theo thông tin đã set ở Cache." 
-            : parts,
+          contents: parts,
         });
         text = directResp.text || "";
       } catch (directError) {
@@ -831,9 +803,8 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: userPromptText }] }],
-            generationConfig: { temperature: 0.2 },
-            systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] }
+            contents: [{ parts: [{ text: combinedPromptText }] }],
+            generationConfig: { temperature: 0.2 }
           })
         });
 
