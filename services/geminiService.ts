@@ -13,12 +13,10 @@ export interface GeminiModelOption {
 }
 
 export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Tốc độ cao nhất, phản hồi tức thì, khuyên dùng", badge: "Khuyên dùng - Nhanh nhất" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", desc: "✨ Thế hệ 2.5 mới nhất, khả năng sư phạm mạnh mẽ", badge: "Mới nhất" },
-  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tối ưu hóa hạn mức, phản hồi siêu nhanh", badge: "Siêu nhẹ" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "🛡️ Mô hình ổn định, phổ biến và đáng tin cậy", badge: "Ổn định" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", desc: "🧠 Tư duy chuyên sâu, phân tích sư phạm mở rộng", badge: "Pro" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", desc: "📚 Cửa sổ ngữ cảnh cực lớn cho tài liệu đồ sộ", badge: "Pro" }
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Tốc độ cao nhất, phản hồi tức thì, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "🛡️ Mô hình cực kỳ ổn định, tối ưu nhất cho khóa API miễn phí", badge: "Khuyên dùng - Ổn định" },
+  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tối ưu hóa hạn mức (Free tier), phản hồi siêu tốc", badge: "Siêu nhẹ" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", desc: "📚 Phân tích sư phạm chuyên sâu, ngữ cảnh mở rộng", badge: "Pro" }
 ];
 
 /**
@@ -82,8 +80,11 @@ export const transcribeMathImagesToLatex = async (
   const ai = new GoogleGenAI({ apiKey });
   let updatedContent = content;
 
-  // Xử lý từng ảnh với Gemini Vision tốc độ cao
-  const transcriptionPromises = candidateImages.map(async (item) => {
+  // Xử lý từng ảnh với Gemini Vision tốc độ cao (chia nhóm nhỏ để tránh vượt hạn mức 15 RPM của khóa miễn phí)
+  const results: { item: typeof candidateImages[0]; latex: string; success: boolean }[] = [];
+  const ocrCandidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+
+  for (const item of candidateImages.slice(0, 12)) {
     try {
       const mimeType = item.dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
       const b64 = item.dataUrl.includes(",") ? item.dataUrl.split(",")[1] : item.dataUrl;
@@ -93,22 +94,16 @@ QUY TẮC BẮT BUỘC:
 1. Phân số: bắt buộc dùng \\frac{tử}{mẫu} (ví dụ: $-\\frac{5}{7}$, $\\frac{8}{21}$, $\\frac{25}{100}$, $\\frac{17}{12}$).
 2. Dấu trừ trước phân số: viết dấu trừ liền trước lệnh \\frac (ví dụ: $-\\frac{7}{8}$, $-\\frac{21}{24}$).
 3. Hỗn số: viết số nguyên liền trước phân số (ví dụ: $1\\frac{5}{12}$, $2\\frac{1}{3}$).
-4. Chuỗi phép tính: Nếu ảnh chứa phép tính nhiều bước hoặc chuỗi dấu bằng liên tiếp, viết TOÀN BỘ trong CÙNG MỘT CẶP DẤU $...$ (ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$ hoặc $0,25 + 1\\frac{5}{12} = \\frac{25}{100} + \\frac{17}{12} = \\frac{1}{4} + \\frac{17}{12} = \\frac{20}{12} = \\frac{5}{3}$).
+4. Chuỗi phép tính: Nếu ảnh chứa phép tính nhiều bước hoặc chuỗi dấu bằng liên tiếp, viết TOÀN BỘ trong CÙNG MỘT CẶP DẤU $...$ (ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$).
 5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
 6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 7000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 6000));
       const fetchPromise = (async () => {
-        const ocrCandidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"];
         for (const ocrModel of ocrCandidateModels) {
           try {
-            const reqConfig: any = {};
-            if (ocrModel.startsWith("gemini-2.5")) {
-              reqConfig.thinkingConfig = { thinkingBudget: 0 };
-            }
             const res = await ai.models.generateContent({
               model: ocrModel,
-              config: reqConfig,
               contents: [
                 { text: promptText },
                 { inlineData: { data: b64, mimeType } }
@@ -128,16 +123,12 @@ QUY TẮC BẮT BUỘC:
       if (resText && !resText.includes("NOT_MATH") && resText.includes("$")) {
         const latexMatch = resText.match(/\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$/);
         const finalLatex = latexMatch ? latexMatch[0] : (resText.startsWith("$") ? resText : `$${resText}$`);
-        return { item, latex: finalLatex, success: true };
+        results.push({ item, latex: finalLatex, success: true });
       }
-      return { item, latex: "", success: false };
     } catch (err) {
       console.warn(`Lỗi nhận diện ảnh công thức ${item.cleanId}:`, err);
-      return { item, latex: "", success: false };
     }
-  });
-
-  const results = await Promise.all(transcriptionPromises);
+  }
 
   for (const res of results) {
     if (res.success && res.latex) {
@@ -224,13 +215,11 @@ export const generateNLSLessonPlan = async (
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
   // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
-  // Mặc định ưu tiên Gemini 2.5 Flash, nếu gặp sự cố sẽ tự động chuyển sang các model tiếp theo
+  // Mặc định ưu tiên Gemini 2.0 Flash, nếu gặp sự cố/hết quota sẽ tự động chuyển sang Gemini 1.5 Flash
   const models = [
-    "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
-    "gemini-2.5-pro",
+    "gemini-2.0-flash-lite",
     "gemini-1.5-pro"
   ];
   
@@ -711,8 +700,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        config: { thinkingConfig: { thinkingBudget: 0 } },
+        model: "gemini-2.0-flash",
         contents: tocParts
       });
 
@@ -784,13 +772,6 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     const requestConfig: any = {
        temperature: 0.2
     };
-
-    // Tối ưu hóa phản hồi trực tiếp, loại bỏ độ trễ suy nghĩ (thinking delay) cho các model thế hệ 2.5
-    if (modelId.startsWith("gemini-2.5")) {
-      requestConfig.thinkingConfig = {
-        thinkingBudget: 0
-      };
-    }
     
     if (cachedContentName) {
        requestConfig.cachedContent = cachedContentName;
@@ -871,17 +852,17 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Format human-friendly error from lastError
     const parseError = (err: any): string => {
       const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err || ''));
-      if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT")) {
+      if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT") || errStr.includes("API_KEY_MISSING")) {
         return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại API Key mới từ Google AI Studio.";
       }
       if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
-        return "Khóa API đã hết hạn mức sử dụng (Quota / 429). Vui lòng nhấn nút 'Khóa API' để đổi khóa API khác.";
+        return "Khóa API đã hết hạn mức hoặc vượt quá tần suất gọi (15 yêu cầu/phút của tài khoản Free). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn nút 'Khóa API' để đổi sang khóa API khác.";
       }
       if (errStr.includes("404") || errStr.includes("NOT_FOUND") || errStr.includes("not found")) {
-        return "Không tìm thấy model hoặc khóa API chưa được cấp quyền truy cập. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập khóa API cá nhân của bạn.";
+        return "Không tìm thấy model hoặc khóa API chưa kích hoạt dịch vụ Google Generative AI. Vui lòng kiểm tra lại khóa API tại Google AI Studio.";
       }
       if (errStr.includes("PERMISSION_DENIED") || errStr.includes("403")) {
-        return "Khóa API bị từ chối quyền truy cập (Permission Denied). Vui lòng kiểm tra quyền truy cập của mã khóa trên Google AI Studio.";
+        return "Khóa API bị từ chối quyền truy cập (Permission Denied). Vui lòng kiểm tra quyền truy cập hoặc vị trí địa lý của tài khoản trên Google AI Studio.";
       }
       return `Lỗi kết nối Gemini API (${err?.message || "Không nhận được phản hồi"}). Vui lòng nhấn nút 'Khóa API' để kiểm tra lại mã khóa.`;
     };
@@ -893,7 +874,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT")) {
       throw new Error("Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập mã khóa mới.");
     } else if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
-      throw new Error("Hạn mức API đã đạt giới hạn (Quota / 429). Vui lòng nhấn nút 'Khóa API' để chuyển sang dùng Khóa API cá nhân của bạn.");
+      throw new Error("Hạn mức API đã đạt giới hạn (Quota / 429). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn nút 'Khóa API' để đổi khóa API mới.");
     }
     throw new Error(error.message || "Không thể gọi Gemini API. Vui lòng thử lại hoặc kiểm tra lại Khóa API.");
   }

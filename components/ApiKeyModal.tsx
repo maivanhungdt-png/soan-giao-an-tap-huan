@@ -55,11 +55,9 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setTestMessage('Đang kết nối thử nghiệm với Google AI...');
 
     const candidateModels = [
-      'gemini-2.5-flash',
       'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
       'gemini-1.5-flash',
-      'gemini-2.5-pro',
+      'gemini-2.0-flash-lite',
       'gemini-1.5-pro'
     ];
     let lastErr: any = null;
@@ -70,13 +68,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       
       for (const m of candidateModels) {
         try {
-          const reqConfig: any = {};
-          if (m.startsWith('gemini-2.5')) {
-            reqConfig.thinkingConfig = { thinkingBudget: 0 };
-          }
           const response = await ai.models.generateContent({
             model: m,
-            config: reqConfig,
             contents: 'Xin chào, vui lòng phản hồi đúng chữ "OK".'
           });
 
