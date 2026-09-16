@@ -22,10 +22,11 @@ export const cleanApiKey = (raw: string): string => {
 };
 
 export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "🛡️ Tương thích 100% với tài khoản miễn phí (Free Tier), cực kỳ ổn định", badge: "Khuyên dùng - Ổn định nhất" },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "⚡ Tốc độ cao, phản hồi tức thì, chuẩn GDPT 2018", badge: "Tốc độ cao" },
-  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", desc: "🚀 Tiết kiệm hạn mức, phản hồi siêu tốc", badge: "Siêu nhẹ" },
-  { id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash 8B", desc: "⚡ Mô hình siêu tốc độ cho tài khoản miễn phí", badge: "Flash 8B" }
+  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", desc: "⚡ Thế hệ mới nhất, phản hồi tức thì, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
+  { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", desc: "✨ Mô hình thế hệ mới tối ưu hóa cho giáo dục & sư phạm", badge: "Thế hệ mới" },
+  { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite", desc: "🚀 Tiết kiệm hạn mức tối đa, phản hồi siêu tốc", badge: "Siêu nhẹ" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "🛡️ Mô hình đa nhiệm ổn định và phổ biến", badge: "Ổn định" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "📚 Tương thích với các mã khóa truyền thống", badge: "Cơ bản" }
 ];
 
 /**
@@ -91,7 +92,13 @@ export const transcribeMathImagesToLatex = async (
 
   // Xử lý từng ảnh với Gemini Vision tốc độ cao (chia nhóm nhỏ để tránh vượt hạn mức 15 RPM của khóa miễn phí)
   const results: { item: typeof candidateImages[0]; latex: string; success: boolean }[] = [];
-  const ocrCandidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+  const ocrCandidateModels = [
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-flash-lite-latest",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
+  ];
 
   for (const item of candidateImages.slice(0, 12)) {
     try {
@@ -224,12 +231,16 @@ export const generateNLSLessonPlan = async (
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
   // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
-  // Ưu tiên các model 100% khả dụng trên Free tier
+  // Ưu tiên các model hoạt động tốt nhất cho cả khóa mới (AQ.) và khóa truyền thống (AIzaSy)
   const models = [
-    "gemini-1.5-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-flash-lite-latest",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash-8b"
+    "gemini-1.5-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite"
   ];
   
   let distributionContext = "";
@@ -709,7 +720,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         contents: tocParts
       });
 
@@ -878,18 +889,14 @@ ${userPromptText}`;
       const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err || ''));
       const errStr = msg.toLowerCase();
 
-      if (!activeApiKey.startsWith("AIzaSy")) {
-        return `Khóa API bạn nhập ("${activeApiKey.substring(0, 6)}...") KHÔNG PHẢI là mã Google Gemini API. Khóa Google AI Studio luôn bắt đầu bằng "AIzaSy..." (gồm 39 ký tự). Vui lòng truy cập https://aistudio.google.com/app/apikey để tạo đúng mã khóa Google.`;
-      }
-
-      if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid api key") || errStr.includes("api_key_missing")) {
-        return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại mã khóa từ Google AI Studio (bắt đầu bằng AIzaSy...).";
+      if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid api key") || errStr.includes("api_key_missing") || errStr.includes("unauthenticated")) {
+        return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại mã khóa từ Google AI Studio.";
       }
       if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("resource_exhausted")) {
         return "Khóa API đã hết hạn mức sử dụng (Google giới hạn 15 lượt gọi/phút cho tài khoản Free). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn 'Khóa API' để đổi khóa khác.";
       }
       if (errStr.includes("404") || errStr.includes("not_found") || errStr.includes("not found")) {
-        return `Mô hình AI chưa được hỗ trợ hoặc mã khóa không hợp lệ (${msg}). Vui lòng kiểm tra lại tài khoản tại Google AI Studio.`;
+        return `Mô hình AI chưa sẵn sàng hoặc mã khóa chưa kích hoạt dịch vụ (${msg}). Vui lòng kiểm tra lại tài khoản tại Google AI Studio.`;
       }
       if (errStr.includes("permission_denied") || errStr.includes("403")) {
         return "Khóa API bị từ chối quyền truy cập (Permission Denied 403). Vui lòng kiểm tra vị trí tài khoản hoặc tạo API Key mới trên Google AI Studio.";

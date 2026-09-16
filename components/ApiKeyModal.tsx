@@ -52,9 +52,9 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       return;
     }
 
-    if (!trimmed.startsWith('AIzaSy')) {
+    if (trimmed.length < 15) {
       setTestStatus('error');
-      setTestMessage(`⚠️ Khóa bạn nhập bắt đầu bằng "${trimmed.substring(0, 4)}..." không phải là mã Google Gemini API! Khóa Google AI Studio luôn bắt đầu bằng "AIzaSy..." (gồm 39 ký tự). Vui lòng vào aistudio.google.com/app/apikey để tạo khóa.`);
+      setTestMessage('Mã khóa API quá ngắn. Vui lòng kiểm tra lại mã khóa đã sao chép từ Google AI Studio.');
       return;
     }
 
@@ -62,10 +62,11 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setTestMessage('Đang kết nối thử nghiệm với Google AI...');
 
     const candidateModels = [
-      'gemini-1.5-flash',
+      'gemini-3.5-flash',
+      'gemini-3-flash-preview',
+      'gemini-flash-lite-latest',
       'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-flash-8b'
+      'gemini-1.5-flash'
     ];
     let lastErr: any = null;
     let successfulModel = '';
@@ -98,7 +99,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               })
             });
             if (restResp.ok) {
-              successfulModel = `${m} (REST)`;
+              successfulModel = `${m}`;
               break;
             }
           } catch (fetchErr) {
@@ -123,7 +124,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       } else if (errStr.includes('quota') || errStr.includes('429') || errStr.includes('resource_exhausted')) {
         setTestMessage('Khóa API đã hết hạn mức (Quota / 15 lượt gọi/phút cho Free tier). Vui lòng đổi khóa khác.');
       } else if (errStr.includes('404') || errStr.includes('not_found')) {
-        setTestMessage('Mã khóa API không hỗ trợ model hoặc chưa kích hoạt. Mã Google AI Studio thường bắt đầu bằng AIzaSy...');
+        setTestMessage('Mã khóa API không hỗ trợ model hoặc chưa kích hoạt. Vui lòng kiểm tra lại tại Google AI Studio.');
       } else {
         setTestMessage(`Lỗi kết nối: ${msg}`);
       }
