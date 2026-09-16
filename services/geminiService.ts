@@ -878,6 +878,10 @@ ${userPromptText}`;
       const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err || ''));
       const errStr = msg.toLowerCase();
 
+      if (!activeApiKey.startsWith("AIzaSy")) {
+        return `Khóa API bạn nhập ("${activeApiKey.substring(0, 6)}...") KHÔNG PHẢI là mã Google Gemini API. Khóa Google AI Studio luôn bắt đầu bằng "AIzaSy..." (gồm 39 ký tự). Vui lòng truy cập https://aistudio.google.com/app/apikey để tạo đúng mã khóa Google.`;
+      }
+
       if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid api key") || errStr.includes("api_key_missing")) {
         return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại mã khóa từ Google AI Studio (bắt đầu bằng AIzaSy...).";
       }
@@ -885,7 +889,7 @@ ${userPromptText}`;
         return "Khóa API đã hết hạn mức sử dụng (Google giới hạn 15 lượt gọi/phút cho tài khoản Free). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn 'Khóa API' để đổi khóa khác.";
       }
       if (errStr.includes("404") || errStr.includes("not_found") || errStr.includes("not found")) {
-        return `Mô hình AI chưa được hỗ trợ trên tài khoản này (${msg}). Vui lòng kiểm tra lại tài khoản tại Google AI Studio.`;
+        return `Mô hình AI chưa được hỗ trợ hoặc mã khóa không hợp lệ (${msg}). Vui lòng kiểm tra lại tài khoản tại Google AI Studio.`;
       }
       if (errStr.includes("permission_denied") || errStr.includes("403")) {
         return "Khóa API bị từ chối quyền truy cập (Permission Denied 403). Vui lòng kiểm tra vị trí tài khoản hoặc tạo API Key mới trên Google AI Studio.";

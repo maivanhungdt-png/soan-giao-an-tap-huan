@@ -52,6 +52,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       return;
     }
 
+    if (!trimmed.startsWith('AIzaSy')) {
+      setTestStatus('error');
+      setTestMessage(`⚠️ Khóa bạn nhập bắt đầu bằng "${trimmed.substring(0, 4)}..." không phải là mã Google Gemini API! Khóa Google AI Studio luôn bắt đầu bằng "AIzaSy..." (gồm 39 ký tự). Vui lòng vào aistudio.google.com/app/apikey để tạo khóa.`);
+      return;
+    }
+
     setTestStatus('testing');
     setTestMessage('Đang kết nối thử nghiệm với Google AI...');
 
