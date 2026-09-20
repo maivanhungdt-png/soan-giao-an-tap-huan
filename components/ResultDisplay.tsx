@@ -120,10 +120,61 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     return s;
   };
 
+  // Helper: Tự động phát hiện và sửa các công thức toán bị thiếu dấu $ mở đầu hoặc $ kết thúc
+  // Ví dụ: "-  x^m \cdot x^n = x^{m+n}$" -> "- $x^m \cdot x^n = x^{m+n}$"
+  // Ví dụ: "- (x^m)^n = x^{m \cdot n}$" -> "- $(x^m)^n = x^{m \cdot n}$"
+  const repairUnbalancedMathDelimiters = (text: string): string => {
+    if (!text) return "";
+    const lines = text.split(/\r?\n/);
+    const fixedLines = lines.map(line => {
+      let l = line;
+      // Đếm số lượng dấu $ trên dòng (không tính $$)
+      const nonDoubleDollars = l.replace(/\$\$/g, '');
+      const dollarCount = (nonDoubleDollars.match(/\$/g) || []).length;
+
+      // Nếu dòng có số lẻ dấu $ (thường là 1 dấu $ ở cuối câu công thức toán)
+      if (dollarCount % 2 === 1) {
+        // Trường hợp 1: Dòng kết thúc bằng $ (hoặc có $ ở cuối) và phía trước là biểu thức toán
+        // Ví dụ: "-  x^m \cdot x^n = x^{m+n}$" hoặc "- (x^m)^n = x^{m \cdot n}$"
+        const endDollarMatch = l.match(/^([\s\-\+•\*]*)(.*?)(\$[^\$\n\r]*)$/);
+        if (endDollarMatch) {
+          const bullet = endDollarMatch[1] || '';
+          const body = endDollarMatch[2].trim();
+          const mathSuffix = endDollarMatch[3];
+
+          // Nếu body có chứa dấu hiệu toán học (\cdot, ^, _, \frac, =, (, ), +, -, :)
+          if (/[\\^_{}=+\-*\/:]|\([0-9a-zA-Z\s^_{}=+\-*\/\\:]+\)/.test(body) && !/[à-ỹÀ-Ỹ]/.test(body)) {
+            const fullFormula = (body + (mathSuffix.startsWith('$') ? mathSuffix.slice(1) : mathSuffix)).replace(/\$+$/, '').trim();
+            return `${bullet}$${fullFormula}$`;
+          }
+        }
+
+        // Trường hợp 2: Dòng bắt đầu bằng $math nhưng thiếu $ ở cuối
+        // Ví dụ: "- $x^m \cdot x^n = x^{m+n}"
+        const startDollarMatch = l.match(/^([\s\-\+•]*)\$([^\$\n\r]+)$/);
+        if (startDollarMatch) {
+          const bullet = startDollarMatch[1] || '';
+          const body = startDollarMatch[2].trim();
+          return `${bullet}$${body}$`;
+        }
+      }
+      return l;
+    });
+    return fixedLines.join('\n');
+  };
+
   // Helper: Đảm bảo công thức toán $...$ luôn có dấu cách với chữ / số xung quanh, không dính sát chữ
   const ensureMathFormulaSpacing = (text: string): string => {
     if (!text) return "";
     let res = text;
+
+    // 0. Dọn sạch rác $- $ hoặc $+ $ hoặc $* $ trên cùng 1 dòng (KHÔNG dùng \s để tránh nuốt ký tự xuống dòng)
+    res = res.replace(/\$[^\S\r\n]*-[^\S\r\n]*\$/g, '- ');
+    res = res.replace(/\$[^\S\r\n]*\+[^\S\r\n]*\$/g, '+ ');
+    res = res.replace(/\$[^\S\r\n]*\*[^\S\r\n]*\$/g, '');
+
+    // 0b. Gỡ bỏ \mathbf{...}, \textbf{...}, \mathrm{...} bao bọc toán học sai cách
+    res = res.replace(/\\(?:mathbf|textbf|mathrm)\s*\{([^}]+)\}/g, '$1');
 
     // 1. Tách $...$ khỏi từ hoặc số đứng liền kề phía trước: chữ$math$ -> chữ $math$
     res = res.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
@@ -133,7 +184,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
 
     // 3. Tách từ tiếng Việt dính sát vào biến/lũy thừa/phép tính: "thứcx^2" -> "thức x^2", "thức2x" -> "thức 2x"
     res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuv]\^[0-9a-zA-Z]+|\d+[a-zA-Z]\^[0-9a-zA-Z]+|\d+[xyzabtuv]\b)/g, '$1 $2');
-    res = res.replace(/([0-9a-zA-Z])\s+([xyzabtuv])\^/g, '$1$2^');
+    res = res.replace(/(^|[^a-zA-Z\\])([xyzabtuv])\s+([xyzabtuv])(?![a-zA-Z])/g, '$1$2$3');
+    res = res.replace(/(^|[^a-zA-Z\\])([0-9a-zA-Z])\s+([xyzabtuv])\^/g, '$1$2$3^');
     res = res.replace(/([a-zA-ZÀ-ỹ])([xyzabtuv]\^|\d+[a-zA-Z])/g, '$1 $2');
     res = res.replace(/([a-zA-ZÀ-ỹ])(\d+[a-zA-Z^])/g, '$1 $2');
 
@@ -143,8 +195,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 5. Tách dấu chấm phẩy dính công thức/chữ: ";-5" -> "; -5", ";2x" -> "; 2x"
     res = res.replace(/;([^\s\n\r])/g, '; $1');
 
-    // 6. Xóa khoảng trắng thừa sát mép trong của dấu $: $  x  $ -> $x$
-    res = res.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
+    // 6. Xóa triệt để khoảng trắng thừa sát mép trong của dấu $ và $$ để tương thích 100% Word OMML / MathType
+    res = res.replace(/\$\$([\s\S]+?)\$\$/g, (_m, p1) => `$$${p1.trim()}$$`);
+    res = res.replace(/\$([^\$\n\r]+?)\$/g, (_m, p1) => `$${p1.trim()}$`);
 
     return res;
   };
@@ -253,10 +306,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 9. Dòng gạch đầu dòng có chứa nhãn in đậm ở đầu (ví dụ: "- Năng lực tư duy và lập luận toán học: HS hiểu..." hoặc "- Chăm chỉ: Có ý thức...")
     const inlineBulletMatch = s.match(/^([\s\-\+•]*)(?:\*\*)?([^:\n]{2,50}:)(?:\*\*)?[ \t]*(.*)$/);
     if (inlineBulletMatch && inlineBulletMatch[1]) {
-      const bullet = inlineBulletMatch[1].includes('+') ? '+ ' : '- ';
-      const label = inlineBulletMatch[2].replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-      const rest = (inlineBulletMatch[3] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
-      return rest ? `${bullet}**${label}** ${rest}` : `${bullet}**${label}**`;
+      const candidateLabel = inlineBulletMatch[2].trim();
+      // TUYỆT ĐỐI KHÔNG coi công thức toán, biến số, phép tính có dấu hai chấm (ví dụ: $x^m : x^n$, $x^m :$, a : b = c) là tiêu đề nhãn
+      const isMath = /\$|\\|\^|_|=|<|>|≤|≥|≠|\+|\/|\*|frac|sqrt|cdot|times|div/.test(candidateLabel) || !/[a-zA-ZÀ-ỹ]{3,}/.test(candidateLabel);
+      if (!isMath) {
+        const bullet = inlineBulletMatch[1].includes('+') ? '+ ' : '- ';
+        const label = candidateLabel.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+        const rest = (inlineBulletMatch[3] || '').replace(/^\*\*+/, '').replace(/\*\*+$/, '').trim();
+        return rest ? `${bullet}**${label}** ${rest}` : `${bullet}**${label}**`;
+      }
     }
 
     // 10. Dòng gạch đầu dòng thông thường (ví dụ: "- Thu gọn đa thức.", "- Tính giá trị của đa thức...") -> GIỮ NGUYÊN NỘI DUNG, KHÔNG BÔI ĐEN TÙY TIỆN
@@ -292,7 +350,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         return cur;
       }
 
-      // 1. Khắc phục in đậm chuẩn trên từng dòng
+      // 1. Tách bullet prefix trước để không bị dính vào công thức toán
+      let bulletPrefix = "";
+      const bulletMatch = cur.match(/^([\s\-\+•\*]+)(.*)$/);
+      if (bulletMatch && !isIntegrationLine(cur) && !bulletMatch[2].startsWith('**I') && !bulletMatch[2].startsWith('**1.') && !bulletMatch[2].startsWith('**a)')) {
+        bulletPrefix = bulletMatch[1].includes('+') ? '+ ' : (bulletMatch[1].includes('-') ? '- ' : bulletMatch[1]);
+        cur = bulletMatch[2].trim();
+      }
+
+      // 2. Khắc phục in đậm chuẩn trên từng dòng
       cur = sanitizeLineBold(cur);
 
       // Phục hồi công thức phân số bị lỗi tiền tố rac -> \frac
@@ -300,7 +366,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, (_match, p1, p2) => `\\frac{${p1.trim()}}{${p2.trim()}}`);
       cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, (_match, p1) => `\\sqrt{${p1.trim()}}`);
 
-      // 2. Tách nhãn tiêu đề (nếu có) để xử lý riêng
+      // 3. Tách nhãn tiêu đề (nếu có) để xử lý riêng
       const labelRegex = /^(?:[\*\s#\-•]*)((?:Bước\s*[1-4]\s*:\s*(?:Chuyển\s*giao\s*nhiệm\s*vụ|Thực\s*hiện\s*nhiệm\s*vụ|Báo\s*cáo[,\s]+thảo\s*luận|Kết\s*luận[,\s]+nhận\s*định)|Bước\s*[1-4]|[a-e]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Yêu\s*cầu|Năng\s*lực[^\n:]*)|(?:\d+\.|\d+\))\s*(?:Kiến\s*thức|Năng\s*lực|Phẩm\s*chất|Giáo\s*viên|Học\s*sinh)|HĐ\s*\d+|Kết\s*luận|Nhận\s*xét|Tranh\s*luận|Chú\s*ý|Quy\s*tắc|Hộp\s*kiến\s*thức|Khung\s*kiến\s*thức|Ví\s*dụ\s*(?:\d+|về\s*[^\n:]+)?|Luyện\s*tập\s*[\d\*]*|Vận\s*dụng\s*\d*|Bài\s*(?:tập\s*)?\d+(?:\.\d+)?|Câu\s*(?:hỏi\s*(?:phụ\s*)?)?\d*|ĐS|Đ\/s|Đáp\s*số|Đáp\s*án|\?:(?:\s*SGK)?|Nhóm\s*\d+\s*(?:\([^)]*\))?|[a-e]\))[:\s\*\-]*)(.*)$/i;
       const labelMatch = cur.match(labelRegex);
 
@@ -316,19 +382,21 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         mathBody = mathBody.replace(/^\*\*|\*\*$/g, '').replace(/\*\*+$/, '').trim();
       }
 
-      // 3. Nếu toàn bộ phần thân là biểu thức toán học thuần túy (Pure Math Expression)
+      // 4. Nếu toàn bộ phần thân là biểu thức toán học thuần túy (Pure Math Expression)
       if (mathBody && isPureMathExpression(mathBody)) {
-        let cleanMath = mathBody.replace(/^\$+|\$+$/g, '').trim();
+        let cleanMath = mathBody.replace(/^\$+/, '').replace(/\$+$/, '').trim();
+        // Xóa các \mathbf{} / \textbf{} / \mathrm{} bao bọc công thức sai cách
+        cleanMath = cleanMath.replace(/\\(?:mathbf|textbf|mathrm)\{([^{}]*)\}/g, '$1');
         // Thu gọn khoảng trắng giữa các biến toán học dạng chữ đơn lẻ rời rạc (ví dụ: x y^3 z -> xy^3z) mà không ảnh hưởng lệnh \cdot, \frac...
         cleanMath = cleanMath.replace(/(^|[^a-zA-Z\\])([xyzabtuv](?:\^[0-9a-zA-Z{}]+)?)\s+([xyzabtuv])(?![a-zA-Z])/g, '$1$2$3');
         cleanMath = cleanMath.replace(/(^|[^a-zA-Z\\])([xyzabtuv](?:\^[0-9a-zA-Z{}]+)?)\s+([xyzabtuv])(?![a-zA-Z])/g, '$1$2$3');
         while (/[\.,:;!?]$/.test(cleanMath) && !/[\)\]\}]$/.test(cleanMath)) {
           cleanMath = cleanMath.slice(0, -1).trim();
         }
-        return `${prefixLabel}$${cleanMath}$`.trim();
+        return `${bulletPrefix}${prefixLabel}$${cleanMath}$`.trim();
       }
 
-      // 4. Nếu là câu văn bản có chứa các công thức toán nội dòng (Inline Math)
+      // 5. Nếu là câu văn bản có chứa các công thức toán nội dòng (Inline Math)
       const transformNonLatex = (str: string, fn: (t: string) => string): string => {
         const parts = str.split(/(\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$|<[^>]+>|\*\*[^\*\n\r]+\*\*|\[(?:HINHANHGOC|IMG|CÔNG_THỨC)[^\]]*\])/g);
         return parts.map((tok, idx) => (idx % 2 === 1 ? tok : fn(tok))).join('');
@@ -381,7 +449,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       processedBody = processedBody.replace(/([a-zA-Z0-9À-ỹ\)])(\$[^\$\n\r]+?\$)/g, (_m, p1, p2) => `${p1} ${p2}`);
       processedBody = processedBody.replace(/(\$[^\$\n\r]+?\$)([a-zA-Z0-9À-ỹ\(])/g, (_m, p1, p2) => `${p1} ${p2}`);
 
-      return `${prefixLabel}${processedBody}`.trim();
+      return `${bulletPrefix}${prefixLabel}${processedBody}`.trim();
     });
 
     return processed.join('');
@@ -402,6 +470,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Phục hồi công thức phân số bị lỗi trước khi làm sạch
     clean = repairRacToFrac(clean);
 
+    // Phục hồi các công thức toán bị thiếu dấu $ mở đầu hoặc kết thúc (ví dụ: - x^m \cdot x^n = x^{m+n}$)
+    clean = repairUnbalancedMathDelimiters(clean);
+
     // Dọn dẹp các ký tự $DoS
     clean = clean.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
     clean = clean.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
@@ -410,7 +481,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // Tách tất cả các đề mục bị dính liền trên 1 dòng
     clean = splitAllMergedHeadings(clean);
 
-    // Đảm bảo khoảng cách công thức toán không dính sát chữ
+    // Đảm bảo khoảng cách công thức toán không dính sát chữ và dọn sạch khoảng trắng trong $
     clean = ensureMathFormulaSpacing(clean);
 
     // Xóa sạch toàn bộ thẻ HTML rác / dangling tags (</span>, <span...>, <font...>, </font>) gây lỗi thừa chữ

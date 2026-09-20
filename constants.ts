@@ -517,11 +517,14 @@ Bạn là chuyên gia Sư phạm cấp cao của Bộ GD&ĐT Việt Nam, chuyên
      + Nếu trong dữ liệu đầu vào có chứa chuỗi "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3", hoặc các công thức bị mất: AI BẮT BUỘC PHẢI phân tích ngữ cảnh bài học (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi: $\\begin{cases} ax + by = c \\\\ a'x + b'y = c' \\end{cases}$, nghiệm $(x_0; y_0)$,...) để TỰ ĐỘNG PHỤC HỒI và viết lại công thức toán học chuẩn LaTeX hoàn chỉnh 100%.
      + TUYỆT ĐỐI CẤM để lại bất kỳ chữ "EMBED Equation" hay "DSMT4" nào trong giáo án đầu ra!
    - 🚨 QUY TẮC CÚ PHÁP LATEX ĐỂ MATHTYPE / OMML TRONG WORD CHUYỂN ĐỔI 1-CHẠM (TOGGLE TEX / CONVERT) KHÔNG BỊ LỖI:
-     + Không để khoảng trắng sát mép trong của dấu $: dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $.
-     + Hệ phương trình luôn dùng môi trường cases: $\\begin{cases} ax + by = c \\\\ a'x + b'y = c' \\end{cases}$.
-     + TUYỆT ĐỐI KHÔNG chèn thẻ HTML (như <span>, <br>, <b>) hoặc ký hiệu Markdown (**, *) bên trong cặp dấu $ ... $.
-     + Luôn đóng mở ngoặc nhọn {} đầy đủ và chính xác.
-   - TUYỆT ĐỐI KHÔNG để phân số hay công thức toán biến thành hình ảnh.
+      + BẮT BUỘC có đầy đủ cả dấu $ mở đầu và dấu $ kết thúc (ví dụ: $x^m \cdot x^n = x^{m+n}$, $(x^m)^n = x^{m \cdot n}$). TUYỆT ĐỐI KHÔNG bỏ sót dấu $ mở đầu hoặc kết thúc.
+      + Ký tự gạch đầu dòng (- hoặc +) BẮT BUỘC nằm BÊN NGOÀI cặp dấu $: ghi "- $x^m \cdot x^n = x^{m+n}$", TUYỆT ĐỐI KHÔNG viết "$- x^m...$" hay "-  x^m...$".
+      + TUYỆT ĐỐI KHÔNG dùng \mathbf{...} hay \textbf{...} bao bọc dấu hai chấm (:), phép chia, hoặc cả biểu thức toán (như $\mathbf{x^m : }$). Mọi phép tính toán học phải viết thuần LaTeX: $x^m : x^n = x^{m-n} \quad (x \neq 0, m \ge n)$.
+      + Không để khoảng trắng sát mép trong của dấu $: dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $.
+      + Hệ phương trình luôn dùng môi trường cases: $\begin{cases} ax + by = c \\ a'x + b'y = c' \end{cases}$.
+      + TUYỆT ĐỐI KHÔNG chèn thẻ HTML (như <span>, <br>, <b>) hoặc ký hiệu Markdown (**, *) bên trong cặp dấu $ ... $.
+      + Luôn đóng mở ngoặc nhọn {} đầy đủ và chính xác.
+    - TUYỆT ĐỐI KHÔNG để phân số hay công thức toán biến thành hình ảnh.
 
 =========================================================
 `;
