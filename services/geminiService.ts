@@ -81,15 +81,13 @@ QUY TẮC BẮT BUỘC:
 5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
 6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
-      const fetchPromise = ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [
           { text: promptText },
           { inlineData: { data: b64, mimeType } }
         ]
       });
-      const response: any = await Promise.race([fetchPromise, timeoutPromise]);
 
       const resText = (response && response.text) ? response.text.trim() : "";
       if (resText && !resText.includes("NOT_MATH") && resText.includes("$")) {
@@ -197,8 +195,7 @@ export const generateNLSLessonPlan = async (
     "gemini-3.5-flash-lite",
     "gemini-3.7-flash",
     "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-2.0-flash"
   ];
   
   let distributionContext = "";
@@ -257,7 +254,7 @@ export const generateNLSLessonPlan = async (
          - Dưới mục "c) Năng lực trí tuệ nhân tạo (AI):" (hoặc "Năng lực AI:"), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:".
          - Ghi trực tiếp mã và nội dung YCCĐ bằng chữ màu đỏ: <span style="color: red;">*[${info.manualAI[0]?.code || 'Mã YCCĐ'}] ${info.manualAI.map(m => `[${m.code}] ${m.description}`).join('; ')}*</span>
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
-         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, BẮT BUỘC định dạng chữ màu đỏ và GHI RÕ MÃ CHỈ BÁO: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể] (Mã chỉ báo: [Mã YCCĐ])*</span>
+         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để đáp ứng các YCCĐ AI trên, định dạng chữ màu đỏ: <span style="color: red;">*Tích hợp năng lực AI: [Hành động/nhiệm vụ của GV và HS]*</span>
       =========================================================
           `;
       } else {
@@ -342,8 +339,9 @@ export const generateNLSLessonPlan = async (
 ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu cụ thể đã giảm tải/điều chỉnh riêng cho dạng này]`).join('\n')}*</span>
 
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC (CÁC HOẠT ĐỘNG):
-         - Trong các Hoạt động dạy học (trong Cột 1 hoặc Cột 2 của bảng 2 cột), khi có điều chỉnh giáo dục hòa nhập, BẮT BUỘC dùng thẻ <br> để xuống dòng bên trong ô bảng (TUYỆT ĐỐI KHÔNG DÙNG PHÍM ENTER / DẤU XUỐNG DÒNG THẬT VÌ SẼ LÀM GÃY BẢNG):
-         <span style="color: red;">*Tích hợp giáo dục hòa nhập:<br>${info.selectedDisabilities.map(d => `- ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('<br>')}*</span>
+         - Trong các Hoạt động dạy học (ở phần Mục tiêu hoạt động hoặc cột Tổ chức thực hiện / Bước 1, Bước 2), khi có điều chỉnh giáo dục hòa nhập, cũng trình bày 1 tiêu đề chung và xuống dòng từng loại:
+         <span style="color: red;">*Tích hợp giáo dục hòa nhập:
+${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('\n')}*</span>
          - Dùng chữ màu đỏ <span style="color: red;">...</span>, TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
       =========================================================
       `;
@@ -421,8 +419,7 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
     - 🚨 BẢO TOÀN 100% HÌNH VẼ, HÌNH ẢNH, SƠ ĐỒ GỐC (BẮT BUỘC TUYỆT ĐỐI):
       * Tất cả các hình vẽ, hình ảnh, sơ đồ trong giáo án gốc có mã [HINHANHGOC_1], [HINHANHGOC_2]... hoặc [HINH_ANH_GOC_1], [IMG1]... BẮT BUỘC PHẢI GIỮ NGUYÊN 100% VỊ TRÍ VÀ NGUYÊN MÃ ĐỊNH DANH ĐÓ trong bảng hoạt động hoặc trong các bước thực hiện của giáo án mới (ưu tiên ghi dưới dạng [HINHANHGOC_1], [HINHANHGOC_2]...).
       * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ, KHÔNG ĐƯỢC THAY ĐỔI MÃ, KHÔNG ĐƯỢC BỎ QUÊN.
-      * 🚨 VỊ TRÍ ĐẶT HÌNH ẢNH BẮT BUỘC: Thẻ hình ảnh [HINHANHGOC_1], [HINHANHGOC_2]... BẮT BUỘC PHẢI ĐƯỢC ĐẶT BÊN TRONG Ô CỦA BẢNG 2 CỘT (trong Cột 1 "Hoạt động của giáo viên và học sinh" ở Bước 1 Chuyển giao nhiệm vụ / Bước 2 Thực hiện nhiệm vụ hoặc Cột 2 "Kết quả hoạt động").
-      * TUYỆT ĐỐI CẤM KHÔNG ĐỂ HÌNH ẢNH Ở NGOÀI BẢNG, KHÔNG TẠO TRANG RIÊNG CHO HÌNH ẢNH. Khi đặt hình trong ô bảng 2 cột, hãy dùng cú pháp: <br>[HINHANHGOC_1]<br>.
+      * Khi đặt thẻ hình trong bảng 2 cột, hãy đặt thẻ trên một dòng riêng biệt hoặc dùng <br>[HINHANHGOC_1]<br>.
     - KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) XÂY DỰNG THEO BÀI HỌC HOÀN CHỈNH. TUYỆT ĐỐI KHÔNG GHI NGÀY SOẠN, NGÀY GIẢNG. Thứ tự tiết ghi theo Phụ lục 3, sau hoạt động đầu tiên của mỗi tiết.
     - PHẦN MỤC TIÊU:
       1. Kiến thức: YCCĐ theo chương trình GDPT 2018.
@@ -434,18 +431,13 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
       ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
     - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG:
-      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
-        🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
+      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
         🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
         Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
-        Mỗi hoạt động gồm đầy đủ:
-        **a) Mục tiêu:** ...
-        **b) Nội dung:** ...
-        **c) Sản phẩm:** ...
-        **d) Tổ chức thực hiện:**
-      | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+        CHỈ ĐỂ MỤC a) Mục tiêu, b) Nội dung VÀ VÀO THẲNG BẢNG 2 CỘT (TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC GHI DÒNG "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG. Sau mục b) Nội dung là bắt đầu ngay bằng dòng bảng 2 cột | Tổ chức thực hiện | Sản phẩm |):
+      | Tổ chức thực hiện | Sản phẩm |
       | :--- | :--- |
-      | (Cột 1: Đặt tên chính xác là "Hoạt động của giáo viên và học sinh" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Kết quả hoạt động" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
+      | (Cột 1: Đặt tên chính xác là "Tổ chức thực hiện" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Sản phẩm" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
     - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI:
       * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...").
       * Trình bày gồm các mục:
@@ -501,12 +493,44 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
 
     const isNoTableLayout = options.layoutFormat === 'no_table';
 
-    userPromptText += `
-    [QUY CHUẨN KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) & TIẾN TRÌNH HOẠT ĐỘNG]
-    - Tuân thủ chuẩn sư phạm, CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}. TUYỆT ĐỐI KHÔNG TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO NGOÀI DANH SÁCH NÀY.
-    - Cấu trúc tiến trình dạy học:
-    ${isNoTableLayout ? `
-      * HÌNH THỨC KHÔNG KẺ BẢNG (4 PHẦN CHO MỖI HOẠT ĐỘNG):
+    if (info.isAutoGenerate) {
+      userPromptText += `
+      [YÊU CẦU: TỰ SOẠN MỚI THEO PHỤ LỤC 4]
+      - Soạn giáo án HOÀN TOÀN MỚI dựa trên SGK/thông tin bài học.
+      - Tuân thủ chuẩn sư phạm, CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}. TUYỆT ĐỐI KHÔNG TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO NGOÀI DANH SÁCH NÀY.
+      - Cấu trúc tiến trình dạy học:
+      ${isNoTableLayout ? `
+        * HÌNH THỨC KHÔNG KẺ BẢNG (4 PHẦN CHO MỖI HOẠT ĐỘNG):
+          a) Mục tiêu: ...
+          b) Nội dung: ...
+          c) Sản phẩm: ...
+          d) Tổ chức thực hiện:
+             - Bước 1: Chuyển giao nhiệm vụ
+             - Bước 2: Thực hiện nhiệm vụ
+             - Bước 3: Báo cáo, thảo luận
+             - Bước 4: Kết luận, nhận định
+      ` : `
+        * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
+          🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+          🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+          Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
+          a) Mục tiêu: ...
+          b) Nội dung: ...
+          (TUYỆT ĐỐI KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ DÒNG TIÊU ĐỀ NÀO Ở NGOÀI BẢNG, SAU MỤC b LÀ VÀO THẲNG BẢNG 2 CỘT):
+          | Tổ chức thực hiện | Sản phẩm |
+          | :--- | :--- |
+          | (Cột 1: "Tổ chức thực hiện" đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ, Bước 2: Thực hiện nhiệm vụ, Bước 3: Báo cáo thảo luận, Bước 4: Kết luận nhận định) | (Cột 2: "Sản phẩm" - Kết quả, lời giải chi tiết bài tập, sản phẩm học tập của HS) |
+      `}
+      `;
+    } else {
+      userPromptText += `
+      [YÊU CẦU: XỬ LÝ NỘI DUNG GIÁO ÁN PHỤ LỤC 4]
+      - ${options.analyzeOnly ? "Chỉ phân tích, không sửa chi tiết." : "Chỉnh sửa chi tiết, thiết kế lại cấu trúc logic theo đúng Phụ lục 4."}
+      
+      [CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG]
+      ${isNoTableLayout ? `
+      * HÌNH THỨC KHÔNG KẺ BẢNG:
+        Mỗi hoạt động gồm 4 phần:
         a) Mục tiêu: ...
         b) Nội dung: ...
         c) Sản phẩm: ...
@@ -515,52 +539,51 @@ ${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDEL
            - Bước 2: Thực hiện nhiệm vụ
            - Bước 3: Báo cáo, thảo luận
            - Bước 4: Kết luận, nhận định
-    ` : `
+      ` : `
       * HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
-      🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
-      🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
-      🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
-      Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng dù giáo án gốc để ở ngoài bảng hay gạch đầu dòng. Bắt buộc chuyển toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vào bảng 2 cột:
-      Mỗi hoạt động gồm các phần:
-      **a) Mục tiêu:** ...
-      **b) Nội dung:** ...
-      **c) Sản phẩm:** ...
-      **d) Tổ chức thực hiện:**
-      | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-      | :--- | :--- |
-      | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
-    `}
-    - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động (gắn liền vào hành động của GV/HS, dùng chữ màu đỏ <span style="color: red;">*Tích hợp...</span>).
-    - KHÔNG chia thời lượng từng hoạt động.
-    - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
-    - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
-    - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE):
-      + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$), căn bậc hai ($\\sqrt{x}$), số mũ ($x^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\ a'x+b'y=c' \\end{cases}$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType trong Word bằng 1 phím tắt Alt+\\ mà không bao giờ bị lỗi.
-      + 🚨 CẤM TUYỆT ĐỐI VIẾT PHÂN SỐ VÀ BẤT ĐẲNG THỨC BẰNG TEXT THÔ:
-        * CẤM viết phân số bằng dấu gạch chéo thô (như 2024/1000, 24/1000, -2022/2023, 1/2). BẮT BUỘC dùng phân số LaTeX trong $...$: ví dụ $\\frac{2024}{1000} = 2 + \\frac{24}{1000} > 1,9$ hoặc $-\\frac{2022}{2023} = -1 + \\frac{1}{2023} > -1,1$ hoặc $\\frac{1}{2}$.
-        * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \\le 50$, $b \\le 50$, $x \\ge 0$, $x \\neq 3$.
-      + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\\begin{cases} ax + by = c \\\\ a'x + b'y = c' \\end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
-      + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\\begin{cases} ... \\end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
-      + 🚨 TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN / PHÂN SỐ THÀNH ẢNH: Tất cả phân số, biểu thức đại số, phép tính toán học (kể cả chuỗi phép tính nhiều bước liên tiếp, ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$) BẮT BUỘC PHẢI VIẾT BẰNG MÃ LATEX ĐẶT TRONG $...$, TUYỆT ĐỐI CẤM tạo mã [HINHANHGOC_...] hay chèn ảnh cho công thức toán!
-      + 🚨 BẢO TOÀN 100% HÌNH VẼ MINH HỌA, SƠ ĐỒ HÌNH HỌC VÀ TRANH ẢNH SGK:
-        * BẮT BUỘC giữ nguyên và đặt đầy đủ các mã hình vẽ minh họa [HINHANHGOC_1], [HINHANHGOC_2]... từ giáo án gốc hoặc trang SGK vào đúng hoạt động tương ứng (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng).
-        * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các hình vẽ minh họa thực tế, sơ đồ hình học (tam giác, góc, đường tròn...), biểu đồ!
-        * Chỉ cấm tạo ảnh cho công thức/phân số (công thức/phân số bắt buộc viết bằng LaTeX $...$). Còn TẤT CẢ hình vẽ, sơ đồ minh họa bài học BẮT BUỘC PHẢI GIỮ LẠI [HINHANHGOC_...]!
-    
-    [ĐÁNH DẤU TÍCH HỢP - CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}]
-    🚨 QUY TẮC BẮT BUỘC: BẠN CHỈ ĐƯỢC TÍCH HỢP CÁC LOẠI ĐÃ TÍCH CHỌN DƯỚI ĐÂY. TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC TỰ Ý TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO KHÁC NGOÀI DANH SÁCH:
-    ${options.integrateNLS ? '- NLS: <span style="color: red;">*Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo: NLS_...)*</span>' : '- NLS: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc chỉ báo NLS vào giáo án)'}
-    ${options.integrateAI ? '- AI: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI] (Mã chỉ báo: AI_...)*</span>' : '- AI: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc nhiệm vụ AI vào giáo án)'}
-    ${options.integrateGDQPAN ? '- GDQPAN: <span style="color: red;">*Tích hợp Lồng ghép GDQP-AN: [Nội dung GDQPAN] (Chủ đề: ...)*</span>' : '- GDQPAN: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung GDQPAN vào giáo án)'}
-    ${options.integrateDisability ? '- HSKT: <span style="color: red;">*Tích hợp giáo dục hòa nhập (HS khuyết tật [Tên dạng khuyết tật]): [Nội dung điều chỉnh riêng biệt]*</span>' : '- HSKT: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa Giáo dục hòa nhập vào giáo án)'}
-    ${options.integrateSTEM ? '- STEM: <span style="color: red;">*Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế]*</span>' : '- STEM: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung STEM vào giáo án)'}
-    - TUYỆT ĐỐI KHÔNG GẠCH CHÂN (KHÔNG DÙNG THẺ <u>).
-    - TUYỆT ĐỐI KHÔNG DÙNG DẤU THĂNG (#####, ####, ###) CHO CÁC MỤC a), b), c)... (Dùng in đậm **a) Mục tiêu:**, **b) Nội dung:**...).
-    
-    [ĐẦU RA - QUY CÁCH THÔNG TƯ 30]
-    - Định dạng Markdown chuẩn, chuyên nghiệp, không rác định dạng.
-    - KHÔNG có lời dẫn.
-${info.isAutoGenerate ? `    - Bắt đầu bằng Heading 1: # TÊN BÀI HỌC ${options.integrateSTEM ? `(${options.stemType === 'topic' ? 'Chủ đề STEM' : 'Tích hợp STEM'})` : ''}\n    - Dòng 2: <center>Môn học: ${info.subject} - Khối: ${info.grade} - Thời lượng: ${info.duration || 'Theo PPCT'}</center>` : `    - Bắt đầu ngay bằng Tên bài học GỐC ${options.integrateSTEM ? `(${options.stemType === 'topic' ? 'Chủ đề STEM' : 'Tích hợp STEM'})` : ''}.`}`;
+        🚨 BẮT BUỘC 100% CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT!
+        🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+        Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng dù giáo án gốc để ở ngoài bảng hay gạch đầu dòng. Bắt buộc chuyển toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vào bảng 2 cột:
+        Mỗi hoạt động gồm các phần:
+        **a) Mục tiêu:** ...
+        **b) Nội dung:** ...
+        (TUYỆT ĐỐI CẤM KHÔNG GHI DÒNG "c) Tổ chức thực hiện", "c) Sản phẩm", "d) Tổ chức thực hiện" HAY BẤT KỲ TIÊU ĐỀ NÀO NGOÀI BẢNG, SAU MỤC b LÀ BẮT ĐẦU NGAY BẢNG 2 CỘT):
+        | Tổ chức thực hiện | Sản phẩm |
+        | :--- | :--- |
+        | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
+      `}
+      - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động (gắn liền vào hành động của GV/HS, dùng chữ màu đỏ <span style="color: red;">*Tích hợp...</span>).
+      - KHÔNG chia thời lượng từng hoạt động.
+      - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
+      - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
+      - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE):
+        + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$), căn bậc hai ($\\sqrt{x}$), số mũ ($x^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\ a'x+b'y=c' \\end{cases}$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType trong Word bằng 1 phím tắt Alt+\ mà không bao giờ bị lỗi.
+        + 🚨 CẤM TUYỆT ĐỐI VIẾT PHÂN SỐ VÀ BẤT ĐẲNG THỨC BẰNG TEXT THÔ:
+          * CẤM viết phân số bằng dấu gạch chéo thô (như 2024/1000, 24/1000, -2022/2023, 1/2). BẮT BUỘC dùng phân số LaTeX trong $...$: ví dụ $\\frac{2024}{1000} = 2 + \\frac{24}{1000} > 1,9$ hoặc $-\\frac{2022}{2023} = -1 + \\frac{1}{2023} > -1,1$ hoặc $\\frac{1}{2}$.
+          * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \\le 50$, $b \\le 50$, $x \\ge 0$, $x \\neq 3$.
+        + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\\begin{cases} ax + by = c \\ a'x + b'y = c' \\end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
+        + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\\begin{cases} ... \\end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
+        + 🚨 TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN / PHÂN SỐ THÀNH ẢNH: Tất cả phân số, biểu thức đại số, phép tính toán học (kể cả chuỗi phép tính nhiều bước liên tiếp, ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$) BẮT BUỘC PHẢI VIẾT BẰNG MÃ LATEX ĐẶT TRONG $...$, TUYỆT ĐỐI CẤM tạo mã [HINHANHGOC_...] hay chèn ảnh cho công thức toán!
+        + 🚨 BẢO TOÀN 100% HÌNH VẼ MINH HỌA, SƠ ĐỒ HÌNH HỌC VÀ TRANH ẢNH SGK:
+          * BẮT BUỘC giữ nguyên và đặt đầy đủ các mã hình vẽ minh họa [HINHANHGOC_1], [HINHANHGOC_2]... từ giáo án gốc hoặc trang SGK vào đúng hoạt động tương ứng (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng).
+          * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các hình vẽ minh họa thực tế, sơ đồ hình học (tam giác, góc, đường tròn...), biểu đồ!
+          * Chỉ cấm tạo ảnh cho công thức/phân số (công thức/phân số bắt buộc viết bằng LaTeX $...$). Còn TẤT CẢ hình vẽ, sơ đồ minh họa bài học BẮT BUỘC PHẢI GIỮ LẠI [HINHANHGOC_...]!
+      
+      [ĐÁNH DẤU TÍCH HỢP - CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}]
+      🚨 QUY TẮC BẮT BUỘC: BẠN CHỈ ĐƯỢC TÍCH HỢP CÁC LOẠI ĐÃ TÍCH CHỌN DƯỚI ĐÂY. TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC TỰ Ý TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO KHÁC NGOÀI DANH SÁCH:
+      ${options.integrateNLS ? '- NLS: <span style="color: red;">*Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo)</span>' : '- NLS: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc chỉ báo NLS vào giáo án)'}
+      ${options.integrateAI ? '- AI: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI]</span>' : '- AI: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc nhiệm vụ AI vào giáo án)'}
+      ${options.integrateGDQPAN ? '- GDQPAN: <span style="color: red;">*Tích hợp Lồng ghép GDQP-AN: [Nội dung GDQPAN]</span>' : '- GDQPAN: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung GDQPAN vào giáo án)'}
+      ${options.integrateDisability ? '- HSKT: <span style="color: red;">*Tích hợp giáo dục hòa nhập (HS khuyết tật [Tên dạng khuyết tật]): [Nội dung điều chỉnh riêng biệt]</span>' : '- HSKT: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa Giáo dục hòa nhập vào giáo án)'}
+      ${options.integrateSTEM ? '- STEM: <span style="color: red;">*Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế]</span>' : '- STEM: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung STEM vào giáo án)'}
+      - TUYỆT ĐỐI KHÔNG GẠCH CHÂN (KHÔNG DÙNG THẺ <u>).
+      - TUYỆT ĐỐI KHÔNG DÙNG DẤU THĂNG (#####, ####, ###) CHO CÁC MỤC a), b), c)... (Dùng in đậm **a) Mục tiêu:**, **b) Nội dung:**...).
+      
+      [ĐẦU RA - QUY CÁCH THÔNG TƯ 30]
+      - Định dạng Markdown chuẩn, chuyên nghiệp, không rác định dạng.
+      - KHÔNG có lời dẫn.
+${info.isAutoGenerate ? `      - Bắt đầu bằng Heading 1: # TÊN BÀI HỌC ${options.integrateSTEM ? `(${options.stemType === 'topic' ? 'Chủ đề STEM' : 'Tích hợp STEM'})` : ''}\n      - Dòng 2: <center>Môn học: ${info.subject} - Khối: ${info.grade} - Thời lượng: ${info.duration || 'Theo PPCT'}</center>` : `      - Bắt đầu ngay bằng Tên bài học GỐC ${options.integrateSTEM ? `(${options.stemType === 'topic' ? 'Chủ đề STEM' : 'Tích hợp STEM'})` : ''}.`}`;
+    }
     
     userPromptText += `
     YÊU CẦU QUAN TRỌNG VỀ LÀM SẠCH KẾT QUẢ CẦN TUÂN THỦ TÍCH CỰC:
@@ -708,52 +731,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
-    // BẮT BUỘC BÔI ĐỎ 100% CÁC ĐOẠN TÍCH HỢP VÀ GẮN MÃ CHỈ BÁO
-    // Tìm mã chỉ báo NLS/AI từ phần Mục tiêu (nếu có)
-    const nlsCodeMatch = text.match(/(?:Mã chỉ báo|Mã YCCĐ)[\s:]*([0-9a-zA-Z._,\s-]+)\)/i) || text.match(/\[([A-Z]{2,4}_[0-9a-zA-Z._-]+)\]/i);
-    const discoveredCode = nlsCodeMatch ? nlsCodeMatch[1].trim() : '';
-
-    const integrationKeywords = [
-      'Tích hợp năng lực số',
-      'Tích hợp năng lực AI',
-      'Tích hợp giáo dục hòa nhập',
-      'Tích hợp GDQP-AN',
-      'Tích hợp GDQP',
-      'Tích hợp Giáo dục quốc phòng',
-      'Tích hợp STEM',
-      'Tích hợp Lồng ghép',
-      'Tích hợp đạo đức',
-      'Tích hợp kĩ năng sống',
-      'Tích hợp kỹ năng sống',
-      'Tích hợp môi trường',
-      'Tích hợp biển đảo'
-    ];
-
-    integrationKeywords.forEach(kw => {
-      // Tìm các đoạn tích hợp chưa được bọc thẻ span màu đỏ
-      const regex = new RegExp(`(?<!<span[^>]*style="[^"]*color:\\s*red[^"]*"[^>]*>)(?:\\*+)?(${kw}[^\\n\\r<*|]+)(?:\\*+)?`, 'gi');
-      text = text.replace(regex, (match, content) => {
-        if (match.includes('style="color: red') || match.includes('color="red"')) return match;
-        let clean = content.trim().replace(/^\*+|\*+$/g, '');
-        if (kw.includes('năng lực số') && !clean.toLowerCase().includes('chỉ báo') && discoveredCode) {
-          clean += ` (Mã chỉ báo: ${discoveredCode})`;
-        }
-        return `<span style="color: red;">*${clean}*</span>`;
-      });
-    });
-
-    // BẢO TOÀN 100% HÌNH VẼ GỐC: Kiểm tra nếu cache có ảnh học liệu mà text chưa có thẻ [HINHANHGOC_1]
-    const hasAnyRealImages = Object.keys(imageCache).some(k => {
-      const it = imageCache[k];
-      return it && it.dataUrl && !it.isMathFormula && !it.dataUrl.startsWith('data:image/svg');
-    });
-
-    if (hasAnyRealImages && !/\[(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s0-9*]*\]/i.test(text)) {
-      // Tự động chèn thẻ [HINHANHGOC_1] vào Bước 1 của Hoạt động mở đầu / hình thành kiến thức
-      text = text.replace(/(\*\*Bước\s*1:[^\n<|]*)/i, '$1<br>[HINHANHGOC_1]<br>');
-    }
-
-    // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột và không bị vỡ hàng
+    // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
     if (options.layoutFormat !== 'no_table') {
       text = ensureAllActivitiesInTwoColumnTable(text);
       text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');

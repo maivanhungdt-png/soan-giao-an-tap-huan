@@ -1,8 +1,8 @@
 /**
  * Utility to ensure all activities in a lesson plan are formatted into 
- * standard 2-column Markdown tables (| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |).
+ * standard 2-column Markdown tables (| Tổ chức thực hiện | Sản phẩm |).
  * Specifically guarantees Hoạt động 3 (Luyện tập) and Hoạt động 4 (Vận dụng) 
- * are never left outside the table and preserves c) Sản phẩm and d) Tổ chức thực hiện.
+ * are never left outside the table.
  */
 
 // Helper to check if a line is an Activity header
@@ -31,92 +31,17 @@ export const isSectionEnd = (line: string): boolean => {
   );
 };
 
-/**
- * Repairs broken markdown table lines where linebreaks inside cells caused
- * integration text or steps to fall outside the table or duplicate table headers.
- */
-export const repairBrokenTableInBlock = (block: string): string => {
-  const lines = block.split('\n');
-  const dIndex = lines.findIndex(l => /(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(l));
-  
-  if (dIndex === -1) return block;
-
-  const preLines = lines.slice(0, dIndex + 1);
-  const postLines = lines.slice(dIndex + 1);
-
-  // Collect all step / teacher / student actions (Col 1) and solutions / products (Col 2)
-  const col1Items: string[] = [];
-  const col2Items: string[] = [];
-
-  let isInsideTable = false;
-
-  for (let i = 0; i < postLines.length; i++) {
-    const raw = postLines[i];
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-
-    // Check if line is a table header or separator line
-    if (/^\|\s*Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)[^|]*\|\s*(?:Kết\s*quả|Sản\s*phẩm)[^|]*\|/i.test(trimmed)) {
-      isInsideTable = true;
-      continue;
-    }
-    if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|/.test(trimmed)) {
-      isInsideTable = true;
-      continue;
-    }
-
-    // If it's a table row with 2 columns: | col1 | col2 |
-    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
-      const parts = trimmed.slice(1, -1).split('|');
-      if (parts.length >= 2) {
-        const c1 = parts[0].trim();
-        const c2 = parts.slice(1).join('|').trim();
-        if (c1 && !c1.startsWith(':---')) col1Items.push(c1);
-        if (c2 && !c2.startsWith(':---')) col2Items.push(c2);
-        continue;
-      }
-    }
-
-    // If it's loose text that fell out of table due to real newlines
-    if (/^(?:-\s*)?(?:HS\s*khuyết\s*tật|HSKT|Tích\s*hợp|Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh)/i.test(trimmed) || trimmed.startsWith('<span') || trimmed.endsWith('</span>')) {
-      col1Items.push(trimmed);
-    } else if (/^(?:Lời\s*giải|Đáp\s*án|Bài\s*\d+|Câu\s*\d+|Ví\s*dụ\s*\d+|Luyện\s*tập\s*\d+|Vận\s*dụng\s*\d+)/i.test(trimmed) || /^\$[^\$]+\$$/.test(trimmed)) {
-      col2Items.push(trimmed);
-    } else {
-      col1Items.push(trimmed);
-    }
-  }
-
-  // If nothing collected in table, return original
-  if (col1Items.length === 0 && col2Items.length === 0) {
-    return block;
-  }
-
-  // Format cell 1 and cell 2 cleanly with <br>
-  const formatCell = (arr: string[]): string => {
-    return arr
-      .map(item => item.trim())
-      .filter(Boolean)
-      .join('<br>')
-      .replace(/\r?\n/g, '<br>')
-      .replace(/\|/g, '\\|');
-  };
-
-  const finalCol1 = formatCell(col1Items) || '**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ cho HS.<br>**Bước 2: Thực hiện nhiệm vụ:** HS làm việc cá nhân/nhóm.<br>**Bước 3: Báo cáo, thảo luận:** HS báo cáo kết quả.<br>**Bước 4: Kết luận, nhận định:** GV chuẩn hóa kiến thức.';
-  const finalCol2 = formatCell(col2Items) || 'Học sinh hoàn thành câu trả lời, sản phẩm học tập hoặc bài tập theo yêu cầu của giáo viên.';
-
-  const tableMarkdown = `| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |\n| :--- | :--- |\n| ${finalCol1} | ${finalCol2} |`;
-
-  return `${preLines.join('\n')}\n\n${tableMarkdown}`;
+// Helper to detect if an activity block already has a 2-column activity table
+export const hasActivityTable = (block: string): boolean => {
+  return /\|[^\n]*(?:tổ\s*chức\s*thực\s*hiện|hoạt\s*động\s*của)[^\n]*\|[^\n]*sản\s*phẩm[^\n]*\|/i.test(block);
 };
 
 /**
  * Converts an activity block that is outside the table into a standard 2-column table.
  */
 export const convertActivityBlockToTable = (activityBlock: string): string => {
-  // If block contains broken table lines or split tables, repair and merge it
-  if (/\|[^\n]*\|/i.test(activityBlock) && /(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(activityBlock)) {
-    return repairBrokenTableInBlock(activityBlock);
+  if (hasActivityTable(activityBlock)) {
+    return activityBlock;
   }
 
   const lines = activityBlock.split('\n');
@@ -260,31 +185,21 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       .map(line => line.trim())
       .filter(Boolean)
       .join('<br>')
-      .replace(/\r?\n/g, '<br>')
       .replace(/\|/g, '\\|'); // escape pipe inside markdown cells
   };
 
   const toChucCell = formatCellText(toChuc);
   const sanPhamCell = formatCellText(sanPham);
 
-  // Format mục tiêu, nội dung, sản phẩm, tổ chức thực hiện
+  // Format mục tiêu & nội dung
   const mucTieuText = mucTieu.length > 0 
     ? mucTieu.join('\n') 
     : '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.';
   const noiDungText = noiDung.length > 0 
     ? noiDung.join('\n') 
     : '**b) Nội dung:** Học sinh thực hiện các nhiệm vụ theo hướng dẫn của giáo viên.';
-  
-  let cSanPhamHeader = '';
-  if (isLuyenTap) {
-    cSanPhamHeader = '**c) Sản phẩm:** Đáp án, lời giải chi tiết các bài tập luyện tập của học sinh.';
-  } else if (isVanDung) {
-    cSanPhamHeader = '**c) Sản phẩm:** Kết quả giải quyết bài toán/vấn đề thực tế hoặc sản phẩm học tập của học sinh.';
-  } else {
-    cSanPhamHeader = '**c) Sản phẩm:** Câu trả lời, sản phẩm học tập hoặc kết quả thực hiện nhiệm vụ của học sinh.';
-  }
 
-  return `${headerLine}\n${mucTieuText}\n${noiDungText}\n${cSanPhamHeader}\n**d) Tổ chức thực hiện:**\n\n| Hoạt động của giáo viên và học sinh | Kết quả hoạt động |\n| :--- | :--- |\n| ${toChucCell} | ${sanPhamCell} |`;
+  return `${headerLine}\n${mucTieuText}\n${noiDungText}\n\n| Tổ chức thực hiện | Sản phẩm |\n| :--- | :--- |\n| ${toChucCell} | ${sanPhamCell} |`;
 };
 
 /**

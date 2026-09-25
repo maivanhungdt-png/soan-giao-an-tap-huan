@@ -446,18 +446,16 @@ Bạn là chuyên gia Sư phạm cấp cao của Bộ GD&ĐT Việt Nam, chuyên
 
 5. CHI TIẾT PHẦN III. TIẾN TRÌNH DẠY HỌC (CẤU TRÚC HOẠT ĐỘNG TRONG PHỤ LỤC 4):
    - NẾU CHỌN HÌNH THỨC KẺ BẢNG 2 CỘT (CHUẨN 100% PHỤ LỤC 4):
-     🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
-     🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
+     🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (Hoạt động 1: Khởi động, Hoạt động 2: Hình thành kiến thức mới, Hoạt động 3: Luyện tập, Hoạt động 4: Vận dụng) ĐỀU PHẢI KẺ BẢNG 2 CỘT.
      🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
      Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
-     Mỗi hoạt động gồm đầy đủ 4 phần:
+     Mỗi hoạt động gồm 2 phần mở đầu và vào thẳng bảng 2 cột:
      **a) Mục tiêu:** [Mục tiêu của hoạt động]
      **b) Nội dung:** [Nội dung nhiệm vụ/bài tập của hoạt động]
-     **c) Sản phẩm:** [Sản phẩm học tập dự kiến/kết quả thực hiện]
-     **d) Tổ chức thực hiện:**
-     | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+     (TUYỆT ĐỐI KHÔNG GHI TIÊU ĐỀ c) Sản phẩm hay d) Tổ chức thực hiện ở ngoài bảng; sau mục b là vào thẳng bảng 2 cột):
+     | Tổ chức thực hiện | Sản phẩm |
      | :--- | :--- |
-     | Gồm đủ 4 bước: **Bước 1: Chuyển giao nhiệm vụ**; **Bước 2: Thực hiện nhiệm vụ**; **Bước 3: Báo cáo, thảo luận**; **Bước 4: Kết luận, nhận định** | Kết quả thực hiện, câu trả lời, lời giải chi tiết các bài tập, sản phẩm học tập của HS |
+     | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ**; **Bước 2: Thực hiện nhiệm vụ**; **Bước 3: Báo cáo, thảo luận**; **Bước 4: Kết luận, nhận định** | Kết quả thực hiện, câu trả lời, lời giải chi tiết các bài tập, sản phẩm học tập của HS |
    - NẾU CHỌN HÌNH THỨC KHÔNG KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN IN ĐẬM:
      **a) Mục tiêu:**
      **b) Nội dung:**
