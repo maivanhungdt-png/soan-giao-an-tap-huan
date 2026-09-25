@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Eye, EyeOff, CheckCircle2, AlertCircle, ExternalLink, ShieldCheck, Trash2, X, RefreshCw } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
-import { cleanApiKey } from '../services/geminiService';
 
 export const USER_API_KEY_STORAGE = 'user_gemini_api_key';
 
@@ -32,8 +31,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    const cleaned = cleanApiKey(inputKey);
-    onSaveApiKey(cleaned);
+    const trimmed = inputKey.trim();
+    onSaveApiKey(trimmed);
     onClose();
   };
 
@@ -45,16 +44,10 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   };
 
   const handleTestKey = async () => {
-    const trimmed = cleanApiKey(inputKey);
+    const trimmed = inputKey.trim().replace(/[\\`"']/g, '').trim();
     if (!trimmed) {
       setTestStatus('error');
       setTestMessage('Vui lòng nhập khóa API trước khi kiểm tra.');
-      return;
-    }
-
-    if (trimmed.length < 15) {
-      setTestStatus('error');
-      setTestMessage('Mã khóa API quá ngắn. Vui lòng kiểm tra lại mã khóa đã sao chép từ Google AI Studio.');
       return;
     }
 
@@ -64,13 +57,10 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     const candidateModels = [
       'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-flash-latest',
-      'gemini-flash-lite-latest',
+      'gemini-3.5-flash-lite',
       'gemini-3.7-flash',
-      'gemini-3.1-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-flash'
+      'gemini-2.5-flash',
+      'gemini-2.0-flash'
     ];
     let lastErr: any = null;
     let successfulModel = '';
@@ -91,48 +81,28 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           }
         } catch (mErr: any) {
           lastErr = mErr;
-          console.warn(`Test SDK model ${m} failed:`, mErr);
-          
-          // Thử gọi qua REST fetch nếu SDK lỗi
-          try {
-            const restResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${trimmed}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: 'OK' }] }]
-              })
-            });
-            if (restResp.ok) {
-              successfulModel = `${m}`;
-              break;
-            }
-          } catch (fetchErr) {
-            // Tiếp tục thử model tiếp theo
-          }
+          console.warn(`Test model ${m} failed:`, mErr);
         }
       }
 
       if (successfulModel) {
         setTestStatus('success');
-        setTestMessage(`Khóa API hợp lệ! Kết nối thành công với Google Gemini (${successfulModel}). Bạn có thể nhấn "Lưu khóa API" ngay.`);
+        setTestMessage(`Khóa API hợp lệ! Kết nối thành công với Google Gemini (Model: ${successfulModel}).`);
       } else {
         throw lastErr || new Error('Không nhận được phản hồi từ AI.');
       }
     } catch (err: any) {
       console.error('API Key Test Error:', err);
       setTestStatus('error');
-      const msg = err?.message || JSON.stringify(err || '');
-      const errStr = msg.toLowerCase();
-      if (errStr.includes('denied access') || errStr.includes('has been denied') || errStr.includes('permission_denied') || errStr.includes('403')) {
-        setTestMessage('Dự án Google Cloud của khóa API này đã bị Google từ chối truy cập ("Your project has been denied access"). Vui lòng truy cập Google AI Studio (aistudio.google.com), nhấn "Create API key" rồi chọn "Create API key in new project" để tạo khóa mới hoàn toàn miễn phí.');
-      } else if (errStr.includes('api_key_invalid') || errStr.includes('invalid') || errStr.includes('400')) {
-        setTestMessage('Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại mã khóa tạo từ Google AI Studio.');
-      } else if (errStr.includes('quota') || errStr.includes('429') || errStr.includes('resource_exhausted')) {
-        setTestMessage('Khóa API đã hết hạn mức (Quota / 15 lượt gọi/phút cho Free tier). Vui lòng đổi khóa khác.');
-      } else if (errStr.includes('404') || errStr.includes('not_found')) {
-        setTestMessage('Mã khóa API không hỗ trợ model hoặc chưa kích hoạt. Vui lòng kiểm tra lại tại Google AI Studio.');
+      const errStr = err?.message || JSON.stringify(err || '');
+      if (errStr.includes('API_KEY_INVALID') || errStr.includes('invalid') || errStr.includes('400')) {
+        setTestMessage('Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra lại mã khóa.');
+      } else if (errStr.includes('quota') || errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED')) {
+        setTestMessage('Khóa API đã hết hạn mức (Quota). Vui lòng đổi khóa khác hoặc kiểm tra tài khoản.');
+      } else if (errStr.includes('404') || errStr.includes('NOT_FOUND')) {
+        setTestMessage('Mã khóa API không hỗ trợ model hoặc không đúng định dạng. Lưu ý mã Google AI Studio thường bắt đầu bằng AIzaSy...');
       } else {
-        setTestMessage(`Lỗi kết nối: ${msg}`);
+        setTestMessage(`Lỗi kết nối: ${err?.message || 'Không thể xác thực khóa API'}`);
       }
     }
   };
@@ -249,7 +219,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               <li>Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-700 font-semibold underline">aistudio.google.com/app/apikey</a> và đăng nhập Google.</li>
               <li>Nhấn vào nút màu xanh <b>"Create API key"</b> (Tạo khóa API).</li>
               <li>Sao chép mã khóa (bắt đầu bằng <code>AIzaSy...</code>) và dán vào ô trên.</li>
-              <li>Nhấn <b>"Kiểm tra"</b> rồi chọn <b>"Lưu khóa API"</b>.</li>
+              <li>Nhấn <b>"Kiểm tra kết nối"</b> rồi chọn <b>"Lưu khóa API"</b>.</li>
             </ol>
           </div>
         </div>

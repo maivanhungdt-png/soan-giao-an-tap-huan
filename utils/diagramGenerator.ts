@@ -543,8 +543,8 @@ export async function convertSvgToPngDataUrl(svgString: string, width = 500, hei
   return new Promise((resolve) => {
     try {
       const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const urlApi = window.URL || window.webkitURL;
-      const blobURL = urlApi.createObjectURL(svgBlob);
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(svgBlob);
       
       const image = new Image();
       image.onload = () => {
@@ -558,19 +558,19 @@ export async function convertSvgToPngDataUrl(svgString: string, width = 500, hei
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
             const pngData = canvas.toDataURL('image/png');
-            urlApi.revokeObjectURL(blobURL);
+            URL.revokeObjectURL(blobURL);
             resolve(pngData);
             return;
           }
         } catch (canvasErr) {
           console.warn("Canvas conversion failed, fallback to SVG URL:", canvasErr);
         }
-        urlApi.revokeObjectURL(blobURL);
+        URL.revokeObjectURL(blobURL);
         resolve(`data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`);
       };
 
       image.onerror = () => {
-        urlApi.revokeObjectURL(blobURL);
+        URL.revokeObjectURL(blobURL);
         resolve(`data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`);
       };
 

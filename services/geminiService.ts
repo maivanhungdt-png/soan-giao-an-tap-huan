@@ -2,36 +2,8 @@ import { GoogleGenAI } from "@google/genai";
 import { LessonInfo, ProcessingOptions } from "../types";
 import { SYSTEM_INSTRUCTION, NLS_FRAMEWORK_DATA, GDQPAN_DATA, DISABILITY_PEDAGOGICAL_GUIDELINES } from "../constants";
 import { masterDataCsv } from "../masterData";
-import { ensureAllActivitiesInTwoColumnTable, splitAllMergedHeadings } from "../utils/tableFormatter";
+import { ensureAllActivitiesInTwoColumnTable } from "../utils/tableFormatter";
 import { imageCache } from "./imageCache";
-
-export interface GeminiModelOption {
-  id: string;
-  name: string;
-  desc: string;
-  badge?: string;
-}
-
-export const cleanApiKey = (raw: string): string => {
-  if (!raw) return '';
-  let cleaned = raw.trim();
-  cleaned = cleaned.replace(/^(?:GEMINI_API_KEY|API_KEY|APIKEY|KEY|VITE_GEMINI_API_KEY)\s*[:=]\s*/i, '');
-  cleaned = cleaned.replace(/^Bearer\s+/i, '');
-  cleaned = cleaned.replace(/[\\`"';,]/g, '');
-  return cleaned.trim();
-};
-
-export const AVAILABLE_GEMINI_MODELS: GeminiModelOption[] = [
-  { id: "gemini-3.6-flash", name: "Gemini 3.6 Flash", desc: "⚡ Thế hệ mới nhất, phản hồi siêu tốc, chuẩn GDPT 2018", badge: "Khuyên dùng - Nhanh nhất" },
-  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", desc: "✨ Mô hình thông minh thế hệ mới tối ưu sư phạm", badge: "Thế hệ mới" },
-  { id: "gemini-flash-latest", name: "Gemini Flash Latest", desc: "🚀 Bản phát hành mới nhất của Google AI Studio", badge: "Mới nhất" },
-  { id: "gemini-flash-lite-latest", name: "Gemini Flash-Lite Latest", desc: "🪶 Siêu nhẹ, phản hồi tức thì và tiết kiệm hạn mức", badge: "Siêu nhẹ" },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", desc: "🛡️ Mô hình đa nhiệm ổn định", badge: "Ổn định" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", desc: "📚 Tương thích với các mã khóa truyền thống", badge: "Cơ bản" }
-];
-
-// Lưu model OCR thành công để tái sử dụng ngay lập tức cho các ảnh tiếp theo
-let cachedWorkingOcrModel: string = "gemini-3.6-flash";
 
 /**
  * Chuyển đổi các hình ảnh công thức toán học / phân số trong tài liệu sang mã LaTeX chuẩn $...$ bằng Gemini Vision
@@ -94,85 +66,51 @@ export const transcribeMathImagesToLatex = async (
   const ai = new GoogleGenAI({ apiKey });
   let updatedContent = content;
 
-  // Danh sách model OCR tốc độ cao chuẩn xác
-  const baseOcrModels = [
-    cachedWorkingOcrModel,
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash"
-  ];
-  const ocrCandidateModels = Array.from(new Set(baseOcrModels));
-
-  const promptText = `Bạn là chuyên gia số hoá công thức toán học và phân số. Hãy đọc chính xác công thức toán hoặc phân số trong ảnh và chuyển đổi sang cú pháp LaTeX chuẩn tương thích MathType đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập).
-QUY TẮC BẮT BUỘC:
-1. Phân số: bắt buộc dùng \\frac{tử}{mẫu} (ví dụ: $-\\frac{5}{7}$, $\\frac{8}{21}$, $\\frac{25}{100}$, $\\frac{17}{12}$).
-2. Dấu trừ trước phân số: viết dấu trừ liền trước lệnh \\frac (ví dụ: $-\\frac{7}{8}$, $-\\frac{21}{24}$).
-3. Hỗn số: viết số nguyên liền trước phân số (ví dụ: $1\\frac{5}{12}$, $2\\frac{1}{3}$).
-4. Chuỗi phép tính: Nếu ảnh chứa phép tính nhiều bước hoặc chuỗi dấu bằng liên tiếp, viết TOÀN BỘ trong CÙNG MỘT CẶP DẤU $...$ (ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$).
-5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
-6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
-
-  // Hàm xử lý OCR cho 1 ảnh đơn lẻ với timeout tối ưu
-  const processSingleImage = async (item: typeof candidateImages[0]): Promise<{ item: typeof candidateImages[0]; latex: string; success: boolean } | null> => {
+  // Xử lý từng ảnh với Gemini Vision
+  const transcriptionPromises = candidateImages.map(async (item) => {
     try {
       const mimeType = item.dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg";
       const b64 = item.dataUrl.includes(",") ? item.dataUrl.split(",")[1] : item.dataUrl;
 
-      for (const ocrModel of ocrCandidateModels) {
-        try {
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4500));
-          const generatePromise = ai.models.generateContent({
-            model: ocrModel,
-            contents: [
-              { text: promptText },
-              { inlineData: { data: b64, mimeType } }
-            ]
-          });
+      const promptText = `Bạn là chuyên gia số hoá công thức toán học và phân số. Hãy đọc chính xác công thức toán hoặc phân số trong ảnh và chuyển đổi sang cú pháp LaTeX chuẩn tương thích MathType đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập).
+QUY TẮC BẮT BUỘC:
+1. Phân số: bắt buộc dùng \\frac{tử}{mẫu} (ví dụ: $-\\frac{5}{7}$, $\\frac{8}{21}$, $\\frac{25}{100}$, $\\frac{17}{12}$).
+2. Dấu trừ trước phân số: viết dấu trừ liền trước lệnh \\frac (ví dụ: $-\\frac{7}{8}$, $-\\frac{21}{24}$).
+3. Hỗn số: viết số nguyên liền trước phân số (ví dụ: $1\\frac{5}{12}$, $2\\frac{1}{3}$).
+4. Chuỗi phép tính: Nếu ảnh chứa phép tính nhiều bước hoặc chuỗi dấu bằng liên tiếp, viết TOÀN BỘ trong CÙNG MỘT CẶP DẤU $...$ (ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$ hoặc $0,25 + 1\\frac{5}{12} = \\frac{25}{100} + \\frac{17}{12} = \\frac{1}{4} + \\frac{17}{12} = \\frac{20}{12} = \\frac{5}{3}$).
+5. CHỈ TRẢ VỀ mã LaTeX đặt trong $...$, KHÔNG có bất kỳ lời giải thích nào, KHÔNG markdown bọc ngoài ngoài $.
+6. Nếu ảnh hoàn toàn KHÔNG PHẢI công thức toán học (mà là hình học trực quan, sơ đồ, ảnh chụp thực tế), chỉ trả về đúng chữ: NOT_MATH.`;
 
-          const res: any = await Promise.race([generatePromise, timeoutPromise]);
-          const resText = (res && res.text) ? res.text.trim() : "";
-          if (resText) {
-            cachedWorkingOcrModel = ocrModel; // Ghi nhớ model đã chạy thành công
-            if (!resText.includes("NOT_MATH") && resText.includes("$")) {
-              const latexMatch = resText.match(/\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$/);
-              const finalLatex = latexMatch ? latexMatch[0] : (resText.startsWith("$") ? resText : `$${resText}$`);
-              return { item, latex: finalLatex, success: true };
-            }
-            return null;
-          }
-        } catch {
-          // Thử model tiếp theo
-        }
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
+      const fetchPromise = ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { text: promptText },
+          { inlineData: { data: b64, mimeType } }
+        ]
+      });
+      const response: any = await Promise.race([fetchPromise, timeoutPromise]);
+
+      const resText = (response && response.text) ? response.text.trim() : "";
+      if (resText && !resText.includes("NOT_MATH") && resText.includes("$")) {
+        const latexMatch = resText.match(/\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$/);
+        const finalLatex = latexMatch ? latexMatch[0] : (resText.startsWith("$") ? resText : `$${resText}$`);
+        return { item, latex: finalLatex, success: true };
       }
+      return { item, latex: "", success: false };
     } catch (err) {
       console.warn(`Lỗi nhận diện ảnh công thức ${item.cleanId}:`, err);
+      return { item, latex: "", success: false };
     }
-    return null;
-  };
+  });
 
-  // Xử lý song song từng nhóm 4 ảnh để đạt tốc độ tối đa mà không bị nghẽn mạng
-  const batchSize = 4;
-  const items = candidateImages.slice(0, 12);
-  const results: { item: typeof candidateImages[0]; latex: string; success: boolean }[] = [];
-
-  for (let i = 0; i < items.length; i += batchSize) {
-    const chunk = items.slice(i, i + batchSize);
-    const chunkResults = await Promise.all(chunk.map(it => processSingleImage(it)));
-    for (const r of chunkResults) {
-      if (r && r.success && r.latex) {
-        results.push(r);
-      }
-    }
-  }
+  const results = await Promise.all(transcriptionPromises);
 
   for (const res of results) {
     if (res.success && res.latex) {
       // Thay thế tag ảnh trong text bằng mã LaTeX
       updatedContent = updatedContent.replaceAll(res.item.tag, ` ${res.latex} `);
+      // TUYỆT ĐỐI KHÔNG XÓA imageCache để bảo đảm không bao giờ làm mất hình vẽ giáo án của người dùng!
       console.log(`[Math OCR] Đã chuyển đổi thành công ảnh ${res.item.cleanId} thành LaTeX: ${res.latex}`);
     }
   }
@@ -191,10 +129,10 @@ export const generateNLSLessonPlan = async (
     ? options.customApiKey 
     : (process.env.API_KEY || process.env.GEMINI_API_KEY || "");
 
-  const activeApiKey = cleanApiKey(rawKey);
+  const activeApiKey = rawKey.trim().replace(/[\\`"']/g, '').trim();
 
   if (!activeApiKey) {
-    throw new Error("Chưa có khóa API Google Gemini. Vui lòng nhấn nút 'Khóa API' ở góc trên bên phải để nhập mã API Key miễn phí từ Google AI Studio.");
+    throw new Error("Chưa có khóa API Google Gemini. Vui lòng nhấn nút 'Khóa API' ở góc trên bên phải để nhập mã API Key miễn phí từ Google AI Studio (hoặc cài đặt GEMINI_API_KEY trên Vercel).");
   }
 
   // 0. Tự động OCR chuyển đổi tất cả hình ảnh công thức toán (MathType / Phân số) sang chuẩn LaTeX
@@ -252,21 +190,15 @@ export const generateNLSLessonPlan = async (
   const cleanContent = optimizeTextForTokenSaving(info.content);
   let cleanDistribution = optimizeTextForTokenSaving(info.distributionContent || "");
 
-  // Cấu hình danh sách Model Google Gemini chuẩn với cơ chế tự động fallback thông minh
-  // Ưu tiên các model phản hồi nhanh nhất và ổn định nhất cho mọi thế hệ API key
+  // Cấu hình danh sách Model Google Gemini chính thức có hỗ trợ rộng rãi
   const models = [
     "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
+    "gemini-3.5-flash-lite",
     "gemini-3.7-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
     "gemini-2.5-flash",
-    "gemini-1.5-flash",
-    "gemini-2.5-pro",
-    "gemini-1.5-pro"
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
   ];
   
   let distributionContext = "";
@@ -322,10 +254,10 @@ export const generateNLSLessonPlan = async (
 
       Yêu cầu BẮT BUỘC:
       1. TRONG PHẦN I. MỤC TIÊU:
-         - Dưới mục "d) Năng lực AI (hoặc Năng lực số AI):" (hoặc mục Năng lực AI tương ứng trong phần 2. Năng lực), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:".
-         - Ghi trực tiếp mã và nội dung YCCĐ: *[${info.manualAI[0]?.code || 'Mã YCCĐ'}] ${info.manualAI.map(m => `[${m.code}] ${m.description}`).join('; ')}
+         - Dưới mục "c) Năng lực trí tuệ nhân tạo (AI):" (hoặc "Năng lực AI:"), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:".
+         - Ghi trực tiếp mã và nội dung YCCĐ bằng chữ màu đỏ: <span style="color: red;">*[${info.manualAI[0]?.code || 'Mã YCCĐ'}] ${info.manualAI.map(m => `[${m.code}] ${m.description}`).join('; ')}*</span>
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
-         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, BẮT BUỘC bắt đầu bằng * ở đầu câu và GHI RÕ MÃ CHỈ BÁO: *Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể] (Mã chỉ báo: [Mã YCCĐ])
+         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, BẮT BUỘC định dạng chữ màu đỏ và GHI RÕ MÃ CHỈ BÁO: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể] (Mã chỉ báo: [Mã YCCĐ])*</span>
       =========================================================
           `;
       } else {
@@ -339,9 +271,9 @@ export const generateNLSLessonPlan = async (
       2. Tra cứu trong DỮ LIỆU CHUẨN AI bên dưới (lọc theo Cấp học/Lớp).
       3. Chọn 1-2 YCCĐ AI (Yêu cầu cần đạt) PHÙ HỢP NHẤT với nội dung của bài học hiện tại. Ưu tiên các nội dung "Cốt lõi". TUYỆT ĐỐI KHÔNG TỰ BỊA CHỈ BÁO NĂNG LỰC AI.
       4. TRONG PHẦN I. MỤC TIÊU:
-         - Dưới mục "d) Năng lực AI (hoặc Năng lực số AI):" (hoặc mục Năng lực AI tương ứng trong phần 2. Năng lực), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi trực tiếp: *[Mã YCCĐ] [Nội dung YCCĐ cụ thể]
+         - Dưới mục "c) Năng lực trí tuệ nhân tạo (AI):" (hoặc "Năng lực AI:"), ĐÃ CÓ TIÊU ĐỀ MỤC NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi trực tiếp Mã và Yêu cầu cần đạt bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>
       5. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
-         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào: *Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể]
+         - Tự sáng tạo 1 hoạt động hoặc điều chỉnh nội dung 1 hoạt động trong tiến trình dạy học (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng) để lồng ghép YCCĐ AI đó vào, định dạng chữ màu đỏ: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI cụ thể]*</span>
       
       DỮ LIỆU CHUẨN AI (Dùng để tra cứu mã năng lực và YCCĐ):
       ${filteredMasterData}
@@ -365,11 +297,11 @@ export const generateNLSLessonPlan = async (
       
       NHIỆM VỤ QUAN TRỌNG:
       1. TRONG PHẦN I. MỤC TIÊU:
-         - Dưới mục "c) Năng lực số (NLS):" (hoặc "c) Năng lực số:"), ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực số:".
-         - Ghi trực tiếp nội dung chỉ báo: *[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo: ${info.manualNLS.map(n => n.code).join(', ')}). TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
+         - Dưới mục "b) Năng lực số (NLS):" (hoặc "b) Năng lực số:"), ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG LẶP LẠI chữ "Tích hợp năng lực số:".
+         - Ghi trực tiếp nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo: ${info.manualNLS.map(n => n.code).join(', ')})*</span>. TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC:
          - Tự động PHÂN TÍCH và XÁC ĐỊNH hoạt động phù hợp nhất trong tiến trình dạy học để đưa nhiệm vụ NLS vào.
-         - Bắt đầu bằng * ở đầu câu, KHÔNG có gạch đầu dòng: *Tích hợp năng lực số: [Nội dung chỉ báo & hành động] (Mã chỉ báo). TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
+         - Tích hợp khéo léo vào hành động GV/HS bằng chữ màu đỏ: <span style="color: red;">*Tích hợp năng lực số: [Nội dung chỉ báo & hành động] (Mã chỉ báo)*</span>. TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
       =========================================================
       `;
   }
@@ -390,7 +322,7 @@ export const generateNLSLessonPlan = async (
          - Đặc điểm: ${guide.shortDesc}
          - Yêu cầu điều chỉnh Mục tiêu: ${guide.targetHint}
          - Yêu cầu điều chỉnh Hoạt động (Tiến trình dạy học): ${guide.activityAdjustment}
-         - Cú pháp dòng: *${guide.name}: [Nội dung điều chỉnh riêng biệt]`;
+         - Cú pháp dòng: + ${guide.name}: [Nội dung điều chỉnh riêng biệt]`;
       }).join("\n");
 
       disabilityContext = `
@@ -399,20 +331,20 @@ export const generateNLSLessonPlan = async (
       Người dùng đã tích chọn ${info.selectedDisabilities.length} dạng khuyết tật: ${selectedDisabilitiesStr}
       
       🚨 ĐẶC BIỆT LƯU Ý VỀ CẤU TRÚC TRÌNH BÀY (TUYỆT ĐỐI TUÂN THỦ):
-      Chữ "*Tích hợp giáo dục hòa nhập:" chỉ xuất hiện ĐÚNG 1 LẦN ở dòng tiêu đề đầu câu, sau đó xuống dòng liệt kê từng dạng khuyết tật đã tích chọn với tiền tố "*", KHÔNG CÓ GẠCH ĐẦU DÒNG:
+      Chữ "Tích hợp giáo dục hòa nhập" chỉ xuất hiện ĐÚNG 1 LẦN ở dòng tiêu đề, sau đó xuống dòng liệt kê từng dạng khuyết tật đã tích chọn với dấu "+", dạng nào tích thì xuống dòng ở dạng đó:
 
       ${detailedDisabilityGuidelines}
 
       1. TRONG PHẦN I. MỤC TIÊU:
          - 🚨 VỊ TRÍ BẮT BUỘC: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong tất cả các phẩm chất Chăm chỉ, Trung thực, Trách nhiệm... ở mục 3; TUYỆT ĐỐI KHÔNG ĐƯỢC đặt ở mục 2. Năng lực hay trước mục 3. Phẩm chất).
-         - Trình bày CHÍNH XÁC theo mẫu sau (TUYỆT ĐỐI KHÔNG LẶP LẠI cụm từ "Tích hợp giáo dục hòa nhập" trên từng dòng):
-         *Tích hợp giáo dục hòa nhập:
-${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu cụ thể đã giảm tải/điều chỉnh riêng cho dạng này]`).join('\n')}
+         - Trình bày CHÍNH XÁC theo mẫu sau (TOÀN BỘ dùng chữ màu đỏ <span style="color: red;">...</span>, TUYỆT ĐỐI KHÔNG LẶP LẠI cụm từ "Tích hợp giáo dục hòa nhập" trên từng dòng):
+         <span style="color: red;">*Tích hợp giáo dục hòa nhập:
+${info.selectedDisabilities.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu cụ thể đã giảm tải/điều chỉnh riêng cho dạng này]`).join('\n')}*</span>
 
       2. TRONG PHẦN II. TIẾN TRÌNH DẠY HỌC (CÁC HOẠT ĐỘNG):
          - Trong các Hoạt động dạy học (trong Cột 1 hoặc Cột 2 của bảng 2 cột), khi có điều chỉnh giáo dục hòa nhập, BẮT BUỘC dùng thẻ <br> để xuống dòng bên trong ô bảng (TUYỆT ĐỐI KHÔNG DÙNG PHÍM ENTER / DẤU XUỐNG DÒNG THẬT VÌ SẼ LÀM GÃY BẢNG):
-         *Tích hợp giáo dục hòa nhập:<br>${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('<br>')}
-         - TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
+         <span style="color: red;">*Tích hợp giáo dục hòa nhập:<br>${info.selectedDisabilities.map(d => `- ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Biện pháp hỗ trợ/nhiệm vụ học tập điều chỉnh riêng]`).join('<br>')}*</span>
+         - Dùng chữ màu đỏ <span style="color: red;">...</span>, TUYỆT ĐỐI KHÔNG GẠCH CHÂN.
       =========================================================
       `;
   }
@@ -430,7 +362,7 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       2. Đối chiếu Nội dung Chủ đề GDQPAN chung và Chủ đề GDQPAN cụ thể của lớp đó.
       3. Chọn ra 1-2 nội dung giáo dục liên quan hoặc dễ tích hợp nhất vào bài học này (chủ đề lịch sử, đoàn kết, chủ quyền biển đảo, an ninh mạng, v.v.).
       4. Bổ sung vào phần Mục tiêu và lồng ghép vào hoạt động dạy học tương ứng.
-      5. Bắt đầu bằng * ở đầu câu: *Tích hợp Lồng ghép GDQP-AN: [Nội dung lồng ghép cụ thể]. TUYỆT ĐỐI KHÔNG DÙNG GẠCH ĐẦU DÒNG HAY GẠCH CHÂN.
+      5. BẮT BUỘC DÙNG CHỮ MÀU ĐỎ và tiền tố: <span style="color: red;">*Tích hợp Lồng ghép GDQP-AN: [Nội dung lồng ghép cụ thể]</span>. TUYỆT ĐỐI KHÔNG DÙNG MÀU XANH HAY GẠCH CHÂN.
       =========================================================
       `;
   }
@@ -444,8 +376,8 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       1. TÊN BÀI HỌC: Vẫn ghi tên bài dạy chuẩn nhưng mở ngoặc: (${stemLabel})
          Ví dụ: # BÀI 5: ĐỊNH DẠNG VĂN BẢN VÀ BẢNG BIỂU (${stemLabel})
       2. HOẠT ĐỘNG STEM TRONG TIẾN TRÌNH:
-         - Toàn bộ nội dung hướng dẫn hoạt động STEM (Thiết kế chế tạo sản phẩm, ứng dụng giải quyết vấn đề thực tế, quy trình kỹ thuật/khoa học/công nghệ/toán) BẮT BUỘC ĐƯỢC GHÉP VÀO CỘT 2 CỦA HOẠT ĐỘNG VẬN DỤNG.
-         - Trong Hoạt động Vận dụng, nêu rõ: *Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế sản phẩm của HS, Tiêu chí đánh giá sản phẩm].
+         - Toàn bộ nội dung hướng dẫn hoạt động STEM (Thiết kế chế tạo sản phẩm, ứng dụng giải quyết vấn đề thực tế, quy trình kỹ thuật/khoa học/công nghệ/toán) BẮT BUỘC ĐƯỢC GHÉP VÀO HOẠT ĐỘNG VẬN DỤNG.
+         - Trong Hoạt động Vận dụng, nêu rõ bằng chữ màu đỏ: <span style="color: red;">*Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế sản phẩm của HS, Tiêu chí đánh giá sản phẩm]</span>.
       =========================================================
       `;
   }
@@ -487,102 +419,39 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
     - BẮT BUỘC GIỮ NGUYÊN TÊN BÀI HỌC, ĐỀ TÀI, MÔN HỌC, LỚP HỌC của "NỘI DUNG GIÁO ÁN GỐC".
     - TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ SUY DIỄN, tự sáng tác hoặc lấy tên bài học từ Dữ liệu bổ sung (PPCT / Bảng AI) để thay thế bài học gốc.
     - 🚨 BẢO TOÀN 100% HÌNH VẼ, HÌNH ẢNH, SƠ ĐỒ GỐC (BẮT BUỘC TUYỆT ĐỐI):
-      * Tất cả các hình vẽ, hình ảnh, sơ đồ trong giáo án gốc có mã [HINHANHGOC_1], [HINHANHGOC_2]... hoặc [HINH_ANH_GOC_1], [IMG1]... BẮT BUỘC PHẢI GIỮ NGUYÊN 100% VỊ TRÍ VÀ NGUYÊN MÃ ĐỊNH DANH ĐÓ trong CỘT 2: "KẾT QUẢ HOẠT ĐỘNG" (CỘT SẢN PHẨM) của bảng 2 cột.
-      * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ, KHÔNG ĐƯỢC THAY ĐỔI MÃ, KHÔNG ĐƯỢC ĐẶT Ở CỘT 1 "Hoạt động của giáo viên và học sinh".
-      * 🚨 VỊ TRÍ ĐẶT HÌNH ẢNH BẮT BUỘC: ĐẶT TẠI CỘT 2 (KẾT QUẢ HOẠT ĐỘNG / SẢN PHẨM). Cú pháp: <br>[HINHANHGOC_1]<br>.
+      * Tất cả các hình vẽ, hình ảnh, sơ đồ trong giáo án gốc có mã [HINHANHGOC_1], [HINHANHGOC_2]... hoặc [HINH_ANH_GOC_1], [IMG1]... BẮT BUỘC PHẢI GIỮ NGUYÊN 100% VỊ TRÍ VÀ NGUYÊN MÃ ĐỊNH DANH ĐÓ trong bảng hoạt động hoặc trong các bước thực hiện của giáo án mới (ưu tiên ghi dưới dạng [HINHANHGOC_1], [HINHANHGOC_2]...).
+      * TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ, KHÔNG ĐƯỢC THAY ĐỔI MÃ, KHÔNG ĐƯỢC BỎ QUÊN.
+      * 🚨 VỊ TRÍ ĐẶT HÌNH ẢNH BẮT BUỘC: Thẻ hình ảnh [HINHANHGOC_1], [HINHANHGOC_2]... BẮT BUỘC PHẢI ĐƯỢC ĐẶT BÊN TRONG Ô CỦA BẢNG 2 CỘT (trong Cột 1 "Hoạt động của giáo viên và học sinh" ở Bước 1 Chuyển giao nhiệm vụ / Bước 2 Thực hiện nhiệm vụ hoặc Cột 2 "Kết quả hoạt động").
+      * TUYỆT ĐỐI CẤM KHÔNG ĐỂ HÌNH ẢNH Ở NGOÀI BẢNG, KHÔNG TẠO TRANG RIÊNG CHO HÌNH ẢNH. Khi đặt hình trong ô bảng 2 cột, hãy dùng cú pháp: <br>[HINHANHGOC_1]<br>.
     - KẾ HOẠCH BÀI DẠY (PHỤ LỤC 4) XÂY DỰNG THEO BÀI HỌC HOÀN CHỈNH. TUYỆT ĐỐI KHÔNG GHI NGÀY SOẠN, NGÀY GIẢNG. Thứ tự tiết ghi theo Phụ lục 3, sau hoạt động đầu tiên của mỗi tiết.
-    - PHẦN TIÊU ĐỀ ĐẦU BÀI DẠY (BẮT BUỘC TRÌNH BÀY ĐÚNG 3 DÒNG CĂN GIỮA):
-      <center>
-
-      **Bài [Số]: [TÊN BÀI HỌC IN HOA]**
-      Môn học/Hoạt động giáo dục: [Tên môn]; lớp: [Các lớp học]
-      Thời gian thực hiện: [Số tiết] tiết; Tiết PPCT: [Các tiết PPCT]
-
-      </center>
-
-    - PHẦN MỤC TIÊU (CHUẨN CÔNG VĂN 5512 - GDPT 2018):
-      **I. Mục tiêu**
-      **1. Kiến thức:**
-      - [Nêu cụ thể các yêu cầu cần đạt về kiến thức của bài học]
-      **2. Năng lực:**
-      **a) Năng lực đặc thù:**
-      (Đối với môn Toán, nêu rõ các năng lực đặc thù Toán học hình thành qua bài học):
-      - Năng lực tư duy và lập luận toán học: [Mô tả cụ thể gắn với nội dung bài học]
-      - Năng lực giải quyết vấn đề toán học: [Mô tả cụ thể gắn với nội dung bài học]
-      - Năng lực giao tiếp toán học: [Mô tả cụ thể gắn với nội dung bài học]
-      - Năng lực mô hình hóa toán học (nếu có): [Mô tả cụ thể gắn với bài học]
-      - Năng lực sử dụng công cụ, phương tiện học toán: [Sử dụng thước, máy tính cầm tay, phần mềm GeoGebra/Excel...]
-      **b) Năng lực chung:**
-      - Năng lực tự chủ và tự học: [Mô tả cụ thể phát triển qua bài học]
-      - Năng lực giao tiếp và hợp tác: [Mô tả cụ thể khi thảo luận nhóm, cặp đôi]
-      - Năng lực giải quyết vấn đề và sáng tạo: [Mô tả cụ thể khi giải bài tập, tình huống]
-      ${options.integrateNLS ? '**c) Năng lực số:**\n      *[Nội dung chỉ báo & yêu cầu cần đạt NLS] (Mã chỉ báo: ...)' : ''}
-      ${options.integrateAI ? `**${options.integrateNLS ? 'd)' : 'c)'} Năng lực AI:**\n      *[Mã YCCĐ] [Nội dung YCCĐ AI cụ thể]` : ''}
-      ${options.integrateSTEM ? `**${options.integrateNLS && options.integrateAI ? 'e)' : (options.integrateNLS || options.integrateAI ? 'd)' : 'c)')} Giáo dục Stem:**\n      *Tích hợp STEM: [Nội dung mục tiêu STEM]` : ''}
-      **3. Phẩm chất:**
-      - Chăm chỉ: [Mô tả cụ thể]
-      - Trung thực: [Mô tả cụ thể]
-      - Trách nhiệm: [Mô tả cụ thể]
-      ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '*HS khuyết tật: [Mục tiêu điều chỉnh]'}` : ''}
+    - PHẦN MỤC TIÊU:
+      1. Kiến thức: YCCĐ theo chương trình GDPT 2018.
+      2. Năng lực: TUYỆT ĐỐI KHÔNG GHI NĂNG LỰC CHUNG. CHỈ CÓ:
+         - a) Năng lực đặc thù (hoặc Năng lực môn học)
+         ${options.integrateNLS ? '- b) Năng lực số (NLS): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực số:". Ghi TRỰC TIẾP nội dung chỉ báo bằng chữ màu đỏ: <span style="color: red;">*[Nội dung chỉ báo & yêu cầu cần đạt] (Mã chỉ báo)*</span>.' : ''}
+         ${options.integrateAI ? `- ${options.integrateNLS ? 'c)' : 'b)'} Năng lực trí tuệ nhân tạo (AI): ĐÃ CÓ TIÊU ĐỀ NÊN TUYỆT ĐỐI KHÔNG GHI LẶP LẠI chữ "Tích hợp năng lực AI:". Ghi TRỰC TIẾP nội dung bằng chữ màu đỏ: <span style="color: red;">*[Mã YCCĐ] [Nội dung YCCĐ cụ thể]*</span>.` : ''}
+      3. Phẩm chất: Các phẩm chất cốt lõi gắn liền với bài học (Chăm chỉ, Trung thực, Trách nhiệm...).
+      ${options.integrateDisability ? `* 🚨 VỊ TRÍ GIÁO DỤC HÒA NHẬP: Đặt ở CUỐI CÙNG của mục "3. Phẩm chất:" (sau khi đã liệt kê xong các phẩm chất):\n<span style="color: red;">*Tích hợp giáo dục hòa nhập:\n${info.selectedDisabilities?.map(d => `         - ${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.name || `HS khuyết tật ${d}`}: [Mục tiêu điều chỉnh riêng]`).join('\n') || '         - HS khuyết tật: [Mục tiêu điều chỉnh]*'}*</span>` : ''}
     - PHẦN THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU: Phải giống với Phụ lục 1 và 3 theo danh mục Thông tư 38 của Bộ GD&ĐT, chỉ thêm Ti vi (hoặc máy chiếu) vào Phụ lục 4. Trình bày theo 2 mục: 1. Giáo viên (Thiết bị theo TT 38, Ti vi, bài giảng...) và 2. Học sinh (SGK, đồ dùng học tập...) hoặc 1. Thiết bị dạy học; 2. Học liệu.
-    - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG (CHUẨN PHỤ LỤC IV THEO CV 5512):
-      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ CÁC HOẠT ĐỘNG ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
-        Cấu trúc chuẩn tuyệt đối:
-        **III. Tiến trình dạy học**
-
-        **1. Hoạt động 1: Khởi động (Tiết PPCT: Tiết ...)**
-        **a) Mục tiêu:** [Nội dung mục tiêu, chỉ in đậm nhãn]
-        **b) Nội dung:** [Nội dung học tập, chỉ in đậm nhãn]
-        **c) Sản phẩm:** [Sản phẩm dự kiến, chỉ in đậm nhãn]
-        **d) Tổ chức thực hiện:**
-        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-        | :--- | :--- |
-        | (Cột 1: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Sản phẩm/câu trả lời/kết quả dự đoán) |
-
-        **2. Hoạt động 2: Hình thành kiến thức mới**
-        (Chỉ là tiêu đề mục cha in đậm, KHÔNG kẻ bảng trống ở đây, mà kẻ bảng trong từng Hoạt động con 2.1, 2.2 bên dưới)
-
-        **Hoạt động 2.1: [Tên mục kiến thức 1] (Tiết PPCT: Tiết ...)**
+    - CẤU TRÚC TIẾN TRÌNH HOẠT ĐỘNG:
+      ${options.layoutFormat === 'no_table' ? `* KHÔNG CẦN KẺ BẢNG -> ĐỂ ĐỦ 4 PHẦN: a) Mục tiêu; b) Nội dung; c) Sản phẩm; d) Tổ chức thực hiện (gồm 4 bước: Chuyển giao nhiệm vụ, Thực hiện nhiệm vụ, Báo cáo thảo luận, Kết luận nhận định).` : `* CÓ KẺ BẢNG -> 🚨 BẮT BUỘC 100% TẤT CẢ 4 HOẠT ĐỘNG (1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng) ĐỀU PHẢI CÓ ĐỦ 4 MỤC a, b, c, d VÀ KẺ BẢNG 2 CỘT Ở MỤC d:
+        🚨 TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ 2 MỤC "c) Sản phẩm" VÀ "d) Tổ chức thực hiện".
+        🚨 ĐẶC BIỆT LƯU Ý VỚI HOẠT ĐỘNG 3 (LUYỆN TẬP) VÀ HOẠT ĐỘNG 4 (VẬN DỤNG):
+        Tuyệt đối cấm không được để Hoạt động 3 (Luyện tập) và Hoạt động 4 (Vận dụng) ở ngoài bảng. Toàn bộ 4 bước tổ chức và lời giải chi tiết/bài tập vận dụng đều phải nằm trong bảng 2 cột:
+        Mỗi hoạt động gồm đầy đủ:
         **a) Mục tiêu:** ...
         **b) Nội dung:** ...
         **c) Sản phẩm:** ...
         **d) Tổ chức thực hiện:**
-        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-        | :--- | :--- |
-        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Khung kiến thức, Ví dụ, Luyện tập, Hình ảnh [HINHANHGOC_1]) |
-
-        **Hoạt động 2.2: [Tên mục kiến thức 2] (Tiết PPCT: Tiết ...)**
-        **a) Mục tiêu:** ...
-        **b) Nội dung:** ...
-        **c) Sản phẩm:** ...
-        **d) Tổ chức thực hiện:**
-        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-        | :--- | :--- |
-        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Khung kiến thức, Ví dụ, Luyện tập, Hình ảnh) |
-
-        **3. Hoạt động 3: Luyện tập**
-        **a) Mục tiêu:** ...
-        **b) Nội dung:** ...
-        **c) Sản phẩm:** ...
-        **d) Tổ chức thực hiện:**
-        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-        | :--- | :--- |
-        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Toàn bộ bài tập luyện tập trong SGK và LỜI GIẢI CHI TIẾT) |
-
-        **4. Hoạt động 4: Vận dụng**
-        **a) Mục tiêu:** ...
-        **b) Nội dung:** ...
-        **c) Sản phẩm:** ...
-        **d) Tổ chức thực hiện:**
-        | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
-        | :--- | :--- |
-        | (Cột 1: Bước 1, Bước 2, Bước 3, Bước 4) | (Cột 2: Bài toán thực tế/vận dụng và lời giải chi tiết) |`}
-    - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI (ĐẶT HOÀN TOÀN NGOÀI BẢNG):
-      * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà: (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...", VÀ PHẢI ĐẶT NGOÀI BẢNG).
-      * Trình bày gồm 3 gạch đầu dòng chuẩn theo mẫu:
-        - Ôn tập kiến thức: (Ghi nhớ nội dung kiến thức cốt lõi của bài học)
-        - Bài tập về nhà: (Hoàn thành các bài tập còn lại trong SBT/SGK)
-        - Chuẩn bị bài mới: (Đọc trước và chuẩn bị nội dung bài tiếp theo)
+      | Hoạt động của giáo viên và học sinh | Kết quả hoạt động |
+      | :--- | :--- |
+      | (Cột 1: Đặt tên chính xác là "Hoạt động của giáo viên và học sinh" gồm đủ 4 bước: Bước 1: Chuyển giao nhiệm vụ; Bước 2: Thực hiện nhiệm vụ; Bước 3: Báo cáo, thảo luận; Bước 4: Kết luận, nhận định) | (Cột 2: Đặt tên chính xác là "Kết quả hoạt động" chứa sản phẩm học tập/lời giải chi tiết bài tập/kết quả thực hiện tương ứng) |`}
+    - PHẦN DẶN DÒ / HƯỚNG DẪN HỌC Ở NHÀ Ở CUỐI BÀI:
+      * BẮT BUỘC dùng tiêu đề dạng: * Hướng dẫn về nhà (TUYỆT ĐỐI KHÔNG DÙNG "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" HAY "IV. ...").
+      * Trình bày gồm các mục:
+        1. Ôn tập kiến thức: (Nội dung ôn tập kiến thức cốt lõi)
+        2. Bài tập về nhà: (Bài tập cụ thể trong SGK/SBT hoặc bài tập ứng dụng)
+        3. Chuẩn bị bài mới: (Nội dung bài tiếp theo cần đọc trước)
     =========================================================
     `;
     
@@ -661,28 +530,17 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
       | :--- | :--- |
       | Gồm 4 bước: **Bước 1: Chuyển giao nhiệm vụ:** [Nhiệm vụ GV giao, giao các bài tập cụ thể]<br>**Bước 2: Thực hiện nhiệm vụ:** [HS thực hiện, GV quan sát hỗ trợ]<br>**Bước 3: Báo cáo, thảo luận:** [HS trình bày, nhận xét]<br>**Bước 4: Kết luận, nhận định:** [GV chốt kiến thức và phương pháp] | Toàn bộ sản phẩm, lời giải chi tiết các bài tập, câu trả lời đầy đủ của HS |
     `}
-    - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động, BẮT BUỘC bắt đầu bằng dấu * ở đầu câu (ví dụ: *Tích hợp năng lực số: ..., *Tích hợp năng lực AI: ..., *HS khuyết tật: ...).
+    - VỊ TRÍ TÍCH HỢP: Sử dụng lúc nào trong bài học thì ghi trực tiếp vào chỗ đó trong tiến trình mỗi hoạt động (gắn liền vào hành động của GV/HS, dùng chữ màu đỏ <span style="color: red;">*Tích hợp...</span>).
     - KHÔNG chia thời lượng từng hoạt động.
-    - 🚨 CHỐNG IN ĐẬM TÙY TIỆN: Chỉ in đậm đúng tên tiêu đề/nhãn, TUYỆT ĐỐI KHÔNG in đậm nội dung sau nhãn hoặc các câu diễn giải của GV/HS:
-      + ✅ ĐÚNG: **Bước 1: Chuyển giao nhiệm vụ:** GV yêu cầu HS thảo luận...
-      + ✅ ĐÚNG: **Kết luận:** Đơn thức là biểu thức đại số...
-      + ✅ ĐÚNG: **HĐ1:** Biểu thức $x^2 - 2x$ không phải là đơn thức...
-      + ✅ ĐÚNG: **Ví dụ 1:** Các biểu thức sau là đơn thức...
-      + ✅ ĐÚNG: **Luyện tập 1:** Trong các biểu thức sau...
-      + ✅ ĐÚNG: **Tranh luận:** Bạn Tròn đúng vì...
-      + ✅ ĐÚNG: **Nhận xét:** Hai đơn thức đồng dạng...
-      + ✅ ĐÚNG: **a)** Cả ba đơn thức $A$, $B$, $C$...
-      + ❌ CẤM IN ĐẬM CẢ CÂU HOẶC HÀNH ĐỘNG CỦA GV/HS: Cấm ghi "**GV yêu cầu HS...**", "**GV dẫn dắt...**", "**HS thảo luận...**", "**Biểu thức x^2 - 2x...**", "**- Nhóm 1...**", "**Kết luận: Đơn thức là biểu thức...**".
     - BẢNG CON / BẢNG SỐ LIỆU NẰM TRONG CỘT: Bắt buộc dùng HTML \`<table><tr><td>...</td></tr></table>\` với \`style="font-size: 10pt; width: 100%;"\`. TUYỆT ĐỐI KHÔNG dùng ký tự markdown | | | bên trong bảng 2 cột vì sẽ làm biến dạng cấu trúc 2 cột.
     - BẢNG ĐỘC LẬP: Bắt buộc dùng Markdown Table.
-    - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE & OMML):
-      + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), đơn thức ($2x^2y$, $-5x^2y$, $17z^4$, $3x^3y$, $12x^5$), đa thức ($x^2 - 2x$, $x^3 - \frac{1}{2}x$, $-2x + 7y$, $x + 2y - z$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$, $\\frac{1}{2}$, $-\\frac{5}{9}$), căn bậc hai ($\\sqrt{x}$, $\\sqrt{2}$), số mũ ($x^2$, $x^2y^3$, $x^3y^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\\\ a'x+b'y=c' \\end{cases}$), đẳng thức và chuỗi tính toán liên hoàn ($A + B = 2x^2y + (-5x^2y) = -3x^2y$, $M + P = 2,5x^2y^3 + 8,5x^2y^3 = 11x^2y^3$, $S = -x^3y + 4x^3y - 2x^3y = x^3y$, $(-1 + 4 - 2) = 1$, $B = 5x^2y^3z$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), suy ra ($\\Rightarrow$, $\\Leftrightarrow$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType / OMML trong Word bằng 1 phím tắt Alt+\\ hoặc Alt+= mà không bao giờ bị lỗi.
-      + 🚨 CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN: Luôn có khoảng cách (dấu cách) giữa công thức toán $...$ và các từ tiếng Việt xung quanh (ví dụ: "Biểu thức $x^2 - 2x$ không phải", "cho $2x^2y$ và $-5x^2y$... là những đơn thức"). TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN SÁT DÍNH VÀO TỪ BÊN CẠNH.
+    - CÔNG THỨC TOÁN HỌC & KHOA HỌC (CHUẨN LATEX 100% TƯƠNG THÍCH MATHTYPE):
+      + BẮT BUỘC 100% tất cả các công thức toán, biểu thức, biến số ($x$, $y$, $z$, $a$, $b$, $c$), điểm ($A$, $B$, $C$, $\\Delta ABC$), phân số ($\\frac{a}{b}$), căn bậc hai ($\\sqrt{x}$), số mũ ($x^2$), chỉ số dưới ($x_0$, $y_0$, $x_1$, $x_2$), hệ phương trình ($\\begin{cases} ax+by=c \\ a'x+b'y=c' \\end{cases}$), góc ($\\widehat{ABC}$, $\\widehat{A}$), độ ($^\\circ$), véc-tơ ($\\vec{u}$, $\\overrightarrow{AB}$), ký hiệu hình học ($\\parallel$, $\\perp$), tập hợp ($\\in$, $\\notin$, $\\subset$, $\\cap$, $\\cup$, $\\emptyset$, $\\mathbb{R}$, $\\mathbb{N}$), quan hệ so sánh ($\\le$, $\\ge$, $\\neq$, $\\approx$), phép toán ($\\times$, $\\cdot$, $\\div$, $\\pm$) PHẢI viết bằng cú pháp LaTeX chuẩn đặt trong cặp dấu $...$ (nội dòng) hoặc $$...$$ (độc lập) để giáo viên có thể chuyển đổi trực tiếp sang MathType trong Word bằng 1 phím tắt Alt+\\ mà không bao giờ bị lỗi.
       + 🚨 CẤM TUYỆT ĐỐI VIẾT PHÂN SỐ VÀ BẤT ĐẲNG THỨC BẰNG TEXT THÔ:
         * CẤM viết phân số bằng dấu gạch chéo thô (như 2024/1000, 24/1000, -2022/2023, 1/2). BẮT BUỘC dùng phân số LaTeX trong $...$: ví dụ $\\frac{2024}{1000} = 2 + \\frac{24}{1000} > 1,9$ hoặc $-\\frac{2022}{2023} = -1 + \\frac{1}{2023} > -1,1$ hoặc $\\frac{1}{2}$.
         * CẤM viết bất đẳng thức hoặc so sánh bằng Unicode thô (như a≤50, b≤50, x≥0, x≠3). BẮT BUỘC dùng cú pháp LaTeX trong $...$: ví dụ $a \\le 50$, $b \\le 50$, $x \\ge 0$, $x \\neq 3$.
       + 🚨 PHỤC HỒI CÔNG THỨC MATHTYPE BỊ LỖI: Khi thấy "[CÔNG_THỨC_TOÁN: MathType]", "EMBED Equation.DSMT4", "Equation.DSMT4", "Equation.3" hoặc công thức bị mất từ file Word cũ, AI BẮT BUỘC dựa vào ngữ cảnh bài dạy để PHỤC HỒI LẠI TOÀN BỘ CÔNG THỨC TOÁN CHUẨN LATEX (ví dụ: bài Hệ hai phương trình bậc nhất hai ẩn thì phục hồi $\\begin{cases} ax + by = c \\\\ a'x + b'y = c' \\end{cases}$, $(x_0; y_0)$, $ax+by=c$,...). TUYỆT ĐỐI KHÔNG ĐƯỢC để lại chuỗi "EMBED Equation" hay "DSMT4" trong kết quả trả về!
-      + 🚨 QUY TẮC LATEX CHO MATHTYPE & OMML: BẮT BUỘC có đầy đủ cả dấu $ mở đầu và dấu $ kết thúc (ví dụ: $x^m \cdot x^n = x^{m+n}$, $(x^m)^n = x^{m \cdot n}$); Ký tự gạch đầu dòng (- hoặc +) BẮT BUỘC nằm bên ngoài cặp dấu $ (ghi "- $x^m \cdot x^n = x^{m+n}$", không viết "$- x^m...$"); TUYỆT ĐỐI KHÔNG dùng \mathbf{...} hay \textbf{...} bao bọc dấu hai chấm (:), phép chia, hoặc cả biểu thức toán (như $\mathbf{x^m : }$), mọi phép tính phải viết thuần LaTeX: $x^m : x^n = x^{m-n} \quad (x \neq 0, m \ge n)$; Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\begin{cases} ... \end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
+      + 🚨 QUY TẮC LATEX CHO MATHTYPE: Không để khoảng trắng sát dấu $ (dùng $x + y = 1$, KHÔNG dùng $ x + y = 1 $); Hệ phương trình dùng $\\begin{cases} ... \\end{cases}$; TUYỆT ĐỐI KHÔNG chèn thẻ HTML hoặc dấu markdown bên trong $...$.
       + 🚨 TUYỆT ĐỐI KHÔNG ĐỂ CÔNG THỨC TOÁN / PHÂN SỐ THÀNH ẢNH: Tất cả phân số, biểu thức đại số, phép tính toán học (kể cả chuỗi phép tính nhiều bước liên tiếp, ví dụ: $-\\frac{5}{7} - \\frac{8}{21} = -\\frac{15}{21} - \\frac{8}{21} = -\\frac{23}{21}$) BẮT BUỘC PHẢI VIẾT BẰNG MÃ LATEX ĐẶT TRONG $...$, TUYỆT ĐỐI CẤM tạo mã [HINHANHGOC_...] hay chèn ảnh cho công thức toán!
       + 🚨 BẢO TOÀN 100% HÌNH VẼ MINH HỌA, SƠ ĐỒ HÌNH HỌC VÀ TRANH ẢNH SGK:
         * BẮT BUỘC giữ nguyên và đặt đầy đủ các mã hình vẽ minh họa [HINHANHGOC_1], [HINHANHGOC_2]... từ giáo án gốc hoặc trang SGK vào đúng hoạt động tương ứng (Khởi động, Hình thành kiến thức, Luyện tập, Vận dụng).
@@ -691,16 +549,13 @@ ${info.selectedDisabilities.map(d => `*${DISABILITY_PEDAGOGICAL_GUIDELINES[d]?.n
     
     [ĐÁNH DẤU TÍCH HỢP - CHỈ TÍCH HỢP ĐÚNG CÁC LOẠI ĐÃ ĐƯỢC CHỌN: ${activeListStr}]
     🚨 QUY TẮC BẮT BUỘC: BẠN CHỈ ĐƯỢC TÍCH HỢP CÁC LOẠI ĐÃ TÍCH CHỌN DƯỚI ĐÂY. TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC TỰ Ý TÍCH HỢP LAN MAN BẤT KỲ LOẠI NÀO KHÁC NGOÀI DANH SÁCH:
-    ${options.integrateNLS ? '- NLS: *Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo: NLS_...)' : '- NLS: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc chỉ báo NLS vào giáo án)'}
-    ${options.integrateAI ? '- AI: *Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI] (Mã chỉ báo: AI_...)' : '- AI: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc nhiệm vụ AI vào giáo án)'}
-    ${options.integrateGDQPAN ? '- GDQPAN: *Tích hợp Lồng ghép GDQP-AN: [Nội dung GDQPAN] (Chủ đề: ...)' : '- GDQPAN: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung GDQPAN vào giáo án)'}
-    ${options.integrateDisability ? '- HSKT: *Tích hợp giáo dục hòa nhập (HS khuyết tật [Tên dạng khuyết tật]): [Nội dung điều chỉnh riêng biệt]' : '- HSKT: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa Giáo dục hòa nhập vào giáo án)'}
-    ${options.integrateSTEM ? '- STEM: *Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế]' : '- STEM: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung STEM vào giáo án)'}
-    - TIỀN TỐ TÍCH HỢP BẮT BUỘC BẮT ĐẦU BẰNG DẤU * Ở ĐẦU CÂU, TUYỆT ĐỐI KHÔNG CÓ GẠCH ĐẦU DÒNG (- ) TRƯỚC DẤU *.
+    ${options.integrateNLS ? '- NLS: <span style="color: red;">*Tích hợp năng lực số: [Nội dung & hành động] (Mã chỉ báo: NLS_...)*</span>' : '- NLS: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc chỉ báo NLS vào giáo án)'}
+    ${options.integrateAI ? '- AI: <span style="color: red;">*Tích hợp năng lực AI: [Nhiệm vụ lồng ghép AI] (Mã chỉ báo: AI_...)*</span>' : '- AI: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung, mục tiêu hoặc nhiệm vụ AI vào giáo án)'}
+    ${options.integrateGDQPAN ? '- GDQPAN: <span style="color: red;">*Tích hợp Lồng ghép GDQP-AN: [Nội dung GDQPAN] (Chủ đề: ...)*</span>' : '- GDQPAN: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung GDQPAN vào giáo án)'}
+    ${options.integrateDisability ? '- HSKT: <span style="color: red;">*Tích hợp giáo dục hòa nhập (HS khuyết tật [Tên dạng khuyết tật]): [Nội dung điều chỉnh riêng biệt]*</span>' : '- HSKT: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa Giáo dục hòa nhập vào giáo án)'}
+    ${options.integrateSTEM ? '- STEM: <span style="color: red;">*Tích hợp STEM: [Thử thách/Nhiệm vụ thiết kế]*</span>' : '- STEM: KHÔNG TÍCH HỢP (TUYỆT ĐỐI CẤM đưa nội dung STEM vào giáo án)'}
     - TUYỆT ĐỐI KHÔNG GẠCH CHÂN (KHÔNG DÙNG THẺ <u>).
     - TUYỆT ĐỐI KHÔNG DÙNG DẤU THĂNG (#####, ####, ###) CHO CÁC MỤC a), b), c)... (Dùng in đậm **a) Mục tiêu:**, **b) Nội dung:**...).
-    - TUYỆT ĐỐI KHÔNG IN NGHIÊNG TÙY TIỆN VĂN BẢN TRONG GIÁO ÁN.
-    - CÔNG THỨC TOÁN HỌC PHẢI CÓ DẤU CÁCH VỚI TỪ BÊN CẠNH, KHÔNG ĐỂ SÁT DÍNH VÀO CHỮ.
     
     [ĐẦU RA - QUY CÁCH THÔNG TƯ 30]
     - Định dạng Markdown chuẩn, chuyên nghiệp, không rác định dạng.
@@ -746,7 +601,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
       });
 
       const tocResponse = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.6-flash",
         contents: tocParts
       });
 
@@ -774,14 +629,7 @@ TRẢ VỀ CHUỖI JSON HỢP LỆ, KHÔNG BỌC TRONG THẺ \`\`\`json, KHÔNG 
     }
   }
 
-  const combinedPromptText = `[QUY TẮC PHÁP QUY & CHUYÊN GIA SƯ PHẠM]:
-${SYSTEM_INSTRUCTION}
-
-=========================================================
-[YÊU CẦU SOẠN THẢO KẾ HOẠCH BÀI DẠY]:
-${userPromptText}`;
-
-  let parts: any[] = [{ text: combinedPromptText }];
+  let parts: any[] = [{ text: userPromptText }];
   
   if (info.isAutoGenerate && filteredImages.length > 0) {
     filteredImages.forEach((base64Str) => {
@@ -796,78 +644,63 @@ ${userPromptText}`;
     });
   }
 
-  const callModel = async (modelId: string): Promise<string> => {
-    const requestConfig: any = {
-       temperature: 0.2
-    };
+  // === CƠ CHẾ CONTEXT CACHING ===
+  let cachedContentName = "";
 
-    let text = "";
-
-    const isModelNotFound = (err: any): boolean => {
-      const msg = (err?.message || (typeof err === 'string' ? err : JSON.stringify(err || ''))).toLowerCase();
-      return msg.includes('404') || msg.includes('not_found') || msg.includes('not found') || msg.includes('unsupported') || msg.includes('is not found');
-    };
-
-    // 1. Thử gọi qua streaming trước để có preview mượt mà
-    try {
-      const responseStream = await ai.models.generateContentStream({
-        model: modelId,
-        config: requestConfig,
-        contents: parts,
-      });
-      
-      for await (const chunk of responseStream) {
-          if (chunk.text) {
-              text += chunk.text;
-              if (onProgress) {
-                  let previewText = text.replace(/^[ \t]*-[ \t]+([a-zA-Z]+\.|[0-9]+\.|[a-zA-Z]+\))/gmi, '$1');
-                  onProgress(previewText);
-              }
-          }
-      }
-    } catch (streamError) {
-      if (isModelNotFound(streamError)) {
-        throw streamError;
-      }
-      console.warn(`[Stream] Model ${modelId} stream thất bại, tự động chuyển sang chế độ gọi trực tiếp...`, streamError);
-      
-      // 2. Fallback sang gọi thường (non-streaming)
+  
+  const setupContextCache = async (aiInstance: GoogleGenAI, modelId: string) => {
+    if (userPromptText.length > 110000 && !cachedContentName) {
       try {
-        const directResp = await ai.models.generateContent({
+        console.log(`[Cache] Phát hiện siêu văn bản (${userPromptText.length} ký tự). Đang yêu cầu cung cấp Context Caching...`);
+        const cache = await aiInstance.caches.create({
           model: modelId,
-          config: requestConfig,
-          contents: parts,
+          config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            ttl: "3600s",
+          },
         });
-        text = directResp.text || "";
-      } catch (directError) {
-        if (isModelNotFound(directError)) {
-          throw directError;
-        }
-        console.warn(`[Direct SDK] Model ${modelId} thất bại, thử nghiệm kết nối qua REST API...`, directError);
-        
-        // 3. Fallback cuối cùng: Gọi REST API chuẩn của Google Generative Language
-        const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${activeApiKey}`;
-        const restResponse = await fetch(restUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: combinedPromptText }] }],
-            generationConfig: { temperature: 0.2 }
-          })
-        });
-
-        if (restResponse.ok) {
-          const restData = await restResponse.json();
-          text = restData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        } else {
-          const errData = await restResponse.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || `HTTP ${restResponse.status} ${restResponse.statusText}`);
-        }
+        cachedContentName = cache.name;
+        console.log(`[Cache] Tạo Context Caching thành công: ${cachedContentName}.`);
+      } catch (cacheErr) {
+        console.warn(`[Cache] Thất bại khởi tạo Context Cache. Tự động dùng luồng xử lý thông thường...`);
       }
     }
+  };
 
-    if (!text || text.trim().length === 0) {
-      throw new Error(`Model ${modelId} trả về phản hồi rỗng.`);
+  const callModel = async (modelId: string) => {
+    await setupContextCache(ai, modelId);
+    
+    const requestConfig: any = {
+       temperature: 0.2,
+       thinkingConfig: {
+         thinkingBudget: 0
+       }
+    };
+    
+    if (cachedContentName) {
+       requestConfig.cachedContent = cachedContentName;
+    } else {
+       requestConfig.systemInstruction = SYSTEM_INSTRUCTION;
+    }
+
+    const responseStream = await ai.models.generateContentStream({
+      model: modelId,
+      config: requestConfig,
+      contents: cachedContentName 
+        ? "Xin hãy tạo giáo án phối hợp tối ưu hóa năng lực theo thông tin đã set ở Cache." 
+        : parts,
+    });
+    
+    let text = "";
+    for await (const chunk of responseStream) {
+        if (chunk.text) {
+            text += chunk.text;
+            if (onProgress) {
+                // Xoá dấu "- " thừa trước các đề mục có đánh số/chữ (vd: - 1. or - a. or - III.)
+                let previewText = text.replace(/^[ \t]*-[ \t]+([a-zA-Z]+\.|[0-9]+\.|[a-zA-Z]+\))/gmi, '$1');
+                onProgress(previewText);
+            }
+        }
     }
 
     text = text.replace(/^[ \t]*-[ \t]+([a-zA-Z]+\.|[0-9]+\.|[a-zA-Z]+\))/gmi, '$1');
@@ -875,31 +708,55 @@ ${userPromptText}`;
     // Rút gọn các dòng chứa quá nhiều dấu chấm, gạch dưới (hạn chế AI sinh hàng trăm trang)
     text = text.replace(/(?:[._…]\s*){15,}/g, '...');
 
-    // Dọn sạch các lỗi $DoS hoặc $ DoS
-    text = text.replace(/\$DoS\s*([^$]+?)\$\$/gi, '**ĐS:** $$1$');
-    text = text.replace(/\$DoS\s*([^$]+?)\$/gi, '**ĐS:** $$1$');
-    text = text.replace(/\bDoS\s*[:\-]?\s*/gi, '**ĐS:** ');
+    // BẮT BUỘC BÔI ĐỎ 100% CÁC ĐOẠN TÍCH HỢP VÀ GẮN MÃ CHỈ BÁO
+    // Tìm mã chỉ báo NLS/AI từ phần Mục tiêu (nếu có)
+    const nlsCodeMatch = text.match(/(?:Mã chỉ báo|Mã YCCĐ)[\s:]*([0-9a-zA-Z._,\s-]+)\)/i) || text.match(/\[([A-Z]{2,4}_[0-9a-zA-Z._-]+)\]/i);
+    const discoveredCode = nlsCodeMatch ? nlsCodeMatch[1].trim() : '';
 
-    // Tách tất cả các đề mục bị dính liền trên 1 dòng
-    text = splitAllMergedHeadings(text);
+    const integrationKeywords = [
+      'Tích hợp năng lực số',
+      'Tích hợp năng lực AI',
+      'Tích hợp giáo dục hòa nhập',
+      'Tích hợp GDQP-AN',
+      'Tích hợp GDQP',
+      'Tích hợp Giáo dục quốc phòng',
+      'Tích hợp STEM',
+      'Tích hợp Lồng ghép',
+      'Tích hợp đạo đức',
+      'Tích hợp kĩ năng sống',
+      'Tích hợp kỹ năng sống',
+      'Tích hợp môi trường',
+      'Tích hợp biển đảo'
+    ];
 
-    // 1. CHỐNG DÍNH CHỮ CÔNG THỨC TOÁN (Sử dụng hàm callback để tránh lỗi $1 $2)
-    text = text.replace(/([^\s\$\(\[\{<|])\$([^\$\n\r]+?)\$/g, (_m, p1, p2) => `${p1} $${p2}$`);
-    text = text.replace(/\$([^\$\n\r]+?)\$([^\s\$\)\],.:;!?%><|])/g, (_m, p1, p2) => `$${p1}$ ${p2}`);
-    text = text.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, p1) => `$${p1.trim()}$`);
+    integrationKeywords.forEach(kw => {
+      // Tìm các đoạn tích hợp chưa được bọc thẻ span màu đỏ
+      const regex = new RegExp(`(?<!<span[^>]*style="[^"]*color:\\s*red[^"]*"[^>]*>)(?:\\*+)?(${kw}[^\\n\\r<*|]+)(?:\\*+)?`, 'gi');
+      text = text.replace(regex, (match, content) => {
+        if (match.includes('style="color: red') || match.includes('color="red"')) return match;
+        let clean = content.trim().replace(/^\*+|\*+$/g, '');
+        if (kw.includes('năng lực số') && !clean.toLowerCase().includes('chỉ báo') && discoveredCode) {
+          clean += ` (Mã chỉ báo: ${discoveredCode})`;
+        }
+        return `<span style="color: red;">*${clean}*</span>`;
+      });
+    });
 
-    // 2. CHUẨN HÓA CÁC ĐOẠN TÍCH HỢP: ĐỨNG ĐẦU CÂU, KHÔNG CÓ GẠCH ĐẦU DÒNG
-    text = text.replace(/^[ \t]*[-+•*][ \t]+\*?(Tích\s*hợp)/gmi, '*$1');
-    text = text.replace(/^[ \t]*[-+•][ \t]+(HS\s*khuyết\s*tật)/gmi, '*$1');
-    text = text.replace(/^[ \t]*(Tích\s*hợp)/gmi, '*$1');
-    text = text.replace(/^[ \t]*(HS\s*khuyết\s*tật)/gmi, '*$1');
+    // BẢO TOÀN 100% HÌNH VẼ GỐC: Kiểm tra nếu cache có ảnh học liệu mà text chưa có thẻ [HINHANHGOC_1]
+    const hasAnyRealImages = Object.keys(imageCache).some(k => {
+      const it = imageCache[k];
+      return it && it.dataUrl && !it.isMathFormula && !it.dataUrl.startsWith('data:image/svg');
+    });
 
-    // Xóa bỏ tất cả thẻ span / font HTML thô rác sinh ra bởi AI
-    text = text.replace(/<\/?(?:span|font)[^>]*>/gi, '');
+    if (hasAnyRealImages && !/\[(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s0-9*]*\]/i.test(text)) {
+      // Tự động chèn thẻ [HINHANHGOC_1] vào Bước 1 của Hoạt động mở đầu / hình thành kiến thức
+      text = text.replace(/(\*\*Bước\s*1:[^\n<|]*)/i, '$1<br>[HINHANHGOC_1]<br>');
+    }
 
-    // 3. Đảm bảo tất cả các hoạt động đều nằm trong bảng 2 cột
+    // Đảm bảo tất cả các hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột và không bị vỡ hàng
     if (options.layoutFormat !== 'no_table') {
       text = ensureAllActivitiesInTwoColumnTable(text);
+      text = text.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
     }
 
     return text.trim();
@@ -910,48 +767,42 @@ ${userPromptText}`;
     
     for (const modelId of models) {
         try {
-            console.log(`Đang xử lý với model: ${modelId}`);
+            console.log(`Đang thử xử lý với model: ${modelId}`);
             let text = await callModel(modelId);
-            if (text && text.trim().length > 0) {
-              return text;
-            }
+            if (!text) throw new Error("API trả về kết quả rỗng.");
+            return text;
         } catch (error: any) {
-            console.warn(`Model ${modelId} gặp sự cố hoặc không khả dụng:`, error);
+            console.warn(`Model ${modelId} gặp sự cố hoặc không khả dụng.`, error);
             lastError = error;
         }
     }
 
     // Format human-friendly error from lastError
     const parseError = (err: any): string => {
-      const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err || ''));
-      const errStr = msg.toLowerCase();
-
-      if (errStr.includes("denied access") || errStr.includes("has been denied") || errStr.includes("permission_denied") || errStr.includes("403")) {
-        return "Dự án Google Cloud của khóa API này đã bị Google từ chối truy cập hoặc tạm ngưng ('Your project has been denied access'). Vui lòng truy cập Google AI Studio (aistudio.google.com), nhấn 'Create API key' và chọn 'Create API key in new project' để lấy mã khóa từ một dự án mới hoàn toàn miễn phí.";
+      const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err || ''));
+      if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT")) {
+        return "Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại API Key mới từ Google AI Studio.";
       }
-      if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid api key") || errStr.includes("api_key_missing") || errStr.includes("unauthenticated")) {
-        return "Khóa API không hợp lệ hoặc đã bị xóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để cập nhật lại mã khóa mới từ Google AI Studio.";
+      if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+        return "Khóa API đã hết hạn mức sử dụng (Quota / 429). Vui lòng nhấn nút 'Khóa API' để đổi khóa API khác.";
       }
-      if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("resource_exhausted")) {
-        return "Khóa API đã hết hạn mức sử dụng (Google giới hạn 15 lượt gọi/phút cho tài khoản Free). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn 'Khóa API' để đổi khóa khác.";
+      if (errStr.includes("404") || errStr.includes("NOT_FOUND") || errStr.includes("not found")) {
+        return "Không tìm thấy model hoặc khóa API chưa được cấp quyền truy cập. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập khóa API cá nhân của bạn.";
       }
-      if (errStr.includes("404") || errStr.includes("not_found") || errStr.includes("not found")) {
-        return `Mô hình AI chưa sẵn sàng hoặc mã khóa chưa kích hoạt dịch vụ (${msg}). Vui lòng tạo API Key mới tại Google AI Studio (aistudio.google.com).`;
+      if (errStr.includes("PERMISSION_DENIED") || errStr.includes("403")) {
+        return "Khóa API bị từ chối quyền truy cập (Permission Denied). Vui lòng kiểm tra quyền truy cập của mã khóa trên Google AI Studio.";
       }
-      return `Lỗi kết nối Gemini API (${msg}). Vui lòng nhấn nút 'Khóa API' để kiểm tra lại mã khóa.`;
+      return `Lỗi kết nối Gemini API (${err?.message || "Không nhận được phản hồi"}). Vui lòng nhấn nút 'Khóa API' để kiểm tra lại mã khóa.`;
     };
 
     throw new Error(parseError(lastError));
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    const msg = error?.message || "";
-    const errStr = msg.toLowerCase();
-    if (errStr.includes("denied access") || errStr.includes("has been denied") || errStr.includes("permission_denied") || errStr.includes("403")) {
-      throw new Error("Dự án Google Cloud của khóa API này đã bị Google từ chối truy cập ('Your project has been denied access'). Vui lòng vào Google AI Studio (aistudio.google.com), nhấn 'Create API key' rồi chọn 'Create API key in new project' để tạo khóa mới.");
-    } else if (errStr.includes("api_key_invalid") || errStr.includes("api key not valid") || errStr.includes("invalid_argument")) {
+    const errStr = error?.message || "";
+    if (errStr.includes("API_KEY_INVALID") || errStr.includes("API key not valid") || errStr.includes("INVALID_ARGUMENT")) {
       throw new Error("Khóa API không hợp lệ hoặc đã bị vô hiệu hóa. Vui lòng nhấn nút 'Khóa API' ở góc trên để nhập mã khóa mới.");
-    } else if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("resource_exhausted")) {
-      throw new Error("Hạn mức API đã đạt giới hạn (Quota / 429). Vui lòng đợi 30-60 giây rồi thử lại, hoặc nhấn nút 'Khóa API' để đổi khóa API mới.");
+    } else if (errStr.includes("quota") || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error("Hạn mức API đã đạt giới hạn (Quota / 429). Vui lòng nhấn nút 'Khóa API' để chuyển sang dùng Khóa API cá nhân của bạn.");
     }
     throw new Error(error.message || "Không thể gọi Gemini API. Vui lòng thử lại hoặc kiểm tra lại Khóa API.");
   }
