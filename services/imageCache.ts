@@ -3,9 +3,6 @@ export interface CachedImage {
   dataUrl: string;
   width: number;
   height: number;
-  isMathFormula?: boolean;
-  originalWidth?: number;
-  originalHeight?: number;
 }
 export const imageCache: Record<string, CachedImage> = {};
 
@@ -59,20 +56,12 @@ export const lookupCachedImage = (tagOrId: string): CachedImage | null => {
     for (const key of candidates) {
       if (imageCache[key]) return imageCache[key];
     }
-
-    // Fallback theo thứ tự xuất hiện trong imageCache
-    const uniqueDataUrls: { [url: string]: any } = {};
-    Object.keys(imageCache).forEach(k => {
-      if (imageCache[k]?.dataUrl) {
-        uniqueDataUrls[imageCache[k].dataUrl] = imageCache[k];
-      }
-    });
-    const uniqueList = Object.values(uniqueDataUrls);
-    const numIdx = parseInt(num, 10);
-    if (numIdx > 0 && numIdx <= uniqueList.length) {
-      return uniqueList[numIdx - 1];
-    }
   }
 
+  // Fallback to first available entry if any
+  const allEntries = Object.values(imageCache);
+  if (allEntries.length > 0 && allEntries[0]?.dataUrl) {
+    return allEntries[0];
+  }
   return null;
 };
