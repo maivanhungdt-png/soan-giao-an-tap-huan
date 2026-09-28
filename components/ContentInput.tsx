@@ -129,7 +129,7 @@ const UploadBox: React.FC<UploadBoxProps> = ({
           type="file" 
           ref={inputRef}
           onChange={(e) => onFileChange(e, type)}
-          accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.csv,.tsv,.ods" 
+          accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.csv,.tsv,.ods,.png,.jpg,.jpeg,.webp,.gif,.bmp" 
           className="hidden" 
         />
         
@@ -622,8 +622,9 @@ const ContentInput: React.FC<ContentInputProps> = ({
           .replace(/\\tab/g, ' | ')
           .replace(/\\cell/g, ' | ')
           .replace(/\\row/g, '\n')
-          .replace(/\\[a-zA-Z0-9\-]+/g, '')
-          .replace(/[{}]/g, '')
+          // Chỉ xóa các thẻ cấu trúc / bảng font / màu của RTF, KHÔNG xóa cú pháp công thức \frac, \sqrt, \cdot, {}
+          .replace(/\\(?:fonttbl|colortbl|stylesheet|info|header|footer)[^}]*}/gi, '')
+          .replace(/\\(?:f\d+|fs\d+|cf\d+|cb\d+|b\d*|i\d*|ul\d*|strike\d*|qc|ql|qr|qj|marg[ltrb]\d+)\b/gi, '')
           .trim();
         if (cleanRtf.length > 20) return cleanRtf;
       }
@@ -649,66 +650,277 @@ const ContentInput: React.FC<ContentInputProps> = ({
     }
   };
 
-  const preprocessDOCXMath = async (arrayBuffer: ArrayBuffer): Promise<ArrayBuffer> => {
+  // Helper: Chuyển đổi Office Math Markup Language (OMML) của Word sang mã chuẩn LaTeX
+  const ommlToLatex = (ommlXml: string): string => {
+    if (!ommlXml) return '';
+
+    const cleanMathText = (text: string): string => {
+      if (!text) return '';
+      return text
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/≤/g, ' \\le ')
+        .replace(/≥/g, ' \\ge ')
+        .replace(/≠/g, ' \\neq ')
+        .replace(/≈/g, ' \\approx ')
+        .replace(/±/g, ' \\pm ')
+        .replace(/×/g, ' \\times ')
+        .replace(/÷/g, ' \\div ')
+        .replace(/·/g, ' \\cdot ');
+    };
+
+    const parseNode = (xml: string): string => {
+      if (!xml) return '';
+      let res = '';
+      let pos = 0;
+
+      while (pos < xml.length) {
+        const tagMatch = xml.slice(pos).match(/<m:([a-zA-Z0-9]+)([^>]*)>([\s\S]*?)<\/m:\1>|<m:([a-zA-Z0-9]+)([^>]*)\/>/);
+        if (!tagMatch) {
+          const plainText = xml.slice(pos).replace(/<[^>]+>/g, '');
+          res += cleanMathText(plainText);
+          break;
+        }
+
+        const matchIndex = tagMatch.index || 0;
+        if (matchIndex > 0) {
+          const textBefore = xml.slice(pos, pos + matchIndex).replace(/<[^>]+>/g, '');
+          res += cleanMathText(textBefore);
+        }
+
+        const tagName = tagMatch[1] || tagMatch[4];
+        const tagBody = tagMatch[3] || '';
+        pos += matchIndex + tagMatch[0].length;
+
+        switch (tagName) {
+          case 'f': { // Phân số \frac{tử}{mẫu}
+            const numMatch = tagBody.match(/<m:num>([\s\S]*?)<\/m:num>/);
+            const denMatch = tagBody.match(/<m:den>([\s\S]*?)<\/m:den>/);
+            const num = numMatch ? parseNode(numMatch[1]).trim() : '';
+            const den = denMatch ? parseNode(denMatch[1]).trim() : '';
+            res += `\\frac{${num}}{${den}}`;
+            break;
+          }
+          case 'sSup': { // Số mũ / Luỹ thừa
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const supMatch = tagBody.match(/<m:sup>([\s\S]*?)<\/m:sup>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            const sup = supMatch ? parseNode(supMatch[1]).trim() : '';
+            res += `{${e}}^{${sup}}`;
+            break;
+          }
+          case 'sSub': { // Chỉ số dưới
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const subMatch = tagBody.match(/<m:sub>([\s\S]*?)<\/m:sub>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            const sub = subMatch ? parseNode(subMatch[1]).trim() : '';
+            res += `{${e}}_{${sub}}`;
+            break;
+          }
+          case 'sSubSup': { // Cả chỉ số dưới và trên
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const subMatch = tagBody.match(/<m:sub>([\s\S]*?)<\/m:sub>/);
+            const supMatch = tagBody.match(/<m:sup>([\s\S]*?)<\/m:sup>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            const sub = subMatch ? parseNode(subMatch[1]).trim() : '';
+            const sup = supMatch ? parseNode(supMatch[1]).trim() : '';
+            res += `{${e}}_{${sub}}^{${sup}}`;
+            break;
+          }
+          case 'rad': { // Căn bậc n / Căn bậc 2
+            const degMatch = tagBody.match(/<m:deg>([\s\S]*?)<\/m:deg>/);
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const deg = degMatch ? parseNode(degMatch[1]).trim() : '';
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            res += deg ? `\\sqrt[${deg}]{${e}}` : `\\sqrt{${e}}`;
+            break;
+          }
+          case 'd': { // Dấu ngoặc / Dấu giá trị tuyệt đối
+            const begChrMatch = tagBody.match(/<m:begChr[^>]*m:val="([^"]*)"/);
+            const endChrMatch = tagBody.match(/<m:endChr[^>]*m:val="([^"]*)"/);
+            const beg = begChrMatch ? begChrMatch[1] : '(';
+            const end = endChrMatch ? endChrMatch[1] : ')';
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const content = eMatch ? parseNode(eMatch[1]).trim() : '';
+            
+            let leftDelim = beg === '{' ? '\\{' : (beg === '' ? '.' : beg);
+            let rightDelim = end === '}' ? '\\}' : (end === '' ? '.' : end);
+            res += `\\left${leftDelim} ${content} \\right${rightDelim}`;
+            break;
+          }
+          case 'nary': { // Tích phân, Tổng sigma
+            const chrMatch = tagBody.match(/<m:chr[^>]*m:val="([^"]*)"/);
+            const chr = chrMatch ? chrMatch[1] : '∑';
+            const subMatch = tagBody.match(/<m:sub>([\s\S]*?)<\/m:sub>/);
+            const supMatch = tagBody.match(/<m:sup>([\s\S]*?)<\/m:sup>/);
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const sub = subMatch ? parseNode(subMatch[1]).trim() : '';
+            const sup = supMatch ? parseNode(supMatch[1]).trim() : '';
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            
+            let op = '\\sum';
+            if (chr === '∫') op = '\\int';
+            else if (chr === '∏') op = '\\prod';
+            
+            let limits = '';
+            if (sub) limits += `_{${sub}}`;
+            if (sup) limits += `^{${sup}}`;
+            res += `${op}${limits} ${e}`;
+            break;
+          }
+          case 'func': { // Hàm lượng giác, logarit, giới hạn
+            const fNameMatch = tagBody.match(/<m:fName>([\s\S]*?)<\/m:fName>/);
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const fName = fNameMatch ? parseNode(fNameMatch[1]).trim() : '';
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            res += `\\${fName}(${e})`;
+            break;
+          }
+          case 'bar': { // Gạch ngang trên đầu
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            res += `\\overline{${e}}`;
+            break;
+          }
+          case 'acc': { // Dấu mũ góc, véc tơ
+            const chrMatch = tagBody.match(/<m:chr[^>]*m:val="([^"]*)"/);
+            const chr = chrMatch ? chrMatch[1] : '^';
+            const eMatch = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/);
+            const e = eMatch ? parseNode(eMatch[1]).trim() : '';
+            if (chr === '^' || chr === '̂') res += `\\widehat{${e}}`;
+            else if (chr === '→' || chr === '⃗') res += `\\vec{${e}}`;
+            else res += `\\bar{${e}}`;
+            break;
+          }
+          case 'eqArr': { // Hệ phương trình
+            const eMatches = tagBody.match(/<m:e>([\s\S]*?)<\/m:e>/g) || [];
+            const rows = eMatches.map(m => parseNode(m.replace(/<\/?m:e>/g, '')).trim());
+            res += `\\begin{cases} ${rows.join(' \\\\ ')} \\end{cases}`;
+            break;
+          }
+          case 'm': { // Ma trận
+            const mrMatches = tagBody.match(/<m:mr>([\s\S]*?)<\/m:mr>/g) || [];
+            const rows = mrMatches.map(mr => {
+              const eMatches = mr.match(/<m:e>([\s\S]*?)<\/m:e>/g) || [];
+              return eMatches.map(e => parseNode(e.replace(/<\/?m:e>/g, '')).trim()).join(' & ');
+            });
+            res += `\\begin{matrix} ${rows.join(' \\\\ ')} \\end{matrix}`;
+            break;
+          }
+          case 't': { // Text
+            res += cleanMathText(tagBody);
+            break;
+          }
+          default: {
+            res += parseNode(tagBody);
+            break;
+          }
+        }
+      }
+
+      return res;
+    };
+
+    let latex = parseNode(ommlXml).trim();
+    latex = latex.replace(/\s+/g, ' ').trim();
+    return latex ? `$${latex}$` : '';
+  };
+
+  const preprocessDOCXMath = async (arrayBuffer: ArrayBuffer): Promise<{ processedBuffer: ArrayBuffer; mathMediaFiles: Set<string> }> => {
+    const mathMediaFiles = new Set<string>();
     try {
       const zip = await JSZip.loadAsync(arrayBuffer);
       const docXmlFile = zip.file("word/document.xml");
-      if (!docXmlFile) return arrayBuffer;
+      if (!docXmlFile) return { processedBuffer: arrayBuffer, mathMediaFiles };
 
       let xml = await docXmlFile.async("string");
 
-      // Replace OMML math blocks with plain text wrapped in [MATH: ...]
+      // 1. Phân tích word/_rels/document.xml.rels để xác định các file media của MathType / OLE
+      const relsFile = zip.file("word/_rels/document.xml.rels");
+      const rIdToTarget: Record<string, string> = {};
+      if (relsFile) {
+        const relsXml = await relsFile.async("string");
+        const relMatches = relsXml.matchAll(/<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*>/gi);
+        for (const rm of relMatches) {
+          const rId = rm[1];
+          const rawTarget = rm[2];
+          const fileName = rawTarget.split('/').pop() || '';
+          rIdToTarget[rId] = fileName;
+          if (/oleObject|equation/i.test(rm[0]) || /oleObject|equation/i.test(rawTarget)) {
+            mathMediaFiles.add(fileName);
+          }
+        }
+      }
+
+      // Tìm tất cả các khối <w:object>, <w:pict>, <w:drawing> chứa MathType / Equation OLE
+      const objPictRegex = /<(?:w:object|w:pict|w:drawing)[^>]*>([\s\S]*?)<\/(?:w:object|w:pict|w:drawing)>/gi;
+      let objMatch;
+      while ((objMatch = objPictRegex.exec(xml)) !== null) {
+        const objContent = objMatch[0];
+        const isMathType = /Equation|DSMT4|oleObject|MathType|mtef/i.test(objContent);
+        if (isMathType) {
+          // Trích xuất các r:id và r:embed ảnh preview của công thức toán này
+          const idMatches = objContent.matchAll(/(?:r:id|r:embed)="([^"]+)"/gi);
+          for (const rm of idMatches) {
+            const rId = rm[1];
+            if (rIdToTarget[rId]) {
+              mathMediaFiles.add(rIdToTarget[rId]);
+            }
+          }
+        }
+      }
+
+      // Helper: Thoát các ký tự XML bắt buộc để tệp XML không bao giờ bị hỏng khi Mammoth đọc
+      const xmlEscape = (str: string): string => {
+        if (!str) return '';
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      };
+
+      // 2. Phân giải toàn bộ OMML math blocks (<m:oMathPara> và <m:oMath>) trực tiếp sang chuẩn LaTeX $...$
+      xml = xml.replace(/<m:oMathPara[^>]*>([\s\S]*?)<\/m:oMathPara>/g, (match) => {
+        const latex = ommlToLatex(match);
+        if (!latex) return '';
+        const safeXml = xmlEscape(latex);
+        return `<w:r><w:t xml:space="preserve"> ${safeXml} </w:t></w:r>`;
+      });
       xml = xml.replace(/<m:oMath[^>]*>([\s\S]*?)<\/m:oMath>/g, (match) => {
-        let text = match.replace(/<[^>]+>/g, '');
-        text = text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-        text = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<w:r><w:t xml:space="preserve">[MATH: ${text}]</w:t></w:r>`;
+        const latex = ommlToLatex(match);
+        if (!latex) return '';
+        const safeXml = xmlEscape(latex);
+        return `<w:r><w:t xml:space="preserve"> ${safeXml} </w:t></w:r>`;
       });
 
-      // Replace MathType OLE and EMBED Equation fields / objects so they don't leak raw EMBED Equation.DSMT4
-      xml = xml.replace(/<w:instrText[^>]*>\s*EMBED\s+Equation[^\s<]*\s*<\/w:instrText>/gi, () => {
-        return `<w:t xml:space="preserve">[CÔNG_THỨC_TOÁN: MathType]</w:t>`;
-      });
-      xml = xml.replace(/<w:fldSimple[^>]*w:instr="[^"]*Equation[^"]*"[^>]*>[\s\S]*?<\/w:fldSimple>/gi, () => {
-        return `<w:r><w:t xml:space="preserve">[CÔNG_THỨC_TOÁN: MathType]</w:t></w:r>`;
-      });
-      xml = xml.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, '[CÔNG_THỨC_TOÁN: MathType]');
-      xml = xml.replace(/\bEquation\.DSMT4\b/gi, '[CÔNG_THỨC_TOÁN: MathType]');
-
-      // Inject crop properties into alt text
-      xml = xml.replace(/<(wp:inline|wp:anchor)[\s\S]*?<\/\1>/g, (match) => {
-        const cropMatches = match.match(/<a:srcRect([^>]*)>/);
-        if (cropMatches) {
-           const attrs = ['l', 't', 'r', 'b'];
-           const cropVals = attrs.map(attr => {
-              const m = cropMatches[1].match(new RegExp(`${attr}="(\\d+)"`));
-              return m ? parseInt(m[1]) / 100000 : 0;
-           });
-           if (cropVals.some(v => v > 0)) {
-               const cropStr = `CROP:${cropVals.join(',')}`;
-               match = match.replace(/<wp:docPr([^>]*)>/, (docPrMatch, docPrArgs) => {
-                  const isSelfClosing = docPrArgs.endsWith('/');
-                  const cleanArgs = isSelfClosing ? docPrArgs.slice(0, -1) : docPrArgs;
-                  let ret;
-                  if (cleanArgs.includes('descr="')) {
-                     ret = `<wp:docPr${cleanArgs.replace(/descr="([^"]*)"/, `descr="$1 ${cropStr}"`)}${isSelfClosing ? '/' : ''}>`;
-                  } else if (cleanArgs.includes('desc="')) {
-                     ret = `<wp:docPr${cleanArgs.replace(/desc="([^"]*)"/, `desc="$1 ${cropStr}"`)} descr="${cropStr}"${isSelfClosing ? '/' : ''}>`;
-                  } else {
-                     ret = `<wp:docPr${cleanArgs} descr="${cropStr}"${isSelfClosing ? '/' : ''}>`;
-                  }
-                  return ret;
-               });
-           }
+      // 3. Thay thế các khối <w:object>, <w:pict>, <w:drawing> chứa MathType OLE thành placeholder công thức toán
+      // để Mammoth KHÔNG sinh ra thẻ <img> ảnh công thức, mà giữ lại ngữ cảnh cho AI phục hồi thành LaTeX!
+      xml = xml.replace(/<(?:w:object|w:pict|w:drawing)[^>]*>([\s\S]*?)<\/(?:w:object|w:pict|w:drawing)>/gi, (match) => {
+        if (/Equation|DSMT4|oleObject|MathType|mtef/i.test(match)) {
+          return `<w:r><w:t xml:space="preserve"> [CÔNG_THỨC_TOÁN: MathType] </w:t></w:r>`;
         }
         return match;
       });
 
+      // 4. Làm sạch các trường MathType OLE text thô để không bị rò rỉ mã lệnh
+      xml = xml.replace(/<w:instrText[^>]*>\s*EMBED\s+Equation[^\s<]*\s*<\/w:instrText>/gi, () => {
+        return `<w:t xml:space="preserve"> </w:t>`;
+      });
+      xml = xml.replace(/<w:fldSimple[^>]*w:instr="[^"]*Equation[^"]*"[^>]*>[\s\S]*?<\/w:fldSimple>/gi, () => {
+        return `<w:r><w:t xml:space="preserve"> </w:t></w:r>`;
+      });
+      xml = xml.replace(/\bEMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)/gi, ' ');
+      xml = xml.replace(/\bEquation\.DSMT4\b/gi, ' ');
+
       zip.file("word/document.xml", xml);
-      return await zip.generateAsync({ type: "arraybuffer" });
+      const processedBuffer = await zip.generateAsync({ type: "arraybuffer" });
+      return { processedBuffer, mathMediaFiles };
     } catch (e) {
       console.error("Error preprocessing DOCX math:", e);
-      return arrayBuffer;
+      return { processedBuffer: arrayBuffer, mathMediaFiles };
     }
   };
 
@@ -719,55 +931,38 @@ const ContentInput: React.FC<ContentInputProps> = ({
             clearImageCache();
         }
 
-        // 1. Trích xuất trực tiếp tất cả media từ Word ZIP để đảm bảo không bỏ sót bất kỳ hình ảnh nào
-        try {
-            const zip = await JSZip.loadAsync(arrayBuffer.slice(0));
-            const mediaFiles: { name: string; file: any }[] = [];
-            zip.forEach((relativePath, zipEntry) => {
-                if (relativePath.startsWith("word/media/") && !zipEntry.dir) {
-                    mediaFiles.push({ name: relativePath, file: zipEntry });
-                }
-            });
+        // 1. Tiền xử lý DOCX để chuyển công thức OMML sang LaTeX và tìm danh sách ảnh công thức toán MathType
+        const { processedBuffer, mathMediaFiles } = await preprocessDOCXMath(arrayBuffer);
 
-            // Sắp xếp theo tên file để thứ tự hình ảnh khớp thứ tự tự nhiên (image1, image2,...)
-            mediaFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-
-            for (let idx = 0; idx < mediaFiles.length; idx++) {
-                const item = mediaFiles[idx];
-                const imgNum = idx + 1;
-                const ext = item.name.split('.').pop()?.toLowerCase() || 'png';
-                const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : (ext === 'svg' ? 'image/svg+xml' : 'image/png');
-                const base64Data = await item.file.async("base64");
-                const dataUrl = `data:${mime};base64,${base64Data}`;
-
-                const cachedObj = {
-                    id: `HINHANHGOC_${imgNum}`,
-                    dataUrl: dataUrl,
-                    width: 250,
-                    height: 180
-                };
-
-                // Lưu hàng loạt alias để đảm bảo tra cứu luôn thành công
-                imageCache[`HINHANHGOC_${imgNum}`] = cachedObj;
-                imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC_${imgNum}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC${imgNum}`] = cachedObj;
-                imageCache[`HINH_ANH_${imgNum}`] = cachedObj;
-                imageCache[`HINHANH_${imgNum}`] = cachedObj;
-                imageCache[`HINHANH${imgNum}`] = cachedObj;
-                imageCache[`IMG${imgNum}`] = cachedObj;
-                imageCache[`IMG_${imgNum}`] = cachedObj;
-                imageCache[`IMAGE_${imgNum}`] = cachedObj;
-                imageCache[`IMAGE${imgNum}`] = cachedObj;
-                imageCache[`${imgNum}`] = cachedObj;
-                imageCache[item.name.replace('word/media/', '')] = cachedObj;
+        // 2. Trích xuất media từ thư mục word/media/ của tệp zip, LOẠI BỎ TRIỆT ĐỂ ẢNH CÔNG THỨC TOÁN
+        const zip = await JSZip.loadAsync(arrayBuffer.slice(0));
+        const mediaFiles = zip.file(/^word\/media\//);
+        const zipImages: { name: string; dataUrl: string; width: number; height: number }[] = [];
+        
+        for (const mFile of mediaFiles) {
+            const mName = mFile.name.split('/').pop() || '';
+            const mExt = mName.split('.').pop()?.toLowerCase();
+            
+            // BỎ QUA 100% các tệp WMF, EMF (đây là ảnh snapshot của MathType / vector OLE, không phải ảnh học liệu)
+            if (mExt === 'wmf' || mExt === 'emf') {
+                continue;
             }
-        } catch (zipErr) {
-            console.warn("Lỗi trích xuất media trực tiếp từ zip:", zipErr);
+
+            // BỎ QUA nếu file nằm trong danh sách ảnh MathType OLE đã xác định
+            if (mathMediaFiles.has(mName) || mathMediaFiles.has(mFile.name)) {
+                continue;
+            }
+
+            // Chỉ chấp nhận các định dạng ảnh chụp/tranh vẽ học liệu thực sự
+            if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp'].includes(mExt || '')) {
+                const mime = mExt === 'png' ? 'image/png' : (mExt === 'gif' ? 'image/gif' : (mExt === 'webp' ? 'image/webp' : 'image/jpeg'));
+                const b64 = await mFile.async("base64");
+                const dataUrl = `data:${mime};base64,${b64}`;
+                zipImages.push({ name: mName, dataUrl, width: 260, height: 180 });
+            }
         }
 
-        // 2. Chuyển đổi DOCX sang HTML với Mammoth và bắt toàn bộ thẻ <img>
-        const processedBuffer = await preprocessDOCXMath(arrayBuffer);
+        // 3. Chuyển đổi DOCX sang HTML với Mammoth
         const mammothOptions = {
             convertImage: (mammoth as any).images ? (mammoth as any).images.imgElement(function(element: any) {
                 return element.read("base64").then(function(imageBuffer: string) {
@@ -780,36 +975,22 @@ const ContentInput: React.FC<ContentInputProps> = ({
 
         const result = await mammoth.convertToHtml({ arrayBuffer: processedBuffer }, mammothOptions);
         let html = result.value || "";
-        
-        const replacements: { match: string; replacement: string; dataUrl: string; crop?: string }[] = [];
-        // Regex bắt mọi biến thể của thẻ img (dấu nháy đơn, kép, khoảng trắng)
-        const imgRegex = /<img[^>]*?src=["'](data:image\/[^"']+)["'][^>]*?>/gi;
-        let counter = 0;
-        let match;
-        
-        while ((match = imgRegex.exec(html)) !== null) {
-            counter++;
-            const fullTag = match[0];
-            const dataUrl = match[1];
-            
-            let crop: string | undefined = undefined;
-            const altMatch = fullTag.match(/alt=["']([^"']*)["']/i);
-            if (altMatch && altMatch[1]) {
-                const altText = altMatch[1];
-                const cropMatch = altText.match(/CROP:([0-9.,]+)/);
-                if (cropMatch) {
-                    crop = cropMatch[1];
-                }
-            }
-            
-            const replacement = `[HINHANHGOC_${counter}]`;
-            replacements.push({ match: fullTag, replacement, dataUrl, crop });
+
+        const rawImgRegex = /<img[^>]*?src=["'](data:image\/[^"']+)["'][^>]*?>/gi;
+        const imgMatches: { fullTag: string; dataUrl: string }[] = [];
+        let mMatch;
+        while ((mMatch = rawImgRegex.exec(html)) !== null) {
+            const fullTag = mMatch[0];
+            const dataUrl = mMatch[1];
+            imgMatches.push({ fullTag, dataUrl });
         }
-        
-        for (const rep of replacements) {
-            html = html.replace(rep.match, `\n\n${rep.replacement}\n\n`);
-            
+
+        let realImageCounter = 0;
+        let mathFormulaCounter = 0;
+
+        for (const rep of imgMatches) {
             if (!rep.dataUrl || typeof rep.dataUrl !== 'string' || rep.dataUrl.trim() === '') {
+                html = html.replace(rep.fullTag, '');
                 continue;
             }
 
@@ -820,64 +1001,206 @@ const ContentInput: React.FC<ContentInputProps> = ({
                     img.onload = resolve;
                     img.onerror = resolve;
                 });
-                
-                let originalWidth = img.naturalWidth || 250;
-                let originalHeight = img.naturalHeight || 180;
-                let finalDataUrl = rep.dataUrl;
 
-                if (rep.crop) {
-                    const [cl, ct, cr, cb] = rep.crop.split(',').map(Number);
-                    const cropBox = {
-                        x: cl * originalWidth,
-                        y: ct * originalHeight,
-                        w: originalWidth - (cl + cr) * originalWidth,
-                        h: originalHeight - (ct + cb) * originalHeight
-                    };
-                    
-                    const canvas = document.createElement('canvas');
-                    canvas.width = cropBox.w;
-                    canvas.height = cropBox.h;
-                    const ctx = canvas.getContext('2d');
-                    if (ctx && cropBox.w > 0 && cropBox.h > 0) {
-                        ctx.drawImage(img, cropBox.x, cropBox.y, cropBox.w, cropBox.h, 0, 0, cropBox.w, cropBox.h);
-                        finalDataUrl = canvas.toDataURL('image/png');
-                        originalWidth = cropBox.w;
-                        originalHeight = cropBox.h;
+                const originalWidth = img.naturalWidth || 0;
+                const originalHeight = img.naturalHeight || 0;
+
+                // 🚨 BỘ LỌC CÔNG THỨC TOÁN & ICON RÁC:
+                // Các ảnh chụp phân số / công thức MathType thường có chiều cao <= 95px hoặc kích thước nhỏ
+                const isSmallFormulaOrIcon = 
+                  (originalHeight > 0 && originalHeight <= 95 && originalWidth <= 650) || 
+                  (originalWidth > 0 && originalHeight > 0 && originalWidth < 70 && originalHeight < 70);
+
+                if (isSmallFormulaOrIcon) {
+                    // Nếu là công thức toán học, lưu với isMathFormula=true để Gemini Vision OCR chuyển sang LaTeX thuần túy
+                    if (originalHeight >= 16 && originalWidth >= 16) {
+                        mathFormulaCounter++;
+                        const mathId = `CONG_THUC_TOAN_${mathFormulaCounter}`;
+                        const mathObj = {
+                            id: mathId,
+                            dataUrl: rep.dataUrl,
+                            width: originalWidth,
+                            height: originalHeight,
+                            isMathFormula: true,
+                            originalWidth,
+                            originalHeight
+                        };
+                        imageCache[mathId] = mathObj;
+                        if (typeof window !== 'undefined' && window.__globalImageCache) {
+                            window.__globalImageCache[mathId] = mathObj;
+                        }
+                        html = html.replace(rep.fullTag, ` [${mathId}] `);
+                    } else {
+                        html = html.replace(rep.fullTag, ' ');
+                    }
+                    continue;
+                }
+
+                // Kiểm tra thêm: Nếu ảnh đơn sắc (chữ đen trên nền trắng/trong suốt) và chiều cao <= 110px thì đó là công thức toán MathType!
+                let isMonochromeFormula = false;
+                if (originalHeight > 0 && originalHeight <= 110 && originalWidth > 0 && typeof document !== 'undefined') {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.min(originalWidth, 50);
+                        canvas.height = Math.min(originalHeight, 50);
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                            let hasColor = false;
+                            for (let i = 0; i < imgData.length; i += 16) {
+                                const r = imgData[i];
+                                const g = imgData[i + 1];
+                                const b = imgData[i + 2];
+                                const a = imgData[i + 3];
+                                if (a > 30 && (Math.abs(r - g) > 20 || Math.abs(g - b) > 20 || Math.abs(r - b) > 20)) {
+                                    hasColor = true;
+                                    break;
+                                }
+                            }
+                            if (!hasColor) {
+                                isMonochromeFormula = true;
+                            }
+                        }
+                    } catch (e) {
+                        // ignore canvas error
                     }
                 }
-                
-                const targetWidth = 250;
-                let width = targetWidth;
-                let height = originalHeight * (targetWidth / originalWidth);
-                if (isNaN(height) || height <= 0) height = 180;
-                
-                const cleanId = rep.replacement.substring(1, rep.replacement.length - 1);
+
+                if (isMonochromeFormula) {
+                    mathFormulaCounter++;
+                    const mathId = `CONG_THUC_TOAN_${mathFormulaCounter}`;
+                    const mathObj = {
+                        id: mathId,
+                        dataUrl: rep.dataUrl,
+                        width: originalWidth,
+                        height: originalHeight,
+                        isMathFormula: true,
+                        originalWidth,
+                        originalHeight
+                    };
+                    imageCache[mathId] = mathObj;
+                    if (typeof window !== 'undefined' && window.__globalImageCache) {
+                        window.__globalImageCache[mathId] = mathObj;
+                    }
+                    html = html.replace(rep.fullTag, ` [${mathId}] `);
+                    continue;
+                }
+
+                // ĐÂY LÀ HÌNH ẢNH HỌC LIỆU THỰC SỰ (Tranh vẽ SGK, Khinh khí cầu, Hình học phẳng/không gian, Đồ thị, Thí nghiệm...)
+                realImageCounter++;
+                const cleanId = `HINHANHGOC_${realImageCounter}`;
+                const replacementTag = `[${cleanId}]`;
+
+                let finalDataUrl = rep.dataUrl;
+                let targetW = originalWidth || 260;
+                let targetH = originalHeight || 180;
+
+                const maxRenderWidth = 260;
+                let renderWidth = maxRenderWidth;
+                let renderHeight = targetH * (maxRenderWidth / (targetW || 1));
+                if (isNaN(renderHeight) || renderHeight <= 0) renderHeight = 180;
+
                 const cachedObj = {
                     id: cleanId,
                     dataUrl: finalDataUrl,
-                    width,
-                    height
+                    width: renderWidth,
+                    height: renderHeight,
+                    isMathFormula: false,
+                    originalWidth: targetW,
+                    originalHeight: targetH
                 };
-                
-                // Đăng ký nhiều alias để đảm bảo tra cứu luôn thành công
+
                 imageCache[cleanId] = cachedObj;
-                imageCache[`HINHANHGOC_${counter}`] = cachedObj;
-                imageCache[`HINHANHGOC${counter}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC_${counter}`] = cachedObj;
-                imageCache[`HINH_ANH_GOC${counter}`] = cachedObj;
-                imageCache[`IMG${counter}`] = cachedObj;
-                imageCache[`IMG_${counter}`] = cachedObj;
-                imageCache[`HINH_ANH_${counter}`] = cachedObj;
-                imageCache[`HINHANH_${counter}`] = cachedObj;
-                imageCache[`HINHANH${counter}`] = cachedObj;
-                imageCache[`IMAGE_${counter}`] = cachedObj;
-                imageCache[`IMAGE${counter}`] = cachedObj;
-                imageCache[`${counter}`] = cachedObj;
+                imageCache[`HINHANHGOC${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_ANH_GOC_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_ANH_GOC${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_VE_GOC_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_VE_GOC${realImageCounter}`] = cachedObj;
+                imageCache[`HÌNH_VẼ_GỐC_${realImageCounter}`] = cachedObj;
+                imageCache[`HÌNH_VẼ_GỐC${realImageCounter}`] = cachedObj;
+                imageCache[`HÌNH VẼ GỐC ${realImageCounter}`] = cachedObj;
+                imageCache[`HÌNH_ẢNH_GỐC_${realImageCounter}`] = cachedObj;
+                imageCache[`HÌNH_ẢNH_GỐC${realImageCounter}`] = cachedObj;
+                imageCache[`HÌNH ẢNH GỐC ${realImageCounter}`] = cachedObj;
+                imageCache[`IMG${realImageCounter}`] = cachedObj;
+                imageCache[`IMG_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH_${realImageCounter}`] = cachedObj;
+                imageCache[`HINH${realImageCounter}`] = cachedObj;
+                imageCache[`${realImageCounter}`] = cachedObj;
+
+                if (typeof window !== 'undefined') {
+                    window.__globalImageCache = window.__globalImageCache || {};
+                    window.__globalImageCache[cleanId] = cachedObj;
+                    window.__globalImageCache[`HINHANHGOC_${realImageCounter}`] = cachedObj;
+                    window.__globalImageCache[`HÌNH VẼ GỐC ${realImageCounter}`] = cachedObj;
+                    window.__globalImageCache[`${realImageCounter}`] = cachedObj;
+                }
+
+                html = html.replace(rep.fullTag, `\n\n${replacementTag}\n\n`);
             } catch(e) {
-                console.log("Error caching image", e);
+                console.warn("Lỗi xử lý hình ảnh:", e);
+                html = html.replace(rep.fullTag, '');
             }
         }
-        
+
+        // Bổ sung: Nếu Mammoth không nhận diện được thẻ <img> trong HTML nhưng trong zip có ảnh học liệu thật sự
+        if (realImageCounter === 0 && zipImages.length > 0) {
+            let foundRealIllustration = false;
+            for (let i = 0; i < zipImages.length; i++) {
+                const zImg = zipImages[i];
+                let isFormula = false;
+                try {
+                    const img = new Image();
+                    img.src = zImg.dataUrl;
+                    await new Promise(r => { img.onload = r; img.onerror = r; });
+                    const natW = img.naturalWidth || 0;
+                    const natH = img.naturalHeight || 0;
+                    if (natH > 0 && natH <= 95 && natW <= 650) {
+                        isFormula = true;
+                    }
+                } catch {
+                    // ignore
+                }
+
+                if (isFormula) {
+                    mathFormulaCounter++;
+                    const mathId = `CONG_THUC_TOAN_${mathFormulaCounter}`;
+                    imageCache[mathId] = {
+                        id: mathId,
+                        dataUrl: zImg.dataUrl,
+                        width: 200,
+                        height: 60,
+                        isMathFormula: true
+                    };
+                    continue;
+                }
+
+                foundRealIllustration = true;
+                const imgNum = i + 1;
+                const cleanId = `HINHANHGOC_${imgNum}`;
+                const cachedObj = {
+                    id: cleanId,
+                    dataUrl: zImg.dataUrl,
+                    width: 260,
+                    height: 180,
+                    isMathFormula: false
+                };
+                imageCache[cleanId] = cachedObj;
+                imageCache[`HINHANHGOC${imgNum}`] = cachedObj;
+                imageCache[`HINH_ANH_GOC_${imgNum}`] = cachedObj;
+                imageCache[`IMG${imgNum}`] = cachedObj;
+                if (typeof window !== 'undefined') {
+                    window.__globalImageCache = window.__globalImageCache || {};
+                    window.__globalImageCache[cleanId] = cachedObj;
+                    window.__globalImageCache[`HINHANHGOC_${imgNum}`] = cachedObj;
+                }
+            }
+            if (foundRealIllustration) {
+                html += `\n\n[HINHANHGOC_1]\n\n`;
+            }
+        }
+
         return html;
     } catch (e) {
         console.error("Mammoth error", e);
@@ -911,7 +1234,33 @@ const ContentInput: React.FC<ContentInputProps> = ({
       let text = "";
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
-      if (file.type === "application/pdf" || ext === "pdf") {
+      if (file.type.startsWith("image/") || ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'].includes(ext)) {
+        // Hỗ trợ tải trực tiếp tệp ảnh gốc
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const cachedObj = {
+          id: 'HINHANHGOC_1',
+          dataUrl: b64,
+          width: 260,
+          height: 180,
+          isMathFormula: false
+        };
+        imageCache['HINHANHGOC_1'] = cachedObj;
+        imageCache['HINHANHGOC1'] = cachedObj;
+        imageCache['HINH_ANH_GOC_1'] = cachedObj;
+        imageCache['HINH_ANH_GOC1'] = cachedObj;
+        imageCache['HINH_VE_GOC_1'] = cachedObj;
+        imageCache['IMG1'] = cachedObj;
+        imageCache['1'] = cachedObj;
+        if (typeof window !== 'undefined' && window.__globalImageCache) {
+          window.__globalImageCache['HINHANHGOC_1'] = cachedObj;
+          window.__globalImageCache['1'] = cachedObj;
+        }
+        text = `[HINHANHGOC_1]\n\n(Hình ảnh học liệu gốc: ${file.name})`;
+      } else if (file.type === "application/pdf" || ext === "pdf") {
         text = await extractTextFromPDF(arrayBuffer);
       } else if (
         file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || 

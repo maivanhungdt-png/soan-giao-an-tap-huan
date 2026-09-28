@@ -30,10 +30,11 @@ import {
   ImageRun
 } from 'docx';
 import FileSaver from 'file-saver';
-import { imageCache } from '../services/imageCache';
+import { imageCache, lookupCachedImage } from '../services/imageCache';
 import { EducationalImageRenderer } from './EducationalImageRenderer';
 import { detectDiagramType, generateEducationalDiagramSvg, convertSvgToPngDataUrl } from '../utils/diagramGenerator';
-import { ensureAllActivitiesInTwoColumnTable } from '../utils/tableFormatter';
+import { ensureAllActivitiesInTwoColumnTable, moveImagesFromToChucToSanPham } from '../utils/tableFormatter';
+import { repairRacToFrac, autoConvertPlainTextToLatex, convertMathImageTagsToLatex, ensureFormulasAreProperLatex } from '../utils/mathFormatter';
 
 interface ResultDisplayProps {
   result: string | null;
@@ -58,8 +59,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const cleanResultText = (text: string, format: 'table' | 'no_table' = 'table'): string => {
     if (!text) return "";
     
+    // Đảm bảo toàn bộ công thức toán học là chuỗi LaTeX chuẩn
+    let clean = ensureFormulasAreProperLatex(text);
+
     // Đảm bảo tất cả hoạt động (đặc biệt Luyện tập và Vận dụng) đều nằm trong bảng 2 cột
-    let clean = text;
     if (format !== 'no_table') {
       clean = ensureAllActivitiesInTwoColumnTable(clean);
     }
@@ -76,8 +79,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 2. Remove HTML Anchors (Bookmarks artifacts from Word conversion) e.g., <a id="_Hlk147258080"></a>
     clean = clean.replace(/<a\s+id="[^"]*"><\/a>/gi, "");
     
-    // 3. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
-    clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[\s\S]*?(?=\n[ \t]*\||\n[ \t]*<table)/gi, '');
+    // 3. Remove stray empty heading lines
     if (format !== 'no_table') {
       clean = clean.replace(/(?:\n|^)[ \t]*[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*(?=\n)/gi, '');
     }
@@ -178,8 +180,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     // 8. Auto wrap uncolored integration lines with red span
     clean = clean.replace(/(?<!<span[^>]*>)(^\s*[\-\*•]?\s*\*Tích hợp[^\n<]+)/gm, '<span style="color: red;">$1</span>');
 
-    // 9. Normalize 2-column markdown table header lines to standard "Tổ chức thực hiện" & "Sản phẩm"
-    clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm)\s*\|/gi, '| Tổ chức thực hiện | Sản phẩm |');
+    if (format !== 'no_table') {
+      // 9. Đối với giáo án 2 cột: Bỏ hoàn toàn 2 mục "c) Sản phẩm" và "d) Tổ chức thực hiện" (hoặc "c) Tổ chức thực hiện") ở phía trên bảng
+      clean = clean.replace(/(?:\n|^)[ \t]*(?:\*\*)?[cd]\s*[\)\.:\-][ \t]*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình\s*hoạt\s*động)[ \t]*:?[ \t]*[^\n|]*(?=\n|$)/gi, '');
+      
+      // Chuẩn hóa tiêu đề bảng 2 cột: Cột 1 là "Tổ chức thực hiện" và Cột 2 là "Sản phẩm"
+      clean = clean.replace(/\|\s*(?:Hoạt\s*động\s*của\s*GV\s*và\s*HS\s*(?:\([^)]*\))?|Hoạt\s*động\s*của\s*giáo\s*viên\s*và\s*học\s*sinh|Tổ\s*chức\s*thực\s*hiện|Tổ\s*chức\s*hoạt\s*động)\s*\|\s*(?:Sản\s*phẩm\s*dự\s*kiến|Sản\s*phẩm\s*học\s*tập|Sản\s*phẩm|Kết\s*quả\s*hoạt\s*động|Kết\s*quả)\s*\|/gi, '| Tổ chức thực hiện | Sản phẩm |');
+
+      // Chuyển toàn bộ các bức tranh, hình vẽ học liệu từ Cột 1 (Tổ chức thực hiện) sang Cột 2 (Sản phẩm)
+      clean = moveImagesFromToChucToSanPham(clean);
+    } else {
+      // Dành riêng cho giáo án không kẻ bảng: Đảm bảo có đủ 4 mục a, b, c, d
+      clean = clean.replace(/((?:^|\n)[ \t]*(?:\*\*)?c\)\s*Sản\s*phẩm:?[^\n]*\n+)(?![ \t]*(?:\*\*)?d\)\s*Tổ\s*chức\s*thực\s*hiện)([ \t]*[^\n]+)/gi, '$1\n**d) Tổ chức thực hiện:**\n\n$2');
+    }
+
 
     // 10. Replace "IV. HƯỚNG DẪN TỰ HỌC VÀ DẶN DÒ VỀ NHÀ" and variants with "* Hướng dẫn về nhà"
     clean = clean.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:(?:IV|4|IV\.|4\.)\s*)?(?:HƯỚNG\s*DẪN\s*TỰ\s*HỌC\s*VÀ\s*DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*TỰ\s*HỌC|HƯỚNG\s*DẪN\s*VỀ\s*NHÀ|DẶN\s*DÒ\s*VỀ\s*NHÀ|HƯỚNG\s*DẪN\s*HỌC\s*Ở\s*NHÀ|Hướng\s*dẫn\s*tự\s*học\s*và\s*dặn\s*dò\s*về\s*nhà|Hướng\s*dẫn\s*tự\s*học)[^\n]*/gi, '\n\n* Hướng dẫn về nhà');
@@ -219,8 +233,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     clean = clean.replace(/^(?:\*\*)?([a-d]\)\s*(?:Mục\s*tiêu|Nội\s*dung|Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện):?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
     clean = clean.replace(/^(?:\*\*)?([a-c]\)\s*Năng\s*lực[^\n:]*:?)(?:\*\*)?/gmi, (m, p1) => `**${p1.endsWith(':') ? p1 : p1 + ':'}**`);
 
-    // Xóa các dòng tiêu đề thừa như "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" nếu đứng ngay trước bảng 2 cột
-    clean = clean.replace(/^(?:\*\*)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Sản\s*phẩm):?(?:\*\*)?\s*(?=\n+\s*\|)/gmi, '');
 
     // 17. Auto bold Bước 1, Bước 2, Bước 3, Bước 4 inside or outside tables
     clean = clean.replace(/^(?:\*\*)?(Bước\s*[1-4]\s*:[^\n]*?)(?:\*\*)?$/gmi, '**$1**');
@@ -257,75 +269,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
     }
     const joinedClean = lines.join('\n').trim();
-    return autoConvertPlainTextToLatex(joinedClean);
-  };
-
-  // Helper: Tự động phát hiện và chuyển đổi các biểu thức toán học / phân số / bất đẳng thức dạng text thô sang chuẩn LaTeX $...$
-  const autoConvertPlainTextToLatex = (text: string): string => {
-    if (!text) return "";
-
-    const lines = text.split('\n');
-
-    const processedLines = lines.map(line => {
-      if (!line.trim()) return line;
-
-      // Helper: Áp dụng biến đổi an toàn chỉ trên các phân đoạn text CHƯA PHẢI là LaTeX
-      const transformNonLatex = (str: string, fn: (t: string) => string): string => {
-        const tokens = str.split(/(\$\$[\s\S]*?\$\$|\$[^\$\n\r]+?\$|<[^>]+>|\[(?:HINHANHGOC|IMG|CÔNG_THỨC)[^\]]*\])/g);
-        return tokens.map((tok, idx) => (idx % 2 === 1 ? tok : fn(tok))).join('');
-      };
-
-      let cur = line;
-
-      // Bước 1: Chuẩn hóa khoảng trắng trong các lệnh LaTeX cơ bản: "\frac {2022} {2023}" -> "\frac{2022}{2023}"
-      cur = cur.replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, '\\frac{$1}{$2}');
-      cur = cur.replace(/\\sqrt\s*\{([^}]+)\}/g, '\\sqrt{$1}');
-
-      // Bước 2: Tự động bọc biểu thức toán / hệ thức so sánh / bất đẳng thức có chứa \frac, \le, \ge, phân số hoặc phép tính
-      // ví dụ: "-\frac{2022}{2023} > -1", "-1 > -1,1", "a \le 50", "b \le 50", "2024/1000=2+24/1000>1,9"
-      cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))((?:-?\\frac\{[^}]+\}\{[^}]+\}|-?\d+\/\d+|-?\d+(?:,\d+)?|[a-zA-Z][0-9_]*)\s*(?:<=|>=|!=|==|≤|≥|≠|<|>|=|\+|-|\\le|\\ge|\\neq|\\approx)\s*(?:-?\\frac\{[^}]+\}\{[^}]+\}|-?\d+\/\d+|-?\d+(?:,\d+)?|[a-zA-Z0-9_]+)(?:\s*(?:<=|>=|!=|==|≤|≥|≠|<|>|=|\+|-|\\le|\\ge|\\neq|\\approx)\s*(?:-?\\frac\{[^}]+\}\{[^}]+\}|-?\d+\/\d+|-?\d+(?:,\d+)?|[a-zA-Z0-9_]+))*)(?=$|[\s),.:;!?])/g, (match) => {
-          // Bỏ qua định dạng ngày tháng như 20/11/2024
-          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(match.trim())) return match;
-          let mathStr = match.trim();
-          // Chuyển dấu gạch chéo phân số thô sang \frac
-          mathStr = mathStr.replace(/-(\d+)\/(\d+)/g, '-\\frac{$1}{$2}');
-          mathStr = mathStr.replace(/(\d+)\/(\d+)/g, '\\frac{$1}{$2}');
-          mathStr = mathStr.replace(/<=|≤/g, ' \\le ');
-          mathStr = mathStr.replace(/>=|≥/g, ' \\ge ');
-          mathStr = mathStr.replace(/!=|≠/g, ' \\neq ');
-          mathStr = mathStr.replace(/≈/g, ' \\approx ');
-          mathStr = mathStr.replace(/\s+/g, ' ').trim();
-          return `$${mathStr}$`;
-        });
-      });
-
-      // Bước 3: Tự động bọc \frac{...}{...} hoặc \sqrt{...} đơn lẻ chưa được bọc $...$
-      cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(-?\\(?:frac\{[^}]+\}\{[^}]+\}|sqrt\{[^}]+\}))(?=$|[\s),.:;!?])/g, '$$$1$');
-      });
-
-      // Bước 4: Tự động bọc phân số đơn lẻ dạng text thô: "1/2", "-3/4"
-      cur = transformNonLatex(cur, (t) => {
-        return t.replace(/(?:^|(?<=[\s(]))(-?\d+)\/(\d+)(?=$|[\s),.:;!?])/g, (match, num, den) => {
-          const isNegative = num.startsWith('-');
-          const absNum = isNegative ? num.slice(1) : num;
-          return isNegative ? `$-\\frac{${absNum}}{${den}}$` : `$\\frac{${num}}{${den}}$`;
-        });
-      });
-
-      // Bước 5: Tự động bọc các ký tự toán học Unicode đơn lẻ còn sót lại
-      cur = transformNonLatex(cur, (t) => {
-        return t.replace(/≤/g, '$\\le$')
-                .replace(/≥/g, '$\\ge$')
-                .replace(/≠/g, '$\\neq$')
-                .replace(/±/g, '$\\pm$');
-      });
-
-      return cur;
-    });
-
-    return processedLines.join('\n');
+    return ensureFormulasAreProperLatex(joinedClean);
   };
 
   const safeResult = result ? cleanResultText(result, layoutFormat) : null;
@@ -333,9 +277,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   // Helper: Convert base64 to buffer for docx safely
   const base64DataURLToArrayBuffer = (dataURL: string): Uint8Array => {
     try {
-      const parts = dataURL.split(',');
-      const base64 = parts.length > 1 ? parts[1] : parts[0];
-      const cleanBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, '');
+      if (!dataURL || typeof dataURL !== 'string') return new Uint8Array(0);
+      const commaIndex = dataURL.indexOf(',');
+      const base64 = commaIndex >= 0 ? dataURL.substring(commaIndex + 1) : dataURL;
+      const cleanBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, '').trim();
+      if (!cleanBase64) return new Uint8Array(0);
       const binary_string = window.atob(cleanBase64);
       const len = binary_string.length;
       const bytes = new Uint8Array(len);
@@ -347,77 +293,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       console.error("Error decoding base64DataURLToArrayBuffer:", err);
       return new Uint8Array(0);
     }
-  };
-
-  // Helper: Lookup image in cache with multiple robust fallbacks
-  const lookupCachedImage = (tagOrId: string) => {
-      if (!tagOrId) return null;
-      if (tagOrId.startsWith('data:image/') || tagOrId.startsWith('blob:') || tagOrId.startsWith('http://') || tagOrId.startsWith('https://')) {
-          return { id: 'inline', dataUrl: tagOrId, width: 250, height: 180 };
-      }
-
-      const clean = tagOrId.replace(/^[*_~`#\s]+|[*_~`#\s]+$/g, '');
-      const rawId = clean.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
-      
-      if (imageCache[rawId]) return imageCache[rawId];
-      if (imageCache[clean]) return imageCache[clean];
-
-      const normalizedKey = rawId.replace(/[\s\-]+/g, '_').toUpperCase();
-      if (imageCache[normalizedKey]) return imageCache[normalizedKey];
-
-      // Match number anywhere in string
-      const numMatch = rawId.match(/\d+/);
-      if (numMatch) {
-          const num = numMatch[0];
-          const numIdx = parseInt(num, 10);
-          const candidates = [
-              `HINHANHGOC_${num}`,
-              `HINHANHGOC${num}`,
-              `HINH_ANH_GOC_${num}`,
-              `HINH_ANH_GOC${num}`,
-              `HINH_ANH_${num}`,
-              `HINHANH_${num}`,
-              `HINHANH${num}`,
-              `IMG${num}`,
-              `IMG_${num}`,
-              `IMAGE_${num}`,
-              `IMAGE${num}`,
-              `SGK_${num}`,
-              `SGK${num}`,
-              `HINH_${num}`,
-              `HINH${num}`,
-              num,
-              `image${num}.png`,
-              `image${num}.jpeg`,
-              `image${num}.jpg`,
-              `image${num}.gif`,
-              `image${num}.svg`,
-              `image${num}.webp`,
-              `image${num}`
-          ];
-          for (const key of candidates) {
-              if (imageCache[key]) return imageCache[key];
-          }
-
-          // Fallback by sequential order in cache
-          const uniqueDataUrls: { [url: string]: any } = {};
-          Object.keys(imageCache).forEach(k => {
-              if (imageCache[k]?.dataUrl) {
-                  uniqueDataUrls[imageCache[k].dataUrl] = imageCache[k];
-              }
-          });
-          const uniqueList = Object.values(uniqueDataUrls);
-          if (numIdx > 0 && numIdx <= uniqueList.length) {
-              return uniqueList[numIdx - 1];
-          }
-      }
-
-      // If there's any image in cache, return first image as fallback
-      const allEntries = Object.values(imageCache);
-      if (allEntries.length > 0) {
-          return allEntries[0];
-      }
-      return null;
   };
 
   // Helper: Format raw text segments into Docx TextRuns
@@ -434,27 +309,47 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
               parts.forEach(part => {
                  if (!part) return;
                  
-                 const isImgTag = (part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh|So\s*do)/i.test(part)) ||
+                 let isImgTag = (part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh|So\s*do)/i.test(part)) ||
                                   (part.startsWith('![') && part.includes(')'));
 
+                 // Tuyệt đối không coi công thức toán học, phân số, MathType là thẻ ảnh
+                 if (/MATH|CÔNG_THỨC|PHÂN_SỐ|\d+\/\d+|\$|\\frac/i.test(part)) {
+                     isImgTag = false;
+                 }
+
                  if (isImgTag) {
-                     const rawId = part.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
+                     const cleanPart = part.replace(/^[*_~`#\s]+|[*_~`#\s:.\-]+$/g, '');
+                     const rawId = cleanPart.replace(/^!\[|^\[|\]$|\)$/g, '').trim();
                      console.log("[DOCX Render] Trying to embed image tag:", rawId);
                      
-                     const cachedImg = lookupCachedImage(part);
-                     const numMatch = part.match(/\d+/);
+                     const numMatch = cleanPart.match(/\d+/);
                      const num = numMatch ? numMatch[0] : '1';
+                     const cachedImg = lookupCachedImage(cleanPart) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
 
-                     if (cachedImg) {
+                     if (cachedImg?.isMathFormula || cachedImg?.latex || (cachedImg?.originalHeight && cachedImg.originalHeight <= 95 && (cachedImg.originalWidth || 0) <= 650) || /CONG_THUC|MATH/i.test(cleanPart)) {
+                          const formulaText = cachedImg?.latex || "";
+                          if (formulaText) {
+                              segRuns.push(new TextRun({ text: ` ${formulaText} `, font: "Times New Roman", size: styles.size || 28 }));
+                          }
+                          return;
+                     }
+
+                     if (cachedImg && cachedImg.dataUrl) {
                           try {
                               console.log("[DOCX Render] Success embed image:", rawId);
                               const buffer = base64DataURLToArrayBuffer(cachedImg.dataUrl);
                               if (buffer && buffer.length > 0) {
+                                  let renderW = Math.round(cachedImg.width || 250);
+                                  let renderH = Math.round(cachedImg.height || 180);
+                                  if (renderW > 260) {
+                                      renderH = Math.round(renderH * (260 / renderW));
+                                      renderW = 260;
+                                  }
                                   segRuns.push(new ImageRun({
                                       data: buffer,
                                       transformation: {
-                                          width: Math.min(cachedImg.width || 250, 320),
-                                          height: Math.min(cachedImg.height || 180, 240),
+                                          width: Math.min(Math.max(renderW, 60), 260),
+                                          height: Math.min(Math.max(renderH, 50), 240),
                                       }
                                   }) as any);
                               } else {
@@ -475,6 +370,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                          .replace(/&#39;/g, "'");
 
                      unescapedSeg = unescapedSeg.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]/g, '');
+                     unescapedSeg = repairRacToFrac(unescapedSeg);
 
                      // Use inherited color if available
                      const runOptions: any = {
@@ -504,7 +400,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
   const parseTextWithFormatting = (text: string, inheritedStyles: any = {}): any[] => {
     const runs: any[] = [];
     // Prioritize Image tags and HTML tags OVER markdown to prevent `_` or `*` from breaking image tags or tag pairs.
-    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)[_\s0-9*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<span\s+[^>]*style="[^"]*color:\s*blue;?"[^>]*>[\s\S]*?<\/span>|<font\s+[^>]*color="blue"[^>]*>[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_)/gi;
+    const regex = /(\[[\s\S]*?(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]|!\[[^\]]*\]\([^)]+\)|\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|<span\s+[^>]*style="[^"]*color:\s*(?:red|#ff0000|#f00|#FF0000)[^"]*"[^>]*>[\s\S]*?<\/span>|<span\s+style="color:\s*red;?">[\s\S]*?<\/span>|<font\s+[^>]*color="?(?:red|#ff0000|#f00|#FF0000)"?[^>]*>[\s\S]*?<\/font>|<font\s+color="red">[\s\S]*?<\/font>|<span\s+[^>]*style="[^"]*color:\s*blue;?"[^>]*>[\s\S]*?<\/span>|<font\s+[^>]*color="blue"[^>]*>[\s\S]*?<\/font>|<sub\s*>[\s\S]*?<\/sub\s*>|<sup\s*>[\s\S]*?<\/sup\s*>|\*\*[\s\S]*?\*\*|\*[\s\S]*?\*|_[\s\S]*?_)/gi;
     const parts = text.split(regex);
 
     parts.forEach(part => {
@@ -527,7 +423,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         }
 
         // 1. If it is an image tag, render it directly as an image without breaking into italics
-        if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH|HÌNH_VẼ|HÌNH|HINH)/i.test(part)) ||
+        if ((part.startsWith('[') && part.endsWith(']') && /(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|IMG|IMAGE|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|Hình|Ảnh|Sơ\s*đồ|Hinh|Anh)/i.test(part)) ||
             (part.startsWith('![') && part.includes(')'))) {
             runs.push(...createTextRuns(part, matchStyles));
             return;
@@ -791,53 +687,98 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         );
 
         if (isActivityTable) {
-            const rows = parsedRows.map((cells, rowIndex) => {
-                const isHeaderRow = rowIndex === 0;
-                let col0Text = '';
-                let col1Text = '';
+            // Chuẩn hóa bảng 2 cột:
+            // HÀNG 1: Tiêu đề "Tổ chức thực hiện" | "Sản phẩm"
+            // HÀNG 2: Gộp toàn bộ các bước 1, 2, 3, 4 vào 1 ô duy nhất ở Cột 1; Toàn bộ kết quả ở Cột 2
+            
+            const headerRow = new TableRow({
+                children: [
+                    new TableCell({
+                        children: parseDocxCellContent("Tổ chức thực hiện", { bold: true }, true) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                    new TableCell({
+                        children: parseDocxCellContent("Sản phẩm", { bold: true }, true) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                ]
+            });
 
-                if (isHeaderRow) {
-                    col0Text = "Tổ chức thực hiện";
-                    col1Text = "Sản phẩm";
-                } else {
-                    col0Text = (cells[0] || '').trim();
-                    col1Text = reconstructCellWithSubTables(cells.slice(1));
-                }
+            // Gộp tất cả các hàng dữ liệu thành 1 hàng duy nhất
+            const dataRows = parsedRows.slice(1);
+            let combinedCol0Parts: string[] = [];
+            let combinedCol1Parts: string[] = [];
 
-                col0Text = col0Text.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
-                col1Text = col1Text.replace(/^\\\*\s*/, "").replace(/^\\\s+/, "");
+            dataRows.forEach(cells => {
+                const c0 = (cells[0] || '').trim();
+                const c1 = reconstructCellWithSubTables(cells.slice(1)).trim();
+                if (c0) combinedCol0Parts.push(c0);
+                if (c1) combinedCol1Parts.push(c1);
+            });
 
-                const baseStyles = isHeaderRow ? { bold: true } : {};
+            let col0Text = combinedCol0Parts.join('<br>');
+            let col1Text = combinedCol1Parts.join('<br>');
 
-                const cell0 = new TableCell({
-                    children: parseDocxCellContent(col0Text, baseStyles, isHeaderRow) as any,
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: {
-                        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    },
-                });
+            // Trích xuất toàn bộ tranh ảnh, hình vẽ học liệu từ Cột 1 (Tổ chức thực hiện) sang Cột 2 (Sản phẩm)
+            const imgRegex = /(?:!\[[^\]]*\]\([^)]+\)|<img[^>]*>|\*{0,2}\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|TRANH_ẢNH|TRANH|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Tranh\s*ảnh|Tranh\s*vẽ|Tranh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]\*{0,2})/gi;
+            const extractedImgsFromCol0: string[] = [];
+            col0Text = col0Text.replace(imgRegex, (m) => {
+                if (/MATH|CÔNG_THỨC|PHÂN_SỐ|\d+\/\d+|\$|\\frac/i.test(m)) return m;
+                extractedImgsFromCol0.push(m.trim());
+                return '';
+            }).replace(/(?:<br\s*\/?>\s*)+/gi, '<br>').replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi, '').trim();
 
-                const cell1 = new TableCell({
-                    children: parseDocxCellContent(col1Text, baseStyles, isHeaderRow) as any,
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: {
-                        top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                        right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    },
-                });
+            if (extractedImgsFromCol0.length > 0) {
+                const imgBlock = extractedImgsFromCol0.join('<br>');
+                col1Text = col1Text ? `${imgBlock}<br>${col1Text}` : imgBlock;
+            }
 
-                return new TableRow({
-                    children: [cell0, cell1]
-                });
+            if (!col1Text) {
+                col1Text = "- Học sinh hoàn thành các nhiệm vụ học tập theo yêu cầu của giáo viên.<br>- Lời giải, kết quả chi tiết các bài tập / hoạt động.";
+            }
+
+            col0Text = col0Text.replace(/^\*\s*/, "").replace(/^\\s+/, "");
+            col1Text = col1Text.replace(/^\*\s*/, "").replace(/^\\s+/, "");
+
+            const contentRow = new TableRow({
+                children: [
+                    new TableCell({
+                        children: parseDocxCellContent(col0Text, {}, false) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                    new TableCell({
+                        children: parseDocxCellContent(col1Text, {}, false) as any,
+                        width: { size: 50, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                            right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                        },
+                    }),
+                ]
             });
 
             return new Table({
-                rows: rows,
+                rows: [headerRow, contentRow],
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 layout: TableLayoutType.AUTOFIT,
             });
@@ -913,12 +854,52 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
       // Pre-process: Clean up stray MathType artifacts, normalize math formula spacing, and collapse multi-line HTML tables
       let preProcessedResult = safeResult
         .replace(/\$?\s*EMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)\s*\$?|\[CÔNG_THỨC_TOÁN:\s*MathType\]/gi, '')
-        .replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$$1$')
+        .replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`)
         .replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`)
         .replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`)
         .replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
 
+      preProcessedResult = repairRacToFrac(preProcessedResult);
       preProcessedResult = preProcessedResult.replace(/<table[\s\S]*?<\/table>/gi, match => match.replace(/\r?\n/g, ' '));
+
+      // Tự động kiểm tra và bảo tồn tất cả hình vẽ gốc từ imageCache vào bảng giáo án nếu chưa được gắn thẻ
+      const cachedKeys = Object.keys(imageCache);
+      const educationalImages: string[] = [];
+      const seenUrls = new Set<string>();
+
+      cachedKeys.forEach(k => {
+        const item = imageCache[k];
+        const isFormula = !item || !item.dataUrl || item.isMathFormula || 
+          (item.originalHeight && item.originalHeight <= 85 && (item.originalWidth || 0) <= 550) ||
+          (item.originalWidth && item.originalHeight && item.originalWidth < 70 && item.originalHeight < 70);
+        if (!isFormula && !seenUrls.has(item.dataUrl)) {
+          seenUrls.add(item.dataUrl);
+          const numMatch = k.match(/\d+/);
+          const tag = numMatch ? `[HINHANHGOC_${numMatch[0]}]` : `[${k}]`;
+          educationalImages.push(tag);
+        }
+      });
+
+      if (educationalImages.length > 0 && !preProcessedResult.includes('[HINHANHGOC_') && !preProcessedResult.includes('[HÌNH_VẼ_GỐC_') && !preProcessedResult.includes('[HÌNH VẼ GỐC')) {
+        console.log("[DOCX Export] Tự động chèn hình vẽ học liệu gốc vào ô Sản phẩm của Bảng 2 cột:", educationalImages);
+        const imgTagsInCell = educationalImages.map(t => `<br>${t}<br>`).join(' ');
+        
+        // 1. Chèn vào Cột 2 (Sản phẩm) của Bảng 2 cột đầu tiên
+        let inserted = false;
+        preProcessedResult = preProcessedResult.replace(/(\|\s*:---+\s*\|\s*:---+\s*\|\s*\r?\n\|[^\n|]+\|)([^|\n]+)(\|)/i, (match, prefix, col2Content, closingPipe) => {
+          inserted = true;
+          return `${prefix} ${imgTagsInCell} ${col2Content}${closingPipe}`;
+        });
+
+        if (!inserted) {
+          preProcessedResult = preProcessedResult.replace(/(\|[ \t]*\*\*Bước\s*1:[^\n|]+\|[ \t]*)([^|\n]+)(\|)/i, (match, prefix, col2Content, closingPipe) => {
+            return `${prefix} ${imgTagsInCell} ${col2Content}${closingPipe}`;
+          });
+        }
+      }
+
+      // Đảm bảo toàn bộ tranh ảnh, hình vẽ trong toàn bộ tài liệu nằm ở Cột 2 (Sản phẩm)
+      preProcessedResult = moveImagesFromToChucToSanPham(preProcessedResult);
       const lines = preProcessedResult.split('\n');
       const children: (Paragraph | Table)[] = [];
       let tableBuffer: string[] = [];
@@ -1042,34 +1023,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
         // Re-trim after cleaning
         trimmed = trimmed.trim();
 
-        // 4. Remove stray "c) Sản phẩm", "d) Tổ chức thực hiện", "c) Tổ chức thực hiện" outside tables when followed by a table
-        if (/^[*_#\s]*[cd]\s*[\)\.:\-]?\s*(?:Tổ\s*chức\s*thực\s*hiện|Sản\s*phẩm|Tiến\s*trình)/i.test(trimmed)) {
-          let nextIsTable = false;
-          for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
-            const nextTrim = lines[j].trim();
-            if (nextTrim.startsWith('|') || nextTrim.startsWith('<table')) {
-              nextIsTable = true;
-              break;
-            }
-          }
-          if (nextIsTable) {
+        // Đối với giáo án 2 cột: Bỏ hoàn toàn 2 mục c) Sản phẩm và d) Tổ chức thực hiện (hoặc c) Tổ chức thực hiện)
+        if (layoutFormat !== 'no_table' && /^(?:\*\*|\*|_)?(?:c|d)\s*[\)\.:\-]\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(trimmed)) {
             continue;
-          }
-        }
-        
-        // Also skip short bullet text under stray c) Sản phẩm when immediately before table
-        if (/^[-*•]\s*(?:Lời\s*giải|Sản\s*phẩm|Kết\s*quả|Báo\s*cáo)/i.test(trimmed)) {
-          let nextIsTable = false;
-          for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-            const nextTrim = lines[j].trim();
-            if (nextTrim.startsWith('|') || nextTrim.startsWith('<table') || /^[*_#\s]*[cd]\s*[\)\.:\-]?/i.test(nextTrim)) {
-              nextIsTable = true;
-              break;
-            }
-          }
-          if (nextIsTable) {
-            continue;
-          }
         }
         
         // 1. Table Handling
@@ -1384,32 +1340,17 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
        const numMatch = cleanMatch.match(/\d+/);
        const num = numMatch ? numMatch[0] : '1';
        
-       const cachedImg = lookupCachedImage(cleanMatch);
+       const cachedImg = lookupCachedImage(cleanMatch) || lookupCachedImage(`HINHANHGOC_${num}`) || lookupCachedImage(num);
+
+       if (cachedImg?.isMathFormula || cachedImg?.latex || (cachedImg?.originalHeight && cachedImg.originalHeight <= 95 && (cachedImg.originalWidth || 0) <= 650) || /CONG_THUC|MATH/i.test(cleanMatch)) {
+           return cachedImg?.latex ? ` ${cachedImg.latex} ` : '';
+       }
 
        if (cachedImg && typeof cachedImg.dataUrl === 'string' && cachedImg.dataUrl.trim() !== '') {
            return `<img src="${cachedImg.dataUrl}" alt="Hình ${num}: Minh họa trực quan" data-img-num="${num}" />`;
        }
 
-       // If not in cache, automatically generate pedagogical SVG diagram from context
-       const offsetNum = typeof offset === 'number' ? offset : 0;
-       const startPos = Math.max(0, offsetNum - 250);
-       const endPos = Math.min(text.length, offsetNum + match.length + 250);
-       const surroundingContext = text.slice(startPos, endPos);
-       const diagramType = detectDiagramType(surroundingContext, cleanMatch);
-       const customCaption = `Hình ${num}: Sơ đồ minh họa trực quan`;
-       const svg = generateEducationalDiagramSvg(diagramType, num, customCaption);
-       const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-
-       // Save to imageCache for both preview & docx export
-       const cacheEntry = { id: `HINHANHGOC_${num}`, dataUrl: svgDataUrl, width: 320, height: 210 };
-       imageCache[`HINHANHGOC_${num}`] = cacheEntry;
-       imageCache[`IMG${num}`] = cacheEntry;
-       imageCache[`HINH_${num}`] = cacheEntry;
-       imageCache[`${num}`] = cacheEntry;
-       imageCache[cleanMatch] = cacheEntry;
-       imageCache[rawId] = cacheEntry;
-
-       return `<img src="${svgDataUrl}" alt="${customCaption}" data-img-num="${num}" />`;
+       return `<div class="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">[Hình vẽ gốc ${num}]</div>`;
     });
 
     // Remove any empty img tags that might cause React warning: <img src="" ...> or <img ... src="" ...>
@@ -1419,10 +1360,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
     html = html.replace(/\$?\s*EMBED\s+Equation(?:\.DSMT4|\.3|\.2|\b[^\s<"]*)\s*\$?|\[CÔNG_THỨC_TOÁN:\s*MathType\]/gi, '');
 
     // Normalize LaTeX math formulas
+    html = repairRacToFrac(html);
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => `$$${content.trim()}$$`);
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, content) => `$${content.trim()}$`);
     html = html.replace(/\[MATH:\s*([\s\S]*?)\]/g, (match, content) => `$${content.trim()}$`);
-    html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, '$$$1$');
+    html = html.replace(/\$\s+([^$\n\r]+?)\s+\$/g, (_m, g) => `$${g}$`);
 
     // Render KaTeX block math $$...$$ directly into HTML for 100% crisp formulas
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, expr) => {
@@ -1571,12 +1513,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, onReset,
                       if (cached?.dataUrl) {
                         realSrc = cached.dataUrl;
                       } else {
-                        const numMatch = (alt || src).match(/\d+/);
-                        const num = numMatch ? numMatch[0] : '1';
-                        const diagramType = detectDiagramType(alt || '', src);
-                        const svg = generateEducationalDiagramSvg(diagramType, num, alt || '');
-                        realSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+                        realSrc = '';
                       }
+                    }
+
+                    if (!realSrc) {
+                      return (
+                        <div className="my-2 p-2 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 italic">
+                          [Hình vẽ gốc / Ảnh minh họa]
+                        </div>
+                      );
                     }
 
                     const numMatch = (alt || src).match(/\d+/);

@@ -2,8 +2,17 @@
  * Utility to ensure all activities in a lesson plan are formatted into 
  * standard 2-column Markdown tables (| Tổ chức thực hiện | Sản phẩm |).
  * Specifically guarantees Hoạt động 3 (Luyện tập) and Hoạt động 4 (Vận dụng) 
- * are never left outside the table.
+ * are formatted cleanly into 2 columns with no c) and d) headings above the table.
  */
+
+// Regex matching image placeholders, drawings, diagrams, and illustrations
+export const IMAGE_TAG_REGEX = /(?:!\[[^\]]*\]\([^)]+\)|<img[^>]*>|\*{0,2}\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|TRANH_ẢNH|TRANH|Hình\s*ảnh\s*gốc|Hình\s*ảnh|Hình\s*vẽ\s*gốc|Hình\s*vẽ|Hình\s*minh\s*họa|Hình|Ảnh\s*gốc|Ảnh\s*minh\s*họa|Ảnh|Tranh\s*ảnh|Tranh\s*vẽ|Tranh|Sơ\s*đồ|Hinh\s*anh|Hinh\s*ve)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\]\*{0,2})/gi;
+
+export const isImageTag = (str: string): boolean => {
+  if (!str) return false;
+  if (/MATH|CÔNG_THỨC|PHÂN_SỐ|\d+\/\d+|\$|\\frac/i.test(str)) return false;
+  return /(?:!\[[^\]]*\]\([^)]+\)|<img[^>]*>|\[\s*(?:HINHANHGOC|HINH_ANH_GOC|HINH_ANH|HINHANH|HÌNH_ẢNH_GỐC|HÌNH_ẢNH|HÌNH_VẼ_GỐC|HÌNH_VẼ|HÌNH_MINH_HỌA|HÌNH|HINH|IMG|IMAGE|ẢNH_GỐC|ẢNH|ANH|SƠ_ĐỒ|SO_DO|TRANH_ẢNH|TRANH|Hình|Ảnh|Tranh|Sơ\s*đồ|Hinh|Anh)[\s_:.\-0-9a-zA-ZÀ-ỹ*]*\])/i.test(str);
+};
 
 // Helper to check if a line is an Activity header
 export const isActivityHeader = (line: string): boolean => {
@@ -31,17 +40,161 @@ export const isSectionEnd = (line: string): boolean => {
   );
 };
 
-// Helper to detect if an activity block already has a 2-column activity table
-export const hasActivityTable = (block: string): boolean => {
-  return /\|[^\n]*(?:tổ\s*chức\s*thực\s*hiện|hoạt\s*động\s*của)[^\n]*\|[^\n]*sản\s*phẩm[^\n]*\|/i.test(block);
+/**
+ * Repairs broken markdown table lines where linebreaks inside cells caused
+ * integration text or steps to fall outside the table or duplicate table headers.
+ */
+export const repairBrokenTableInBlock = (block: string): string => {
+  const lines = block.split('\n');
+  const dIndex = lines.findIndex(l => 
+    /(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(l) ||
+    /^\|\s*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)/i.test(l.trim())
+  );
+  
+  if (dIndex === -1) return block;
+
+  const rawPreLines = lines.slice(0, dIndex);
+  // Bỏ hoàn toàn các dòng c) Sản phẩm hoặc d) Tổ chức thực hiện trước bảng
+  const cleanPreLines = rawPreLines.filter(l => 
+    !/(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(l.trim())
+  );
+
+  const postLines = lines.slice(dIndex);
+
+  // Collect all step / teacher / student actions (Col 1: Tổ chức thực hiện) and solutions / products (Col 2: Sản phẩm)
+  const col1Items: string[] = [];
+  const col2Items: string[] = [];
+
+  // Thu hồi nội dung lời giải/sản phẩm nếu c) Sản phẩm cũ có ghi trực tiếp sau dấu hai chấm
+  rawPreLines.forEach(l => {
+    if (/(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Sản\s*phẩm|Kết\s*quả)/i.test(l)) {
+      const inlineContent = l.replace(/^(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Sản\s*phẩm|Kết\s*quả)[^:]*:?\s*(?:\*\*)?/i, '').trim();
+      if (inlineContent) {
+        col2Items.push(inlineContent);
+      }
+    }
+  });
+
+  let isInsideTable = false;
+
+  for (let i = 0; i < postLines.length; i++) {
+    const raw = postLines[i];
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    // Check if line is a table header or separator line
+    if (/^\|\s*(?:Hoạt\s*động\s*của\s*(?:giáo\s*viên|gv)|Tổ\s*chức\s*thực\s*hiện)[^|]*\|\s*(?:Kết\s*quả|Sản\s*phẩm)[^|]*\|/i.test(trimmed)) {
+      isInsideTable = true;
+      continue;
+    }
+    if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|/.test(trimmed)) {
+      isInsideTable = true;
+      continue;
+    }
+
+    // If it's a table row with 2 columns: | col1 | col2 |
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
+      const parts = trimmed.slice(1, -1).split('|');
+      if (parts.length >= 2) {
+        let c1 = parts[0].trim();
+        let c2 = parts.slice(1).join('|').trim();
+
+        // Trích xuất tranh ảnh, hình vẽ ra khỏi Cột 1 và chuyển sang Cột 2 (Sản phẩm)
+        const extractedImgs: string[] = [];
+        c1 = c1.replace(IMAGE_TAG_REGEX, (m) => {
+          if (isImageTag(m)) {
+            extractedImgs.push(m.trim());
+            return '';
+          }
+          return m;
+        }).replace(/(?:<br\s*\/?>\s*)+/gi, '<br>').replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi, '').trim();
+
+        if (extractedImgs.length > 0) {
+          const imgBlock = extractedImgs.join('<br>');
+          c2 = c2 ? `${imgBlock}<br>${c2}` : imgBlock;
+        }
+
+        if (c1 && !c1.startsWith(':---')) col1Items.push(c1);
+        if (c2 && !c2.startsWith(':---')) col2Items.push(c2);
+        continue;
+      }
+    }
+
+    // Bỏ qua nếu dòng này là c) Sản phẩm hoặc d) Tổ chức thực hiện bị rơi ra
+    if (/^(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(trimmed)) {
+      const inlineContent = trimmed.replace(/^(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Sản\s*phẩm|Tổ\s*chức\s*thực\s*hiện)[^:]*:?\s*(?:\*\*)?/i, '').trim();
+      if (inlineContent) {
+        if (/Sản\s*phẩm/i.test(trimmed)) col2Items.push(inlineContent);
+        else col1Items.push(inlineContent);
+      }
+      continue;
+    }
+
+    // If it's loose text that fell out of table due to real newlines
+    // Các bức tranh, hình vẽ học liệu [HINHANHGOC_...] chuyển sang Cột 2 (Sản phẩm)
+    if (isImageTag(trimmed)) {
+      col2Items.push(trimmed);
+    } else if (/^(?:-\s*)?(?:HS\s*khuyết\s*tật|HSKT|Tích\s*hợp|Bước\s*[1-4]|GV|HS|Giáo\s*viên|Học\s*sinh|Nhiệm\s*vụ|Yêu\s*cầu|Bài\s*tập\s*\d+|Bài\s*\d+|Câu\s*\d+|Ví\s*dụ\s*\d+|Luyện\s*tập\s*\d+|Vận\s*dụng\s*\d+)/i.test(trimmed) || trimmed.startsWith('<span') || trimmed.endsWith('</span>')) {
+      // If it explicitly says Lời giải or Đáp án, put in Col 2
+      if (/^(?:Lời\s*giải|Đáp\s*án|Hướng\s*dẫn\s*giải)\s*:/i.test(trimmed)) {
+        col2Items.push(trimmed);
+      } else {
+        col1Items.push(trimmed);
+      }
+    } else if (/^(?:Lời\s*giải|Đáp\s*án|Hướng\s*dẫn\s*giải|Kết\s*quả\s*bài)/i.test(trimmed)) {
+      col2Items.push(trimmed);
+    } else {
+      col1Items.push(trimmed);
+    }
+  }
+
+  // Chuyển toàn bộ tranh ảnh, hình vẽ còn sót ở Cột 1 sang Cột 2
+  const looseExtractedCol1: string[] = [];
+  const safeCol1Items: string[] = [];
+  col1Items.forEach(item => {
+    const cleaned = item.replace(IMAGE_TAG_REGEX, (m) => {
+      if (isImageTag(m)) {
+        looseExtractedCol1.push(m.trim());
+        return '';
+      }
+      return m;
+    }).replace(/(?:<br\s*\/?>\s*)+/gi, '<br>').trim();
+    if (cleaned) safeCol1Items.push(cleaned);
+  });
+  if (looseExtractedCol1.length > 0) {
+    col2Items.unshift(...looseExtractedCol1);
+  }
+
+  // If nothing collected in table, return original
+  if (safeCol1Items.length === 0 && col2Items.length === 0) {
+    return block;
+  }
+
+  // Format cell 1 and cell 2 cleanly with <br>
+  const formatCell = (arr: string[]): string => {
+    return arr
+      .map(item => item.trim())
+      .filter(Boolean)
+      .join('<br>')
+      .replace(/\r?\n/g, '<br>')
+      .replace(/\|/g, '\\|');
+  };
+
+  const finalCol1 = formatCell(safeCol1Items) || '**Bước 1: Chuyển giao nhiệm vụ:** GV giao nhiệm vụ cho HS.<br>**Bước 2: Thực hiện nhiệm vụ:** HS làm việc cá nhân/nhóm.<br>**Bước 3: Báo cáo, thảo luận:** HS báo cáo kết quả.<br>**Bước 4: Kết luận, nhận định:** GV chuẩn hóa kiến thức.';
+  const finalCol2 = formatCell(col2Items) || 'Học sinh hoàn thành câu trả lời, sản phẩm học tập hoặc bài tập theo yêu cầu của giáo viên.';
+
+  const tableMarkdown = `| Tổ chức thực hiện | Sản phẩm |\n| :--- | :--- |\n| ${finalCol1} | ${finalCol2} |`;
+
+  return `${cleanPreLines.join('\n').trim()}\n\n${tableMarkdown}`;
 };
 
 /**
  * Converts an activity block that is outside the table into a standard 2-column table.
  */
 export const convertActivityBlockToTable = (activityBlock: string): string => {
-  if (hasActivityTable(activityBlock)) {
-    return activityBlock;
+  // If block contains broken table lines or split tables, repair and merge it
+  if (/\|[^\n]*\|/i.test(activityBlock) && (/(?:\*\*|\*|_)?(?:c|d)\)\s*(?:Tổ\s*chức\s*thực\s*hiện|Tiến\s*trình)/i.test(activityBlock) || /\|\s*(?:Hoạt\s*động\s*của|Tổ\s*chức\s*thực\s*hiện)[^|]*\|/i.test(activityBlock))) {
+    return repairBrokenTableInBlock(activityBlock);
   }
 
   const lines = activityBlock.split('\n');
@@ -93,8 +246,14 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
       continue;
     }
 
-    // Explicit exercises / solutions indicators when in tochuc
-    if (currentSection === 'tochuc' && /^(?:\*\*|\*|_)?(?:Lời\s*giải|Đáp\s*án|Bài\s*tập\s*\d+|Bài\s*\d+|Câu\s*\d+)\s*:/i.test(trimmed)) {
+    // Các bức tranh, hình vẽ học liệu chuyển sang mục sản phẩm
+    if (isImageTag(trimmed)) {
+      sanPham.push(trimmed);
+      continue;
+    }
+
+    // Only switch to sanpham if line is explicitly a student solution or answer
+    if (currentSection === 'tochuc' && /^(?:\*\*|\*|_)?(?:Lời\s*giải|Đáp\s*án|Hướng\s*dẫn\s*giải|Kết\s*quả\s*dự\s*kiến)\s*:/i.test(trimmed)) {
       currentSection = 'sanpham';
       sanPham.push(trimmed);
       continue;
@@ -179,27 +338,100 @@ export const convertActivityBlockToTable = (activityBlock: string): string => {
     }
   }
 
+  // Chuyển toàn bộ tranh ảnh, hình vẽ trong toChuc sang sanPham
+  const extractedImgsFromToChuc: string[] = [];
+  toChuc = toChuc.map(line => {
+    return line.replace(IMAGE_TAG_REGEX, (m) => {
+      if (isImageTag(m)) {
+        extractedImgsFromToChuc.push(m.trim());
+        return '';
+      }
+      return m;
+    }).replace(/(?:<br\s*\/?>\s*)+/gi, '<br>').trim();
+  }).filter(Boolean);
+
+  if (extractedImgsFromToChuc.length > 0) {
+    sanPham.unshift(...extractedImgsFromToChuc);
+  }
+
   // Helper to format text lines inside a single table cell (convert line breaks to <br>)
   const formatCellText = (arr: string[]): string => {
     return arr
       .map(line => line.trim())
       .filter(Boolean)
       .join('<br>')
+      .replace(/\r?\n/g, '<br>')
       .replace(/\|/g, '\\|'); // escape pipe inside markdown cells
   };
 
   const toChucCell = formatCellText(toChuc);
   const sanPhamCell = formatCellText(sanPham);
 
-  // Format mục tiêu & nội dung
+  // Format mục tiêu, nội dung, sản phẩm, tổ chức thực hiện
   const mucTieuText = mucTieu.length > 0 
     ? mucTieu.join('\n') 
     : '**a) Mục tiêu:** Đạt được yêu cầu cần đạt của hoạt động.';
   const noiDungText = noiDung.length > 0 
     ? noiDung.join('\n') 
     : '**b) Nội dung:** Học sinh thực hiện các nhiệm vụ theo hướng dẫn của giáo viên.';
-
+  
   return `${headerLine}\n${mucTieuText}\n${noiDungText}\n\n| Tổ chức thực hiện | Sản phẩm |\n| :--- | :--- |\n| ${toChucCell} | ${sanPhamCell} |`;
+};
+
+/**
+ * Quét toàn bộ bảng 2 cột trong văn bản và chuyển tất cả các bức tranh, hình vẽ học liệu
+ * từ Cột 1 (Tổ chức thực hiện / Tổ chức hoạt động) sang Cột 2 (Sản phẩm).
+ */
+export const moveImagesFromToChucToSanPham = (text: string): string => {
+  if (!text) return text;
+
+  const lines = text.split('\n');
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Kiểm tra hàng bảng markdown 2 cột: | col1 | col2 |
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
+      // Bỏ qua dòng phân cách hoặc dòng tiêu đề
+      if (/^\|\s*:?---+\s*\|\s*:?---+\s*\|/.test(trimmed) ||
+          /^\|\s*(?:Hoạt\s*động|Tổ\s*chức)[^|]*\|\s*(?:Kết\s*quả|Sản\s*phẩm)[^|]*\|/i.test(trimmed)) {
+        result.push(line);
+        continue;
+      }
+
+      const parts = trimmed.slice(1, -1).split('|');
+      if (parts.length >= 2) {
+        let c1 = parts[0];
+        let c2 = parts.slice(1).join('|');
+
+        // Tìm tất cả các thẻ tranh ảnh, hình vẽ trong Cột 1 (Tổ chức thực hiện)
+        const extractedImgs: string[] = [];
+        c1 = c1.replace(IMAGE_TAG_REGEX, (m) => {
+          if (isImageTag(m)) {
+            extractedImgs.push(m.trim());
+            return '';
+          }
+          return m;
+        });
+
+        if (extractedImgs.length > 0) {
+          // Làm sạch các thẻ <br> thừa trong Cột 1
+          c1 = c1.replace(/(?:<br\s*\/?>\s*)+/gi, '<br>').replace(/^(?:<br\s*\/?>|\s)+|(?:<br\s*\/?>|\s)+$/gi, '');
+          const imgBlock = extractedImgs.join('<br>');
+          const trimmedC2 = c2.trim();
+          c2 = trimmedC2 ? ` ${imgBlock}<br>${trimmedC2} ` : ` ${imgBlock} `;
+          result.push(`| ${c1.trim()} |${c2}|`);
+          continue;
+        }
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join('\n');
 };
 
 /**
@@ -265,5 +497,5 @@ export const ensureAllActivitiesInTwoColumnTable = (text: string): string => {
   // Flush any trailing activity block
   flushActivity();
 
-  return resultLines.join('\n');
+  return moveImagesFromToChucToSanPham(resultLines.join('\n'));
 };

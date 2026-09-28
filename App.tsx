@@ -515,7 +515,7 @@ const App: React.FC = () => {
                         <li><b>Xây dựng theo bài:</b> Không ghi ngày soạn, ngày giảng; Thứ tự tiết ghi theo Phụ lục 3 sau hoạt động đầu tiên.</li>
                         <li><b>Mục tiêu:</b> 1. Kiến thức, 2. Năng lực (Không ghi NL chung; Chỉ có NL đặc thù & NLS kèm chỉ báo), 3. Phẩm chất.</li>
                         <li><b>Thiết bị & Học liệu:</b> Chuẩn Thông tư 38/BGDĐT, chỉ thêm Ti vi vào Phụ lục 4.</li>
-                        <li><b>Tiến trình:</b> Không kẻ bảng đủ 4 phần (a, b, c, d); Kẻ bảng gồm mục a, b và bảng 2 cột (Tổ chức thực hiện | Sản phẩm).</li>
+                        <li><b>Tiến trình:</b> Bảng 2 cột (Tổ chức thực hiện | Sản phẩm) ngay sau mục b) Nội dung; Bỏ 2 mục c, d phía trên bảng; Tranh ảnh, hình vẽ học liệu đặt tại cột Sản phẩm.</li>
                         <li><b>Bảo toàn hình vẽ & công thức toán:</b> Nhận diện 100% hình vẽ và công thức toán học giống SGK.</li>
                       </ul>
                     </div>
